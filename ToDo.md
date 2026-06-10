@@ -18,7 +18,8 @@ Stand: Juni 2026 · App: Flutter (Android, später Web)
 - [x] Theme (Material 3) + Familienfarben-Palette
 - [x] `flutter analyze` sauber, Smoke-Test grün
 - [x] GitHub Actions: Release-APK-Build + Signierung (wie Tagebuch-App)
-- [ ] Erster grüner CI-Lauf, APK aus Artifacts geladen & installiert
+- [x] Erster grüner CI-Lauf — APK gebaut & als Artifact hochgeladen (~21 MB)
+- [ ] APK aufs Handy laden & installieren (Actions → Artifact `FamilyPlanner-release`)
 
 ## ⚠️ Phase 2 — CalDAV Core (KRITISCHER PFAD)
 > Alles hängt davon ab. Erst danach starten die UI-Phasen.
