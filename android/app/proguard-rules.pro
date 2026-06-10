@@ -1,0 +1,17 @@
+# Flutter wrapper
+-keep class io.flutter.app.** { *; }
+-keep class io.flutter.plugin.**  { *; }
+-keep class io.flutter.util.**  { *; }
+-keep class io.flutter.view.**  { *; }
+-keep class io.flutter.**  { *; }
+-keep class io.flutter.plugins.**  { *; }
+-dontwarn io.flutter.embedding.**
+
+# flutter_local_notifications
+-keep class com.dexterous.** { *; }
+
+# workmanager / WorkManager
+-keep class androidx.work.** { *; }
+
+# Allgemein: keine Warnungen zu fehlenden optionalen Klassen abbrechen
+-ignorewarnings

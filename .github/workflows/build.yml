@@ -1,0 +1,73 @@
+name: Build APK
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: 'stable'
+          cache: true
+
+      - name: Restore signing keystore from cache
+        id: keystore-cache
+        uses: actions/cache@v4
+        with:
+          path: android/app/familyplanner.keystore
+          key: signing-keystore-v1
+
+      - name: Generate keystore if not cached
+        if: steps.keystore-cache.outputs.cache-hit != 'true'
+        run: |
+          keytool -genkeypair -v \
+            -keystore android/app/familyplanner.keystore \
+            -alias familyplannerkey \
+            -keyalg RSA -keysize 2048 -validity 36500 \
+            -storepass familyplanner2026 -keypass familyplanner2026 \
+            -dname "CN=FamilyPlanner,O=PBrockt,C=DE" -noprompt
+
+      - name: Create key.properties
+        run: |
+          cat > android/key.properties <<EOF
+          storePassword=familyplanner2026
+          keyPassword=familyplanner2026
+          keyAlias=familyplannerkey
+          storeFile=familyplanner.keystore
+          EOF
+
+      - name: Flutter pub get
+        run: flutter pub get
+
+      - name: Analyze
+        run: flutter analyze
+
+      - name: Run tests
+        run: flutter test
+
+      - name: Build Release APK
+        run: flutter build apk --release
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: FamilyPlanner-release
+          path: build/app/outputs/flutter-apk/app-release.apk
+          retention-days: 90
