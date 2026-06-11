@@ -7,6 +7,25 @@ Stand: Juni 2026 · App: Flutter (Android, später Web)
 
 ---
 
+## 🐞 Bugs
+- [x] Schutz: Löschen eines Termins muss bestätigt werden, Bestätigen-Button
+      erst nach 5 Sekunden klickbar (gegen versehentliches Serien-Löschen)
+- [ ] **Serientermin doppelt nach Bearbeitung**: Ein bearbeiteter Serientermin
+      erscheint doppelt – einmal als Serie, einmal als „normaler" Termin.
+      *Ursache:* Nextcloud legt für die geänderte Instanz eine Ausnahme
+      (zweites VEVENT mit `RECURRENCE-ID`) im selben .ics an. Wir expandieren
+      die Serie über diesen Tag UND zeigen die Ausnahme zusätzlich an.
+      *Fix:* Beim Expandieren Instanzen mit vorhandener `RECURRENCE-ID`
+      (Override) bevorzugen und die Serien-Instanz an dem Tag auslassen;
+      `EXDATE` berücksichtigen.
+- [ ] **Löschen einer Instanz löscht ganze Serie**: „normaler" (Override-)
+      Termin und Serie teilen dasselbe .ics → DELETE entfernt alles.
+      *Fix:* Bei Serien einzelne Instanz löschen = `EXDATE` hinzufügen statt
+      das ganze Objekt zu löschen; nur „ganze Serie löschen" entfernt das .ics.
+      (Editor sollte fragen: „Diesen Termin" / „Ganze Serie".)
+
+---
+
 ## ✅ Phase 1 — Projektsetup & Gerüst
 - [x] Flutter-Toolchain (SDK 3.44, Dart 3.12, Android SDK 36) eingerichtet
 - [x] Projekt `flutter create` (org `com.pbrockt`, Plattformen android+web)

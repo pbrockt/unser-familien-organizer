@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 
 import '../../core/auth/account_providers.dart';
 import '../../shared/utils/hex_color.dart';
+import '../../shared/widgets/countdown_confirm_dialog.dart';
 import 'calendar_event.dart';
 import 'event_providers.dart';
 
@@ -192,25 +193,17 @@ class _EventEditorSheetState extends ConsumerState<_EventEditorSheet> {
   }
 
   Future<void> _delete() async {
-    final ok = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Termin löschen?'),
-        content: Text('„${widget.existing!.summary}" wird in der Nextcloud '
-            'gelöscht.'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('Abbrechen'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('Löschen'),
-          ),
-        ],
-      ),
+    final ev = widget.existing!;
+    final ok = await showCountdownDeleteDialog(
+      context,
+      title: 'Termin löschen?',
+      message: ev.isRecurring
+          ? '„${ev.summary}" ist ein Serientermin – beim Löschen wird die '
+              'gesamte Serie entfernt. Diese Aktion kann nicht rückgängig '
+              'gemacht werden.'
+          : '„${ev.summary}" wird endgültig aus der Nextcloud gelöscht.',
     );
-    if (ok != true) return;
+    if (!ok) return;
     setState(() => _busy = true);
     try {
       await ref.read(eventsControllerProvider.notifier)
