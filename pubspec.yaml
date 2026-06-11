@@ -50,6 +50,8 @@ dependencies:
   xml: ^7.0.1
   url_launcher: ^6.3.2
   package_info_plus: ^10.1.0
+  timezone: ^0.11.0
+  flutter_timezone: ^5.1.0
 
 dev_dependencies:
   flutter_test:

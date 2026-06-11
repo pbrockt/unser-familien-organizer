@@ -1,6 +1,8 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
     <!-- Für CalDAV-Sync mit Nextcloud (auch im Release-Build nötig!). -->
     <uses-permission android:name="android.permission.INTERNET"/>
+    <!-- Für lokale Erinnerungen (Android 13+). -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
     <application
         android:label="family_planner"
         android:name="${applicationName}"
