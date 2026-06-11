@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/auth/account_providers.dart';
 import '../../core/auth/nextcloud_account.dart';
 import '../../core/caldav/caldav_client.dart';
+import '../../shared/utils/hex_color.dart';
 import 'connection_screen.dart';
 
 /// Familien-Bereich: Nextcloud-Verbindung verwalten und die entdeckten
@@ -172,22 +173,13 @@ class _CollectionTile extends StatelessWidget {
   const _CollectionTile({required this.collection});
   final CalDavCollection collection;
 
-  Color? _parseColor(String? hex) {
-    if (hex == null) return null;
-    var h = hex.replaceAll('#', '');
-    if (h.length == 8) h = h.substring(0, 6); // #RRGGBBAA → RRGGBB
-    if (h.length != 6) return null;
-    final value = int.tryParse(h, radix: 16);
-    return value == null ? null : Color(0xFF000000 | value);
-  }
-
   @override
   Widget build(BuildContext context) {
     final types = <String>[
       if (collection.supportsEvents) 'Termine',
       if (collection.supportsTodos) 'Aufgaben',
     ];
-    final color = _parseColor(collection.color);
+    final color = parseHexColor(collection.color);
     return Card(
       child: ListTile(
         leading: CircleAvatar(

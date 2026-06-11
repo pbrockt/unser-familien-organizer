@@ -23,14 +23,15 @@ Stand: Juni 2026 · App: Flutter (Android, später Web)
 
 ## ⚠️ Phase 2 — CalDAV Core (KRITISCHER PFAD)
 > Alles hängt davon ab. Erst danach starten die UI-Phasen.
-- [ ] `CalDavClient`: PROPFIND (Collections entdecken)
-- [ ] `CalDavClient`: REPORT (Objekte je Collection / Zeitraum)
-- [ ] `CalDavClient`: GET / PUT (mit If-Match ETag) / DELETE
-- [ ] CTag-Check (billige Änderungserkennung pro Collection)
-- [ ] `IcalParser`: VEVENT + VTODO ↔ App-Modelle (enough_icalendar)
+- [x] `CalDavClient`: PROPFIND (Collections entdecken)
+- [x] `CalDavClient`: REPORT (Objekte je Collection)
+- [x] `CalDavClient`: PUT (mit If-Match ETag) / DELETE
+- [x] CTag-Check (billige Änderungserkennung pro Collection)
+- [x] `IcalParser`: VEVENT + VTODO → App-Modelle (enough_icalendar)
+- [x] Self-Signed-Zertifikat-Support (Heimserver/Unraid)
+- [ ] Serientermine (RRULE) voll expandieren (aktuell nur Basis-Instanz)
 - [ ] SQLite-Cache (sqflite) für Offline-Lesen
 - [ ] `SyncEngine`: Delta-Sync (CTag/ETag) + Offline-Queue + Konfliktlösung
-- [ ] Self-Signed-Zertifikat-Support (Heimserver/Unraid)
 
 ## 🔐 Phase 3 — Nextcloud-Verbindung & Onboarding
 - [ ] Nextcloud Login Flow v2 (App-Passwort, nie Hauptpasswort)
@@ -39,10 +40,11 @@ Stand: Juni 2026 · App: Flutter (Android, später Web)
 - [ ] Navigation/Design-Feinschliff
 
 ## 📅 Phase 4 — Kalender-UI
-- [ ] `table_calendar`: Monat / Woche / Agenda
-- [ ] Termine farbcodiert pro Person
+- [x] `table_calendar`: Monat / 2 Wochen / Woche mit Event-Markern
+- [x] Termine farbcodiert (Kalenderfarbe) + Tagesliste
+- [x] Ganztags-Events erkannt
 - [ ] Termin anlegen/bearbeiten/löschen (VEVENT)
-- [ ] Serientermine (RRULE), Ganztags-Events
+- [ ] Serientermine (RRULE) korrekt über Tage anzeigen
 
 ## ✔️ Phase 5 — Aufgaben-UI
 - [ ] Aufgabenlisten anzeigen
