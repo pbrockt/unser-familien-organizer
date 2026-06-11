@@ -21,6 +21,7 @@ class CalendarEvent {
     this.objectHref = '',
     this.etag = '',
     this.rawIcal = '',
+    this.recurrenceDate,
   });
 
   final String uid;
@@ -46,6 +47,10 @@ class CalendarEvent {
   /// Vollständiger iCal-Body (wird beim Bearbeiten zugrunde gelegt).
   final String rawIcal;
 
+  /// Ursprüngliches Startdatum dieser Serien-Instanz (für „nur diesen Termin
+  /// löschen" via EXDATE). Bei Einzelterminen `null`.
+  final DateTime? recurrenceDate;
+
   factory CalendarEvent.fromParsed(
     ParsedEvent e, {
     Color? color,
@@ -54,6 +59,8 @@ class CalendarEvent {
     String objectHref = '',
     String etag = '',
     String rawIcal = '',
+    bool? isRecurring,
+    DateTime? recurrenceDate,
   }) {
     return CalendarEvent(
       uid: e.uid,
@@ -63,13 +70,34 @@ class CalendarEvent {
       description: e.description,
       location: e.location,
       allDay: e.allDay,
-      isRecurring: e.isRecurring,
+      isRecurring: isRecurring ?? e.isRecurring,
       color: color,
       calendarName: calendarName,
       calendarHref: calendarHref,
       objectHref: objectHref,
       etag: etag,
       rawIcal: rawIcal,
+      recurrenceDate: recurrenceDate,
+    );
+  }
+
+  CalendarEvent copyWith({DateTime? start, DateTime? end, DateTime? recurrenceDate, bool? isRecurring}) {
+    return CalendarEvent(
+      uid: uid,
+      summary: summary,
+      start: start ?? this.start,
+      end: end ?? this.end,
+      description: description,
+      location: location,
+      allDay: allDay,
+      isRecurring: isRecurring ?? this.isRecurring,
+      color: color,
+      calendarName: calendarName,
+      calendarHref: calendarHref,
+      objectHref: objectHref,
+      etag: etag,
+      rawIcal: rawIcal,
+      recurrenceDate: recurrenceDate ?? this.recurrenceDate,
     );
   }
 

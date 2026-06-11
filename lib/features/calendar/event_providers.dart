@@ -44,7 +44,14 @@ class EventsController extends AsyncNotifier<List<CalendarEvent>> {
       final color = parseHexColor(col.color);
       final objects = snapshot.objectsOf(col.href);
       for (final obj in objects) {
-        for (final parsed in _parser.parseEvents(obj.icalData)) {
+        final parsedList = _parser.parseEvents(obj.icalData);
+        // Tage, die durch geänderte Einzel-Instanzen (Override) ersetzt sind.
+        final overriddenDays = parsedList
+            .where((e) => e.isOverride)
+            .map((e) => _dayKey(e.recurrenceId!))
+            .toSet();
+
+        for (final parsed in parsedList) {
           final base = CalendarEvent.fromParsed(
             parsed,
             color: color,
@@ -54,12 +61,25 @@ class EventsController extends AsyncNotifier<List<CalendarEvent>> {
             etag: obj.etag,
             rawIcal: obj.icalData,
           );
-          final rule = parsed.recurrence;
-          if (rule == null) {
-            events.add(base);
+
+          // Geänderte Einzel-Instanz: als eigener Termin (mit Originaldatum).
+          if (parsed.isOverride) {
+            events.add(base.copyWith(
+              isRecurring: true,
+              recurrenceDate: parsed.recurrenceId,
+            ));
             continue;
           }
-          // Serientermin: in einzelne Instanzen im Fenster expandieren.
+
+          final rule = parsed.recurrence;
+          if (rule == null) {
+            events.add(base); // normaler Einzeltermin
+            continue;
+          }
+
+          // Serientermin expandieren; EXDATE + überschriebene Tage auslassen.
+          final excludedDays = parsed.exDates.map(_dayKey).toSet()
+            ..addAll(overriddenDays);
           final duration = parsed.end?.difference(parsed.start);
           final occurrences = _expander.expand(
             parsed.start,
@@ -72,6 +92,7 @@ class EventsController extends AsyncNotifier<List<CalendarEvent>> {
             continue;
           }
           for (final occ in occurrences) {
+            if (excludedDays.contains(_dayKey(occ))) continue;
             events.add(_occurrence(base, occ, duration));
           }
         }
@@ -84,22 +105,39 @@ class EventsController extends AsyncNotifier<List<CalendarEvent>> {
   /// Erzeugt eine Serien-Instanz aus dem Basistermin mit verschobenem Start.
   CalendarEvent _occurrence(
       CalendarEvent base, DateTime start, Duration? duration) {
-    return CalendarEvent(
-      uid: base.uid,
-      summary: base.summary,
+    return base.copyWith(
       start: start,
       end: duration == null ? null : start.add(duration),
-      description: base.description,
-      location: base.location,
-      allDay: base.allDay,
       isRecurring: true,
-      color: base.color,
-      calendarName: base.calendarName,
-      calendarHref: base.calendarHref,
-      objectHref: base.objectHref,
-      etag: base.etag,
-      rawIcal: base.rawIcal,
+      recurrenceDate: start, // Originaldatum dieser Instanz (für EXDATE)
     );
+  }
+
+  DateTime _dayKey(DateTime d) => DateTime(d.year, d.month, d.day);
+
+  /// Löscht nur eine einzelne Serien-Instanz: setzt ein EXDATE und schreibt
+  /// das Objekt zurück (statt die ganze Serie zu löschen).
+  Future<void> deleteOccurrence(CalendarEvent event) async {
+    final date = event.recurrenceDate;
+    if (date == null) return deleteEvent(event); // kein Serien-Kontext
+
+    final account = await ref.read(accountProvider.future);
+    if (account == null) return;
+    final client = ref.read(caldavClientProvider);
+
+    final ical = _builder.excludeOccurrence(
+      event.rawIcal,
+      date,
+      allDay: event.allDay,
+    );
+    await client.putObject(
+      account,
+      event.objectHref,
+      ical,
+      ifMatchEtag: event.etag.isEmpty ? null : event.etag,
+    );
+    ref.invalidateSelf();
+    await future;
   }
 
   Future<void> createEvent({

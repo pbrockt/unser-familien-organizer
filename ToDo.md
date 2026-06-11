@@ -10,19 +10,16 @@ Stand: Juni 2026 · App: Flutter (Android, später Web)
 ## 🐞 Bugs
 - [x] Schutz: Löschen eines Termins muss bestätigt werden, Bestätigen-Button
       erst nach 5 Sekunden klickbar (gegen versehentliches Serien-Löschen)
-- [ ] **Serientermin doppelt nach Bearbeitung**: Ein bearbeiteter Serientermin
-      erscheint doppelt – einmal als Serie, einmal als „normaler" Termin.
-      *Ursache:* Nextcloud legt für die geänderte Instanz eine Ausnahme
-      (zweites VEVENT mit `RECURRENCE-ID`) im selben .ics an. Wir expandieren
-      die Serie über diesen Tag UND zeigen die Ausnahme zusätzlich an.
-      *Fix:* Beim Expandieren Instanzen mit vorhandener `RECURRENCE-ID`
-      (Override) bevorzugen und die Serien-Instanz an dem Tag auslassen;
-      `EXDATE` berücksichtigen.
-- [ ] **Löschen einer Instanz löscht ganze Serie**: „normaler" (Override-)
-      Termin und Serie teilen dasselbe .ics → DELETE entfernt alles.
-      *Fix:* Bei Serien einzelne Instanz löschen = `EXDATE` hinzufügen statt
-      das ganze Objekt zu löschen; nur „ganze Serie löschen" entfernt das .ics.
-      (Editor sollte fragen: „Diesen Termin" / „Ganze Serie".)
+- [x] **Serientermin doppelt nach Bearbeitung** (FIX in test014): Override-
+      Instanzen (`RECURRENCE-ID`) werden jetzt bevorzugt, die Serien-Instanz
+      an dem Tag ausgelassen; `EXDATE` (ausgenommene Tage) wird beachtet.
+- [x] **Löschen einer Instanz löscht ganze Serie** (FIX in test014): Beim
+      Löschen eines Serientermins fragt der Editor jetzt „Nur diesen" vs
+      „Ganze Serie". „Nur diesen" setzt ein `EXDATE` (und entfernt eine evtl.
+      Override-Instanz) statt das ganze .ics zu löschen.
+- [ ] Einzelne Serien-Instanz **bearbeiten** (verschieben) erzeugt aktuell
+      noch eine Master-Änderung statt eines Overrides – Folgeschritt.
+- [ ] Ganztags-Serien: EXDATE als VALUE=DATE (umgesetzt, in der Praxis prüfen)
 
 ---
 

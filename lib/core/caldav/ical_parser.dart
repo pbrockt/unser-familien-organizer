@@ -12,6 +12,8 @@ class ParsedEvent {
     this.allDay = false,
     this.isRecurring = false,
     this.recurrence,
+    this.recurrenceId,
+    this.exDates = const [],
   });
 
   final String uid;
@@ -25,6 +27,16 @@ class ParsedEvent {
 
   /// Wiederholungsregel (RRULE), falls vorhanden – für die Expansion.
   final Recurrence? recurrence;
+
+  /// RECURRENCE-ID: ist dieses VEVENT eine geänderte Einzel-Instanz einer
+  /// Serie (Override), steht hier das ursprüngliche Startdatum der Instanz.
+  final DateTime? recurrenceId;
+
+  /// EXDATE: ausgenommene Termine der Serie (gelöschte Einzel-Instanzen).
+  final List<DateTime> exDates;
+
+  /// Ist dieses VEVENT ein Override (geänderte Einzel-Instanz)?
+  bool get isOverride => recurrenceId != null;
 }
 
 /// Eine geparste Aufgabe / ein Einkaufsartikel (VTODO).
@@ -83,6 +95,12 @@ class IcalParser {
           allDay: _looksAllDay(start, end),
           isRecurring: c.recurrenceRule != null,
           recurrence: c.recurrenceRule,
+          recurrenceId: c.recurrenceId,
+          exDates: c.excludingRecurrenceDates
+                  ?.map((d) => d.dateTime)
+                  .whereType<DateTime>()
+                  .toList() ??
+              const [],
         ));
       }
     } catch (_) {

@@ -107,6 +107,62 @@ class IcalBuilder {
     return allDay ? _applyAllDay(text, start, effectiveEnd) : text;
   }
 
+  /// Schließt eine einzelne Serien-Instanz aus: fügt der Serie ein EXDATE für
+  /// [occurrenceDate] hinzu und entfernt eine evtl. vorhandene Override-Instanz
+  /// (VEVENT mit passender RECURRENCE-ID). Ergebnis ist der neue iCal-Body.
+  String excludeOccurrence(
+    String rawIcal,
+    DateTime occurrenceDate, {
+    required bool allDay,
+  }) {
+    final root = VComponent.parse(rawIcal);
+
+    // Override-Instanz mit passender RECURRENCE-ID entfernen.
+    if (root is VCalendar) {
+      root.children.removeWhere((c) =>
+          c is VEvent &&
+          c.recurrenceId != null &&
+          _sameDay(c.recurrenceId!, occurrenceDate));
+    }
+
+    final components = root is VCalendar ? root.children : [root];
+    for (final c in components) {
+      if (c is VEvent && c.recurrenceRule != null) {
+        final existing =
+            c.excludingRecurrenceDates ?? const <DateTimeOrDuration>[];
+        final already = existing.any((d) =>
+            d.dateTime != null && _sameDay(d.dateTime!, occurrenceDate));
+        if (!already) {
+          c.excludingRecurrenceDates = [
+            ...existing,
+            DateTimeOrDuration(occurrenceDate, null),
+          ];
+        }
+        c.timeStamp = DateTime.now();
+      }
+    }
+
+    var text = root.toString();
+    if (allDay) {
+      // Ganztags-Serien: EXDATE als reines Datum (VALUE=DATE) schreiben.
+      text = text.replaceAllMapped(
+        RegExp(r'EXDATE[^:\r\n]*:([^\r\n]+)'),
+        (m) {
+          final values = m
+              .group(1)!
+              .split(',')
+              .map((v) => v.length >= 8 ? v.substring(0, 8) : v)
+              .join(',');
+          return 'EXDATE;VALUE=DATE:$values';
+        },
+      );
+    }
+    return text;
+  }
+
+  bool _sameDay(DateTime a, DateTime b) =>
+      a.year == b.year && a.month == b.month && a.day == b.day;
+
   /// Schreibt DTSTART/DTEND als reine Datumswerte (VALUE=DATE) um – so erkennt
   /// Nextcloud einen echten Ganztags-Termin.
   String _applyAllDay(String text, DateTime start, DateTime end) {

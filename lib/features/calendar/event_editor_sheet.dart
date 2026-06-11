@@ -194,20 +194,61 @@ class _EventEditorSheetState extends ConsumerState<_EventEditorSheet> {
 
   Future<void> _delete() async {
     final ev = widget.existing!;
+    final isSeriesInstance = ev.isRecurring && ev.recurrenceDate != null;
+
+    // Bei Serienterminen zuerst fragen: nur diese Instanz oder ganze Serie?
+    var deleteOnlyThis = false;
+    if (isSeriesInstance) {
+      final scope = await showDialog<String>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: const Text('Serientermin löschen'),
+          content: const Text(
+              'Möchtest du nur diesen einen Termin oder die ganze Serie '
+              'löschen?'),
+          actions: [
+            TextButton(
+                onPressed: () => Navigator.pop(ctx, 'cancel'),
+                child: const Text('Abbrechen')),
+            TextButton(
+                onPressed: () => Navigator.pop(ctx, 'series'),
+                child: const Text('Ganze Serie')),
+            FilledButton(
+                onPressed: () => Navigator.pop(ctx, 'this'),
+                child: const Text('Nur diesen')),
+          ],
+        ),
+      );
+      if (scope == null || scope == 'cancel') return;
+      deleteOnlyThis = scope == 'this';
+    }
+    if (!mounted) return;
+
+    final dateLabel = DateFormat('d. MMM y', 'de_DE').format(ev.start);
     final ok = await showCountdownDeleteDialog(
       context,
-      title: 'Termin löschen?',
-      message: ev.isRecurring
-          ? '„${ev.summary}" ist ein Serientermin – beim Löschen wird die '
-              'gesamte Serie entfernt. Diese Aktion kann nicht rückgängig '
-              'gemacht werden.'
-          : '„${ev.summary}" wird endgültig aus der Nextcloud gelöscht.',
+      title: deleteOnlyThis
+          ? 'Diesen Termin löschen?'
+          : isSeriesInstance
+              ? 'Ganze Serie löschen?'
+              : 'Termin löschen?',
+      message: deleteOnlyThis
+          ? '„${ev.summary}" am $dateLabel wird aus der Serie entfernt.'
+          : isSeriesInstance
+              ? '„${ev.summary}" – die gesamte Serie wird gelöscht. Diese '
+                  'Aktion kann nicht rückgängig gemacht werden.'
+              : '„${ev.summary}" wird endgültig aus der Nextcloud gelöscht.',
     );
     if (!ok) return;
+
     setState(() => _busy = true);
     try {
-      await ref.read(eventsControllerProvider.notifier)
-          .deleteEvent(widget.existing!);
+      final notifier = ref.read(eventsControllerProvider.notifier);
+      if (deleteOnlyThis) {
+        await notifier.deleteOccurrence(ev);
+      } else {
+        await notifier.deleteEvent(ev);
+      }
       if (mounted) Navigator.of(context).pop();
     } catch (e) {
       if (mounted) {
