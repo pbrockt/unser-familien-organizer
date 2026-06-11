@@ -29,8 +29,9 @@ Stand: Juni 2026 · App: Flutter (Android, später Web)
 - [x] CTag-Check (billige Änderungserkennung pro Collection)
 - [x] `IcalParser`: VEVENT + VTODO → App-Modelle (enough_icalendar)
 - [x] Self-Signed-Zertifikat-Support (Heimserver/Unraid)
-- [ ] Serientermine (RRULE) voll expandieren (aktuell nur Basis-Instanz)
-- [ ] SQLite-Cache (sqflite) für Offline-Lesen
+- [x] Serientermine (RRULE) expandieren (tägl./wöch./monatl./jährl.,
+      INTERVAL/COUNT/UNTIL/BYDAY)
+- [ ] SQLite-Cache (sqflite) für Offline-Lesen  ← test009
 - [ ] `SyncEngine`: Delta-Sync (CTag/ETag) + Offline-Queue + Konfliktlösung
 
 ## 🔐 Phase 3 — Nextcloud-Verbindung & Onboarding
@@ -45,7 +46,7 @@ Stand: Juni 2026 · App: Flutter (Android, später Web)
 - [x] Ganztags-Events erkannt
 - [x] Termin anlegen/bearbeiten/löschen (VEVENT, Editor mit Datum/Uhrzeit,
       ganztägig, Ort, Notiz, Kalenderauswahl)
-- [ ] Serientermine (RRULE) korrekt über Tage anzeigen
+- [x] Serientermine (RRULE) korrekt über Tage anzeigen
 
 ## ✔️ Phase 5 — Aufgaben-UI
 - [x] Aufgabenlisten anzeigen (farbcodiert, offen-Zähler)
@@ -68,8 +69,22 @@ Stand: Juni 2026 · App: Flutter (Android, später Web)
 - [ ] Geteilte Kalender/Listen auswählen
 - [ ] (Optional) Einladungs-/Verknüpfungslogik
 
-## 🔔 Phase 8 — Benachrichtigungen
+## 🏠 Startseite / Dashboard
+- [x] Start-Tab als erster Tab (Platzhalter)
+- [ ] Übersicht: heutige Termine, fällige Aufgaben, Einkauf auf einen Blick
+
+## ⚙️ Einstellungen
+- [x] Update-Funktion (Releases öffnen) im Familie-Tab
+- [ ] Eigener Einstellungs-Screen
+- [ ] **Berechtigungen in den Einstellungen verwalten** (Benachrichtigungen,
+      exakte Alarme, Akku-Optimierung, Self-Signed-Cert) – Status anzeigen
+      und anfordern können
+- [ ] Theme (hell/dunkel/system) wählbar
+
+## 🔔 Phase 8 — Benachrichtigungen  ← test010
 - [ ] VALARM → lokale Notifications (flutter_local_notifications)
+- [ ] Erinnerung an fällige Aufgaben / anstehende Termine
+- [ ] Benachrichtigungs-Berechtigung anfragen (Android 13+)
 - [ ] Hintergrund-Sync (workmanager)
 
 ## 🔒 Phase 9 — Sicherheit

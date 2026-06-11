@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/auth/account_providers.dart';
 import '../../core/caldav/ical_builder.dart';
 import '../../core/caldav/ical_parser.dart';
+import '../../core/caldav/recurrence_expander.dart';
 import '../../shared/utils/hex_color.dart';
 import 'calendar_event.dart';
 
@@ -19,6 +20,7 @@ final eventsControllerProvider =
 class EventsController extends AsyncNotifier<List<CalendarEvent>> {
   static const _parser = IcalParser();
   static const _builder = IcalBuilder();
+  static const _expander = RecurrenceExpander();
 
   @override
   Future<List<CalendarEvent>> build() async {
@@ -29,13 +31,21 @@ class EventsController extends AsyncNotifier<List<CalendarEvent>> {
     final collections = await client.listCollections(account);
     final eventCollections = collections.where((c) => c.supportsEvents);
 
+    // Expansions-Fenster für Serientermine: ~2 Monate zurück bis ~14 voraus.
+    final today = DateTime.now();
+    final windowStart =
+        DateTime(today.year, today.month, today.day).subtract(
+      const Duration(days: 60),
+    );
+    final windowEnd = windowStart.add(const Duration(days: 485));
+
     final events = <CalendarEvent>[];
     for (final col in eventCollections) {
       final color = parseHexColor(col.color);
       final objects = await client.listObjects(account, col.href);
       for (final obj in objects) {
         for (final parsed in _parser.parseEvents(obj.icalData)) {
-          events.add(CalendarEvent.fromParsed(
+          final base = CalendarEvent.fromParsed(
             parsed,
             color: color,
             calendarName: col.displayName,
@@ -43,12 +53,53 @@ class EventsController extends AsyncNotifier<List<CalendarEvent>> {
             objectHref: obj.href,
             etag: obj.etag,
             rawIcal: obj.icalData,
-          ));
+          );
+          final rule = parsed.recurrence;
+          if (rule == null) {
+            events.add(base);
+            continue;
+          }
+          // Serientermin: in einzelne Instanzen im Fenster expandieren.
+          final duration = parsed.end?.difference(parsed.start);
+          final occurrences = _expander.expand(
+            parsed.start,
+            rule,
+            windowStart: windowStart,
+            windowEnd: windowEnd,
+          );
+          if (occurrences.isEmpty) {
+            events.add(base); // Fallback: wenigstens die Basis zeigen.
+            continue;
+          }
+          for (final occ in occurrences) {
+            events.add(_occurrence(base, occ, duration));
+          }
         }
       }
     }
     events.sort((a, b) => a.start.compareTo(b.start));
     return events;
+  }
+
+  /// Erzeugt eine Serien-Instanz aus dem Basistermin mit verschobenem Start.
+  CalendarEvent _occurrence(
+      CalendarEvent base, DateTime start, Duration? duration) {
+    return CalendarEvent(
+      uid: base.uid,
+      summary: base.summary,
+      start: start,
+      end: duration == null ? null : start.add(duration),
+      description: base.description,
+      location: base.location,
+      allDay: base.allDay,
+      isRecurring: true,
+      color: base.color,
+      calendarName: base.calendarName,
+      calendarHref: base.calendarHref,
+      objectHref: base.objectHref,
+      etag: base.etag,
+      rawIcal: base.rawIcal,
+    );
   }
 
   Future<void> createEvent({

@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../features/calendar/calendar_screen.dart';
 import '../../features/family/family_screen.dart';
+import '../../features/home/home_screen.dart';
 import '../../features/shopping/shopping_screen.dart';
 import '../../features/tasks/tasks_screen.dart';
 import '../../shared/widgets/app_shell.dart';
@@ -12,12 +13,20 @@ import '../../shared/widgets/app_shell.dart';
 /// persistente Bottom-Navigation zwischen den vier Hauptbereichen.
 final routerProvider = Provider<GoRouter>((ref) {
   return GoRouter(
-    initialLocation: '/calendar',
+    initialLocation: '/home',
     routes: [
       StatefulShellRoute.indexedStack(
         builder: (context, state, navigationShell) =>
             AppShell(navigationShell: navigationShell),
         branches: [
+          StatefulShellBranch(
+            routes: [
+              GoRoute(
+                path: '/home',
+                builder: (context, state) => const HomeScreen(),
+              ),
+            ],
+          ),
           StatefulShellBranch(
             routes: [
               GoRoute(

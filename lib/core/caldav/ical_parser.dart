@@ -11,6 +11,7 @@ class ParsedEvent {
     this.location,
     this.allDay = false,
     this.isRecurring = false,
+    this.recurrence,
   });
 
   final String uid;
@@ -21,6 +22,9 @@ class ParsedEvent {
   final String? location;
   final bool allDay;
   final bool isRecurring;
+
+  /// Wiederholungsregel (RRULE), falls vorhanden – für die Expansion.
+  final Recurrence? recurrence;
 }
 
 /// Eine geparste Aufgabe / ein Einkaufsartikel (VTODO).
@@ -78,6 +82,7 @@ class IcalParser {
           location: c.location,
           allDay: _looksAllDay(start, end),
           isRecurring: c.recurrenceRule != null,
+          recurrence: c.recurrenceRule,
         ));
       }
     } catch (_) {
