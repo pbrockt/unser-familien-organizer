@@ -5,6 +5,7 @@ import '../../core/auth/account_providers.dart';
 import '../../core/auth/nextcloud_account.dart';
 import '../../core/caldav/caldav_client.dart';
 import '../../shared/utils/hex_color.dart';
+import '../settings/about_update_sheet.dart';
 import 'connection_screen.dart';
 
 /// Familien-Bereich: Nextcloud-Verbindung verwalten und die entdeckten
@@ -17,7 +18,16 @@ class FamilyScreen extends ConsumerWidget {
     final accountAsync = ref.watch(accountProvider);
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Familie')),
+      appBar: AppBar(
+        title: const Text('Familie'),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.system_update),
+            tooltip: 'App aktualisieren',
+            onPressed: () => showAboutUpdateSheet(context),
+          ),
+        ],
+      ),
       body: accountAsync.when(
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (e, _) => Center(child: Text('Fehler: $e')),
