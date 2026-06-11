@@ -113,7 +113,7 @@ class HomeScreen extends ConsumerWidget {
   }
 
   List<CalendarEvent> _eventsOn(List<CalendarEvent> events, DateTime day) {
-    final list = events.where((e) => e.startDay == day).toList()
+    final list = events.where((e) => e.occursOn(day)).toList()
       ..sort((a, b) {
         if (a.allDay != b.allDay) return a.allDay ? -1 : 1;
         return a.start.compareTo(b.start);

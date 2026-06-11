@@ -75,4 +75,22 @@ class CalendarEvent {
 
   /// Tag (ohne Uhrzeit) des Termin-Starts – für die Gruppierung im Kalender.
   DateTime get startDay => DateTime(start.year, start.month, start.day);
+
+  /// Letzter Tag, an dem der Termin (noch) läuft. Bei Ganztags-Terminen ist
+  /// DTEND exklusiv (= Folgetag), daher ein Tag abgezogen.
+  DateTime get endDayInclusive {
+    final e = end;
+    if (e == null) return startDay;
+    var ref = e;
+    if (allDay) ref = ref.subtract(const Duration(days: 1));
+    final d = DateTime(ref.year, ref.month, ref.day);
+    return d.isBefore(startDay) ? startDay : d;
+  }
+
+  /// Erstreckt sich der Termin über mehr als einen Tag?
+  bool get isMultiDay => endDayInclusive != startDay;
+
+  /// Läuft der Termin am gegebenen Tag (für mehrtägige Termine)?
+  bool occursOn(DateTime day) =>
+      !day.isBefore(startDay) && !day.isAfter(endDayInclusive);
 }

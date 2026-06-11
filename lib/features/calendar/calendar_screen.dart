@@ -181,42 +181,98 @@ class _EventTile extends StatelessWidget {
   const _EventTile({required this.event});
   final CalendarEvent event;
 
-  String _timeLabel() {
-    if (event.allDay) return 'Ganztägig';
-    final start = DateFormat('HH:mm').format(event.start);
-    if (event.end == null) return start;
-    final end = DateFormat('HH:mm').format(event.end!);
-    return '$start – $end';
-  }
-
   @override
   Widget build(BuildContext context) {
-    final color = event.color ?? Theme.of(context).colorScheme.primary;
+    final theme = Theme.of(context);
+    final color = event.color ?? theme.colorScheme.primary;
+    final hasLocation =
+        event.location != null && event.location!.isNotEmpty;
+
     return Card(
-      margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-      child: ListTile(
-        leading: Container(
-          width: 6,
-          height: double.infinity,
-          color: color,
-        ),
-        title: Text(event.summary),
-        subtitle: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(_timeLabel()),
-            if (event.location != null && event.location!.isNotEmpty)
-              Text('📍 ${event.location}'),
-          ],
-        ),
-        trailing: event.isRecurring
-            ? const Icon(Icons.repeat, size: 18)
-            : const Icon(Icons.chevron_right),
-        isThreeLine:
-            event.location != null && event.location!.isNotEmpty,
+      margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
+      child: InkWell(
         onTap: () => showEventEditor(context, existing: event),
+        borderRadius: BorderRadius.circular(20),
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(12, 12, 14, 12),
+          child: Row(
+            children: [
+              SizedBox(width: 52, child: _timeBlock(theme, color)),
+              Container(
+                width: 4,
+                height: 42,
+                margin: const EdgeInsets.symmetric(horizontal: 12),
+                decoration: BoxDecoration(
+                  color: color,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      event.summary,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: theme.textTheme.titleMedium
+                          ?.copyWith(fontWeight: FontWeight.w600),
+                    ),
+                    if (event.isMultiDay)
+                      Text(_rangeLabel(),
+                          style: theme.textTheme.bodySmall?.copyWith(
+                              color: theme.colorScheme.onSurfaceVariant)),
+                    if (hasLocation)
+                      Text('📍 ${event.location}',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: theme.textTheme.bodySmall?.copyWith(
+                              color: theme.colorScheme.onSurfaceVariant)),
+                  ],
+                ),
+              ),
+              if (event.isRecurring)
+                Icon(Icons.repeat,
+                    size: 16, color: theme.colorScheme.onSurfaceVariant),
+            ],
+          ),
+        ),
       ),
     );
+  }
+
+  Widget _timeBlock(ThemeData theme, Color color) {
+    if (event.allDay || event.isMultiDay) {
+      return Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(Icons.event, size: 20, color: color),
+          const SizedBox(height: 2),
+          Text('ganztags',
+              style: theme.textTheme.labelSmall?.copyWith(
+                  color: theme.colorScheme.onSurfaceVariant)),
+        ],
+      );
+    }
+    return Column(
+      mainAxisAlignment: MainAxisAlignment.center,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(DateFormat('HH:mm').format(event.start),
+            style: theme.textTheme.titleSmall
+                ?.copyWith(fontWeight: FontWeight.w700)),
+        if (event.end != null)
+          Text(DateFormat('HH:mm').format(event.end!),
+              style: theme.textTheme.bodySmall?.copyWith(
+                  color: theme.colorScheme.onSurfaceVariant)),
+      ],
+    );
+  }
+
+  String _rangeLabel() {
+    final fmt = DateFormat('d. MMM', 'de_DE');
+    return '${fmt.format(event.start)} – ${fmt.format(event.endDayInclusive)}';
   }
 }
 

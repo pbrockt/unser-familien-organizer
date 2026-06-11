@@ -48,6 +48,11 @@ Stand: Juni 2026 · App: Flutter (Android, später Web)
 - [x] Termin anlegen/bearbeiten/löschen (VEVENT, Editor mit Datum/Uhrzeit,
       ganztägig, Ort, Notiz, Kalenderauswahl)
 - [x] Serientermine (RRULE) korrekt über Tage anzeigen
+- [x] **Mehrtägige / tagübergreifende Termine an allen Tagen anzeigen**
+      (Kalender-Tagesliste + Dashboard)
+- [x] **Datumsauswahl beginnt am Montag** (deutsche Lokalisierung der Picker)
+- [x] **Uhrzeit-/Termin-Anzeige aufgehübscht** (Zeit-Block, mehrtägig-Hinweis)
+- [ ] Mehrtägige Termine als durchgehender Balken im Monatsraster
 
 ## ✔️ Phase 5 — Aufgaben-UI
 - [x] Aufgabenlisten anzeigen (farbcodiert, offen-Zähler)

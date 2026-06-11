@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'core/router/app_router.dart';
@@ -18,6 +19,15 @@ class FamilyPlannerApp extends ConsumerWidget {
       theme: AppTheme.light(),
       darkTheme: AppTheme.dark(),
       themeMode: ThemeMode.system,
+      // Deutsche Lokalisierung: Datums-/Zeit-Picker auf Deutsch,
+      // Wochenstart Montag.
+      locale: const Locale('de'),
+      supportedLocales: const [Locale('de'), Locale('en')],
+      localizationsDelegates: const [
+        GlobalMaterialLocalizations.delegate,
+        GlobalWidgetsLocalizations.delegate,
+        GlobalCupertinoLocalizations.delegate,
+      ],
       routerConfig: router,
       builder: (context, child) => ReminderSync(child: child ?? const SizedBox()),
     );

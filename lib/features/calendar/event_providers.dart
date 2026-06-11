@@ -189,7 +189,15 @@ final eventsByDayProvider =
   final asyncEvents = ref.watch(eventsControllerProvider);
   final map = <DateTime, List<CalendarEvent>>{};
   for (final e in asyncEvents.value ?? const []) {
-    map.putIfAbsent(e.startDay, () => []).add(e);
+    // Mehrtägige Termine an jedem Tag eintragen (mit Sicherheitskappe).
+    var day = e.startDay;
+    final last = e.endDayInclusive;
+    var guard = 0;
+    while (!day.isAfter(last) && guard < 90) {
+      map.putIfAbsent(day, () => []).add(e);
+      day = day.add(const Duration(days: 1));
+      guard++;
+    }
   }
   return map;
 });
