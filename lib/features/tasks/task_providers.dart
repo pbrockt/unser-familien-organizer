@@ -178,6 +178,33 @@ class TasksController extends AsyncNotifier<List<TaskList>> {
     await future;
   }
 
+  /// Löscht alle erledigten Aufgaben einer Liste (z.B. „Erledigte entfernen"
+  /// in der Einkaufsliste).
+  Future<void> clearCompleted(String listHref) async {
+    final lists = state.value;
+    if (lists == null) return;
+    final account = await ref.read(accountProvider.future);
+    if (account == null) return;
+    final client = ref.read(caldavClientProvider);
+
+    final completed = <TaskItem>[];
+    for (final list in lists) {
+      if (list.href != listHref) continue;
+      completed.addAll(list.items.where((t) => t.completed));
+    }
+    if (completed.isEmpty) return;
+
+    for (final item in completed) {
+      await client.deleteObject(
+        account,
+        item.objectHref,
+        ifMatchEtag: item.etag.isEmpty ? null : item.etag,
+      );
+    }
+    ref.invalidateSelf();
+    await future;
+  }
+
   /// Ziel-URL eines neuen Objekts: `<collection>/<uid>.ics`.
   String _objectHref(String listHref, String uid) {
     final base = listHref.endsWith('/') ? listHref : '$listHref/';

@@ -56,9 +56,12 @@ Stand: Juni 2026 · App: Flutter (Android, später Web)
 - [ ] Termin anlegen/bearbeiten/löschen (analog für VEVENT)
 
 ## 🛒 Phase 6 — Einkaufsliste
-- [ ] VTODO-Collection als Einkaufsliste (Name=SUMMARY, Menge=DESCRIPTION)
-- [ ] Abhaken + Kategorien (CATEGORIES)
-- [ ] Mehrere Listen (z.B. einkauf-rewe, einkauf-baumarkt)
+- [x] Einkauf-Tab auf VTODO/Aufgaben-Basis (wählbare Liste, persistent)
+- [x] Schnell hinzufügen, abhaken, wischen zum Löschen
+- [x] „Erledigte entfernen" (erledigte Artikel der Liste löschen)
+- [x] Mehrere Listen wählbar (Dropdown)
+- [ ] Kategorien (CATEGORIES) zum Gruppieren
+- [ ] Menge im Artikel (DESCRIPTION)
 
 ## 👪 Phase 7 — Familiengruppen
 - [ ] Mitglieder + Farbzuordnung
