@@ -72,7 +72,16 @@ Stand: Juni 2026 · App: Flutter (Android, später Web)
 
 ## 🏠 Startseite / Dashboard
 - [x] Start-Tab als erster Tab (Platzhalter)
-- [ ] Übersicht: heutige Termine, fällige Aufgaben, Einkauf auf einen Blick
+- [ ] **Dashboard „Heute & morgen"** – die wichtigsten Dinge auf einen Blick,
+      bewusst auf **heute + maximal morgen** begrenzt (kein Overload):
+  - [ ] Begrüßung + Datum
+  - [ ] **Heute**: Termine des Tages (Uhrzeit, Titel, farbcodiert)
+  - [ ] **Morgen**: Termine von morgen (kompakter)
+  - [ ] **Fällige Aufgaben**: heute fällig + überfällig (offen)
+  - [ ] **Einkauf**: kurzer Hinweis, wenn die Einkaufsliste offene Artikel hat
+  - [ ] Leerer-Zustand pro Bereich („Heute nichts geplant 🎉")
+  - [ ] Tippen springt in den passenden Tab / öffnet das Element
+  - [ ] Pull-to-Refresh, nutzt Offline-Cache (sofort sichtbar)
 
 ## ⚙️ Einstellungen
 - [x] Update-Funktion (Releases öffnen) – jetzt im Einstellungs-Screen
