@@ -5,6 +5,7 @@ import 'package:table_calendar/table_calendar.dart';
 
 import '../../core/auth/account_providers.dart';
 import 'calendar_event.dart';
+import 'event_editor_sheet.dart';
 import 'event_providers.dart';
 
 /// Kalender-Bereich (VEVENT per CalDAV): Monatsansicht mit Event-Markern
@@ -26,7 +27,7 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
   @override
   Widget build(BuildContext context) {
     final accountAsync = ref.watch(accountProvider);
-    final eventsAsync = ref.watch(eventsProvider);
+    final eventsAsync = ref.watch(eventsControllerProvider);
     final eventsByDay = ref.watch(eventsByDayProvider);
 
     List<CalendarEvent> loader(DateTime day) =>
@@ -41,10 +42,18 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
           IconButton(
             tooltip: 'Aktualisieren',
             icon: const Icon(Icons.refresh),
-            onPressed: () => ref.invalidate(eventsProvider),
+            onPressed: () => ref.invalidate(eventsControllerProvider),
           ),
         ],
       ),
+      floatingActionButton: accountAsync.value != null
+          ? FloatingActionButton(
+              onPressed: () =>
+                  showEventEditor(context, initialDay: _selectedDay),
+              tooltip: 'Neuer Termin',
+              child: const Icon(Icons.add),
+            )
+          : null,
       body: accountAsync.maybeWhen(
         orElse: () => const Center(child: CircularProgressIndicator()),
         data: (account) {
@@ -113,7 +122,7 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
                       const Center(child: CircularProgressIndicator()),
                   error: (e, _) => _ErrorView(
                     message: '$e',
-                    onRetry: () => ref.invalidate(eventsProvider),
+                    onRetry: () => ref.invalidate(eventsControllerProvider),
                   ),
                   data: (_) => _DayEventList(
                     day: _selectedDay,
@@ -202,9 +211,10 @@ class _EventTile extends StatelessWidget {
         ),
         trailing: event.isRecurring
             ? const Icon(Icons.repeat, size: 18)
-            : null,
+            : const Icon(Icons.chevron_right),
         isThreeLine:
             event.location != null && event.location!.isNotEmpty,
+        onTap: () => showEventEditor(context, existing: event),
       ),
     );
   }

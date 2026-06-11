@@ -43,7 +43,8 @@ Stand: Juni 2026 · App: Flutter (Android, später Web)
 - [x] `table_calendar`: Monat / 2 Wochen / Woche mit Event-Markern
 - [x] Termine farbcodiert (Kalenderfarbe) + Tagesliste
 - [x] Ganztags-Events erkannt
-- [ ] Termin anlegen/bearbeiten/löschen (VEVENT)
+- [x] Termin anlegen/bearbeiten/löschen (VEVENT, Editor mit Datum/Uhrzeit,
+      ganztägig, Ort, Notiz, Kalenderauswahl)
 - [ ] Serientermine (RRULE) korrekt über Tage anzeigen
 
 ## ✔️ Phase 5 — Aufgaben-UI

@@ -2,8 +2,9 @@ import 'package:flutter/material.dart';
 
 import '../../core/caldav/ical_parser.dart';
 
-/// Anzeige-Modell eines Termins: geparstes VEVENT + Herkunft (Kalenderfarbe
-/// und -name aus der CalDAV-Collection).
+/// Anzeige-Modell eines Termins: geparstes VEVENT + Herkunft (Kalenderfarbe,
+/// -name und -href aus der CalDAV-Collection) sowie alles zum Zurückschreiben
+/// (Objekt-URL, ETag, roher iCal-Body).
 class CalendarEvent {
   const CalendarEvent({
     required this.uid,
@@ -16,6 +17,10 @@ class CalendarEvent {
     this.isRecurring = false,
     this.color,
     this.calendarName = '',
+    this.calendarHref = '',
+    this.objectHref = '',
+    this.etag = '',
+    this.rawIcal = '',
   });
 
   final String uid;
@@ -29,10 +34,26 @@ class CalendarEvent {
   final Color? color;
   final String calendarName;
 
+  /// Href der Kalender-Collection (für neue Objekte / Zuordnung).
+  final String calendarHref;
+
+  /// Href des CalDAV-Objekts (.ics) – Ziel für PUT/DELETE.
+  final String objectHref;
+
+  /// ETag zur Konflikterkennung beim Schreiben.
+  final String etag;
+
+  /// Vollständiger iCal-Body (wird beim Bearbeiten zugrunde gelegt).
+  final String rawIcal;
+
   factory CalendarEvent.fromParsed(
     ParsedEvent e, {
     Color? color,
     String calendarName = '',
+    String calendarHref = '',
+    String objectHref = '',
+    String etag = '',
+    String rawIcal = '',
   }) {
     return CalendarEvent(
       uid: e.uid,
@@ -45,6 +66,10 @@ class CalendarEvent {
       isRecurring: e.isRecurring,
       color: color,
       calendarName: calendarName,
+      calendarHref: calendarHref,
+      objectHref: objectHref,
+      etag: etag,
+      rawIcal: rawIcal,
     );
   }
 
