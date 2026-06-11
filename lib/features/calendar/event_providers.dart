@@ -27,9 +27,9 @@ class EventsController extends AsyncNotifier<List<CalendarEvent>> {
     final account = await ref.watch(accountProvider.future);
     if (account == null) return const [];
 
-    final client = ref.watch(caldavClientProvider);
-    final collections = await client.listCollections(account);
-    final eventCollections = collections.where((c) => c.supportsEvents);
+    final snapshot = await ref.watch(caldavRepositoryProvider).load(account);
+    final eventCollections =
+        snapshot.collections.where((c) => c.supportsEvents);
 
     // Expansions-Fenster für Serientermine: ~2 Monate zurück bis ~14 voraus.
     final today = DateTime.now();
@@ -42,7 +42,7 @@ class EventsController extends AsyncNotifier<List<CalendarEvent>> {
     final events = <CalendarEvent>[];
     for (final col in eventCollections) {
       final color = parseHexColor(col.color);
-      final objects = await client.listObjects(account, col.href);
+      final objects = snapshot.objectsOf(col.href);
       for (final obj in objects) {
         for (final parsed in _parser.parseEvents(obj.icalData)) {
           final base = CalendarEvent.fromParsed(

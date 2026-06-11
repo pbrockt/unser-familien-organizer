@@ -21,14 +21,14 @@ class TasksController extends AsyncNotifier<List<TaskList>> {
     final account = await ref.watch(accountProvider.future);
     if (account == null) return const [];
 
-    final client = ref.watch(caldavClientProvider);
-    final collections = await client.listCollections(account);
-    final todoCollections = collections.where((c) => c.supportsTodos);
+    final snapshot = await ref.watch(caldavRepositoryProvider).load(account);
+    final todoCollections =
+        snapshot.collections.where((c) => c.supportsTodos);
 
     final lists = <TaskList>[];
     for (final col in todoCollections) {
       final color = parseHexColor(col.color);
-      final objects = await client.listObjects(account, col.href);
+      final objects = snapshot.objectsOf(col.href);
 
       final items = <TaskItem>[];
       for (final obj in objects) {

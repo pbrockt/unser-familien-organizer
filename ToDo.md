@@ -31,8 +31,9 @@ Stand: Juni 2026 · App: Flutter (Android, später Web)
 - [x] Self-Signed-Zertifikat-Support (Heimserver/Unraid)
 - [x] Serientermine (RRULE) expandieren (tägl./wöch./monatl./jährl.,
       INTERVAL/COUNT/UNTIL/BYDAY)
-- [ ] SQLite-Cache (sqflite) für Offline-Lesen  ← test009
-- [ ] `SyncEngine`: Delta-Sync (CTag/ETag) + Offline-Queue + Konfliktlösung
+- [x] SQLite-Cache (sqflite) für Offline-Lesen (Repository mit Cache-Fallback)
+- [ ] Offline-Hinweis im UI + Schreib-Queue für Offline-Änderungen
+- [ ] `SyncEngine`: Delta-Sync (CTag/ETag) + Konfliktlösung
 
 ## 🔐 Phase 3 — Nextcloud-Verbindung & Onboarding
 - [ ] Nextcloud Login Flow v2 (App-Passwort, nie Hauptpasswort)

@@ -1,6 +1,8 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../cache/caldav_cache.dart';
 import '../caldav/caldav_client.dart';
+import '../caldav/caldav_repository.dart';
 import '../caldav/http_caldav_client.dart';
 import 'account_storage.dart';
 import 'nextcloud_account.dart';
@@ -13,6 +15,17 @@ final accountStorageProvider = Provider<AccountStorage>((ref) {
 /// CalDAV-Client (Implementierung gegen Nextcloud).
 final caldavClientProvider = Provider<CalDavClient>((ref) {
   return const HttpCalDavClient();
+});
+
+/// Lokaler SQLite-Cache der CalDAV-Daten (Offline-Lesen).
+final caldavCacheProvider = Provider<CalDavCache>((ref) => CalDavCache());
+
+/// Repository: lädt vom Server und fällt bei Fehlern auf den Cache zurück.
+final caldavRepositoryProvider = Provider<CalDavRepository>((ref) {
+  return CalDavRepository(
+    ref.watch(caldavClientProvider),
+    ref.watch(caldavCacheProvider),
+  );
 });
 
 /// Aktuell verbundenes Nextcloud-Konto (oder `null`, wenn nicht verbunden).
