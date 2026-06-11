@@ -113,16 +113,20 @@ class _ConnectionScreenState extends ConsumerState<ConnectionScreen> {
                   keyboardType: TextInputType.url,
                   autocorrect: false,
                   decoration: const InputDecoration(
-                    labelText: 'Server-URL',
-                    hintText: 'https://cloud.example.com',
+                    labelText: 'Server-Adresse',
+                    hintText: 'https://pb.lah-cx.de',
+                    helperText: 'Nur die Adresse deines Servers – den Rest '
+                        '(/remote.php/…) hängt die App selbst an.',
+                    helperMaxLines: 2,
                     prefixIcon: Icon(Icons.cloud_outlined),
                     border: OutlineInputBorder(),
                   ),
                   validator: (v) {
                     final t = (v ?? '').trim();
-                    if (t.isEmpty || t == 'https://') return 'URL eingeben';
-                    if (!t.startsWith('http://') && !t.startsWith('https://')) {
-                      return 'Mit http:// oder https:// beginnen';
+                    final host = t.replaceFirst(RegExp(r'^(https?://)+'), '');
+                    if (host.isEmpty) return 'Server-Adresse eingeben';
+                    if (!host.contains('.')) {
+                      return 'Vollständige Adresse, z.B. pb.lah-cx.de';
                     }
                     return null;
                   },

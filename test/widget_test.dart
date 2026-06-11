@@ -37,7 +37,6 @@ void main() {
 
     expect(find.byType(NavigationBar), findsOneWidget);
     expect(find.text('Aufgaben'), findsOneWidget);
-    expect(find.text('Einkauf'), findsOneWidget);
     expect(find.text('Familie'), findsOneWidget);
   });
 }

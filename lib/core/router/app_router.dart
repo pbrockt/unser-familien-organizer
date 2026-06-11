@@ -4,7 +4,6 @@ import 'package:go_router/go_router.dart';
 
 import '../../features/calendar/calendar_screen.dart';
 import '../../features/family/family_screen.dart';
-import '../../features/shopping/shopping_screen.dart';
 import '../../features/tasks/tasks_screen.dart';
 import '../../shared/widgets/app_shell.dart';
 
@@ -31,14 +30,6 @@ final routerProvider = Provider<GoRouter>((ref) {
               GoRoute(
                 path: '/tasks',
                 builder: (context, state) => const TasksScreen(),
-              ),
-            ],
-          ),
-          StatefulShellBranch(
-            routes: [
-              GoRoute(
-                path: '/shopping',
-                builder: (context, state) => const ShoppingScreen(),
               ),
             ],
           ),

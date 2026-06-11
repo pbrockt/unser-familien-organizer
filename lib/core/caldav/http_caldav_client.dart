@@ -57,7 +57,13 @@ class HttpCalDavClient implements CalDavClient {
       }
       return _parseCollections(response.body);
     } on SocketException catch (e) {
-      throw CalDavException('Keine Verbindung zum Server: ${e.message}');
+      final isLookup = e.message.toLowerCase().contains('lookup');
+      throw CalDavException(
+        isLookup
+            ? 'Server-Adresse nicht gefunden. Prüfe die Adresse und ob dein '
+                'Handy diesen Server erreichen kann (richtiges WLAN/Internet).'
+            : 'Keine Verbindung zum Server: ${e.message}',
+      );
     } on HttpException catch (e) {
       throw CalDavException('Netzwerkfehler: ${e.message}');
     } on HandshakeException {

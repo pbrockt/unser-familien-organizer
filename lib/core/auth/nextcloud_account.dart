@@ -41,13 +41,36 @@ class NextcloudAccount {
   /// Rohe `user:passwort`-Credentials (Basic Auth, vom Client base64-kodiert).
   String get credentials => '$username:$appPassword';
 
-  /// Trimmt Eingaben und entfernt einen evtl. eingegebenen Slash am Ende
-  /// der URL, damit zusammengesetzte Pfade konsistent bleiben.
+  /// Macht aus beliebiger Nutzereingabe eine saubere Server-Basis-URL.
+  ///
+  /// Der Nutzer muss nur die Adresse eingeben – die App hängt den
+  /// CalDAV-Pfad selbst an. Es werden u.a. abgefangen:
+  ///  - fehlendes Schema           (`pb.lah-cx.de` → `https://pb.lah-cx.de`)
+  ///  - doppelt eingefügtes Schema (`https://https://…` → `https://…`)
+  ///  - eingefügte volle DAV-URL   (`…/remote.php/dav/…` wird abgeschnitten)
+  ///  - Slash am Ende
+  /// Ein evtl. Unterverzeichnis (z.B. `…/nextcloud`) bleibt erhalten.
   NextcloudAccount normalized() {
     var url = baseUrl.trim();
+
+    // http(s):// am Anfang merken und (auch mehrfach) entfernen.
+    final wantsHttp = RegExp(r'^http://').hasMatch(url);
+    url = url.replaceFirst(RegExp(r'^(https?://)+'), '');
+
+    // Alles ab dem Nextcloud-DAV-Pfad abschneiden – egal wie viel
+    // der Nutzer eingefügt hat. Unterpfade davor bleiben erhalten.
+    final davIndex = url.indexOf('/remote.php');
+    if (davIndex != -1) {
+      url = url.substring(0, davIndex);
+    }
+
+    // Slashes am Ende weg.
     while (url.endsWith('/')) {
       url = url.substring(0, url.length - 1);
     }
+
+    url = (wantsHttp ? 'http://' : 'https://') + url;
+
     return copyWith(
       baseUrl: url,
       username: username.trim(),

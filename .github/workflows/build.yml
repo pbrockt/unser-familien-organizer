@@ -3,9 +3,13 @@ name: Build APK
 on:
   push:
     branches: [ main ]
+    tags: [ 'test*', 'v*' ]
   pull_request:
     branches: [ main ]
   workflow_dispatch:
+
+permissions:
+  contents: write
 
 jobs:
   build:
@@ -71,3 +75,19 @@ jobs:
           name: FamilyPlanner-release
           path: build/app/outputs/flutter-apk/app-release.apk
           retention-days: 90
+
+      # Bei einem Tag (z.B. test002, v1.0) automatisch ein Release mit APK.
+      - name: Publish GitHub Release
+        if: startsWith(github.ref, 'refs/tags/')
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          APK="FamilyPlanner-${{ github.ref_name }}.apk"
+          cp build/app/outputs/flutter-apk/app-release.apk "$APK"
+          if gh release view "${{ github.ref_name }}" >/dev/null 2>&1; then
+            gh release upload "${{ github.ref_name }}" "$APK" --clobber
+          else
+            gh release create "${{ github.ref_name }}" "$APK" \
+              --title "FamilyPlanner ${{ github.ref_name }}" \
+              --notes "Automatischer Build von Tag ${{ github.ref_name }}."
+          fi
