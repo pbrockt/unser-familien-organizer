@@ -110,6 +110,25 @@ class IcalParser {
     return result;
   }
 
+  /// Setzt den Erledigt-Status eines VTODO im gegebenen iCal-Body und gibt
+  /// den neuen, vollständigen iCal-Text zurück (zum Zurückschreiben per PUT).
+  ///
+  /// Erledigt → STATUS:COMPLETED, COMPLETED=jetzt, PERCENT-COMPLETE=100.
+  /// Offen    → STATUS:NEEDS-ACTION, COMPLETED entfernt, PERCENT-COMPLETE=0.
+  String toggleTodoCompletion(String icalData, {required bool completed}) {
+    final root = VComponent.parse(icalData);
+    final components = root is VCalendar ? root.children : [root];
+    for (final c in components) {
+      if (c is VTodo) {
+        c.status =
+            completed ? TodoStatus.completed : TodoStatus.needsAction;
+        c.completed = completed ? DateTime.now() : null;
+        c.percentComplete = completed ? 100 : 0;
+      }
+    }
+    return root.toString();
+  }
+
   /// Heuristik: Ganztags-Events haben Mitternacht als Start (DTSTART;VALUE=DATE)
   /// und enden – falls vorhanden – ebenfalls auf Mitternacht.
   bool _looksAllDay(DateTime start, DateTime? end) {

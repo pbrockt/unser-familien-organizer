@@ -47,9 +47,11 @@ Stand: Juni 2026 · App: Flutter (Android, später Web)
 - [ ] Serientermine (RRULE) korrekt über Tage anzeigen
 
 ## ✔️ Phase 5 — Aufgaben-UI
-- [ ] Aufgabenlisten anzeigen
-- [ ] Abhaken (STATUS:COMPLETED)
-- [ ] Unteraufgaben (RELATED-TO), Priorität, Fälligkeit
+- [x] Aufgabenlisten anzeigen (farbcodiert, offen-Zähler)
+- [x] Abhaken (STATUS:COMPLETED) – optimistisch + CalDAV-PUT
+- [x] Fälligkeitsdatum anzeigen (überfällig hervorgehoben)
+- [ ] Aufgabe anlegen/bearbeiten/löschen
+- [ ] Unteraufgaben (RELATED-TO), Priorität nutzen
 
 ## 🛒 Phase 6 — Einkaufsliste
 - [ ] VTODO-Collection als Einkaufsliste (Name=SUMMARY, Menge=DESCRIPTION)
