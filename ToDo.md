@@ -71,17 +71,21 @@ Stand: Juni 2026 · App: Flutter (Android, später Web)
 - [ ] (Optional) Einladungs-/Verknüpfungslogik
 
 ## 🏠 Startseite / Dashboard
-- [x] Start-Tab als erster Tab (Platzhalter)
-- [ ] **Dashboard „Heute & morgen"** – die wichtigsten Dinge auf einen Blick,
-      bewusst auf **heute + maximal morgen** begrenzt (kein Overload):
-  - [ ] Begrüßung + Datum
-  - [ ] **Heute**: Termine des Tages (Uhrzeit, Titel, farbcodiert)
-  - [ ] **Morgen**: Termine von morgen (kompakter)
-  - [ ] **Fällige Aufgaben**: heute fällig + überfällig (offen)
-  - [ ] **Einkauf**: kurzer Hinweis, wenn die Einkaufsliste offene Artikel hat
-  - [ ] Leerer-Zustand pro Bereich („Heute nichts geplant 🎉")
-  - [ ] Tippen springt in den passenden Tab / öffnet das Element
-  - [ ] Pull-to-Refresh, nutzt Offline-Cache (sofort sichtbar)
+- [x] Start-Tab als erster Tab
+- [x] **Dashboard „Heute & morgen"** (Planily-inspiriert, Gradient-Header):
+  - [x] Begrüßung (tageszeitabhängig) + Datum
+  - [x] **Heute**: Termine des Tages (Uhrzeit, Titel, farbcodiert)
+  - [x] **Morgen**: Termine von morgen
+  - [x] **Fällige Aufgaben**: heute fällig + überfällig (mit Abhaken)
+  - [x] **Einkauf**: Hinweis-Karte, wenn offene Artikel
+  - [x] Leerzustände („Heute nichts geplant 🎉")
+  - [x] Tippen öffnet Termin/Aufgabe bzw. „Alle" springt in den Tab
+  - [x] Pull-to-Refresh, nutzt Offline-Cache
+- [ ] Optional: Mitglieder-Filter / Wetter / Geburtstage hervorheben
+
+## 🎨 Design
+- [x] Frisches Planily-artiges Theme (Violett-Akzent, runde Karten, NavBar)
+- [ ] Theme-Wahl (hell/dunkel/system) in den Einstellungen
 
 ## ⚙️ Einstellungen
 - [x] Update-Funktion (Releases öffnen) – jetzt im Einstellungs-Screen

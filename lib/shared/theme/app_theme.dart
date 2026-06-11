@@ -1,12 +1,13 @@
 import 'package:flutter/material.dart';
 
-/// Zentrales App-Theme im Planily/FamilyWall-Stil: freundlich, klar, fokussiert.
+/// Zentrales App-Theme im Planily/FamilyWall-Stil: freundlich, klar,
+/// kartenbasiert mit weichen, runden Flächen.
 class AppTheme {
   AppTheme._();
 
-  /// Akzentfarbe der App. Familienmitglieder bekommen später eigene Farben
-  /// (siehe [familyColors]), das hier ist die Marken-/UI-Farbe.
-  static const Color seed = Color(0xFF4C6FFF);
+  /// Marken-/Akzentfarbe (modernes Violett). Familienmitglieder bekommen
+  /// eigene Farben (siehe [familyColors]).
+  static const Color seed = Color(0xFF6C5CE7);
 
   static ThemeData light() => _base(Brightness.light);
   static ThemeData dark() => _base(Brightness.dark);
@@ -16,21 +17,57 @@ class AppTheme {
       seedColor: seed,
       brightness: brightness,
     );
+    final isLight = brightness == Brightness.light;
     return ThemeData(
       colorScheme: scheme,
       useMaterial3: true,
-      appBarTheme: const AppBarTheme(centerTitle: false),
+      scaffoldBackgroundColor:
+          isLight ? const Color(0xFFF6F5FB) : scheme.surface,
+      appBarTheme: AppBarTheme(
+        centerTitle: false,
+        backgroundColor: isLight ? const Color(0xFFF6F5FB) : scheme.surface,
+        scrolledUnderElevation: 0,
+        elevation: 0,
+        titleTextStyle: TextStyle(
+          color: scheme.onSurface,
+          fontSize: 22,
+          fontWeight: FontWeight.w700,
+        ),
+      ),
       cardTheme: CardThemeData(
         elevation: 0,
+        color: isLight ? Colors.white : scheme.surfaceContainerHigh,
+        clipBehavior: Clip.antiAlias,
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(20),
+        ),
+      ),
+      navigationBarTheme: NavigationBarThemeData(
+        backgroundColor: isLight ? Colors.white : scheme.surfaceContainer,
+        elevation: 3,
+        height: 68,
+        labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
+        indicatorColor: scheme.primaryContainer,
+        labelTextStyle: WidgetStateProperty.all(
+          const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+        ),
+      ),
+      filledButtonTheme: FilledButtonThemeData(
+        style: FilledButton.styleFrom(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(14),
+          ),
+        ),
+      ),
+      inputDecorationTheme: InputDecorationTheme(
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(14),
         ),
       ),
     );
   }
 
-  /// Vorschlags-Palette für Familienmitglieder. Wird in Phase 7
-  /// (Familiengruppen) genutzt, um Personen/Kalender farblich zu trennen.
+  /// Vorschlags-Palette für Familienmitglieder / Kalender ohne eigene Farbe.
   static const List<Color> familyColors = [
     Color(0xFFEF5350), // rot
     Color(0xFF42A5F5), // blau
