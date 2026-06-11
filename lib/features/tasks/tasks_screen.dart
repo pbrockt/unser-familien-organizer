@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
 import '../../core/auth/account_providers.dart';
+import 'task_editor_sheet.dart';
 import 'task_item.dart';
 import 'task_providers.dart';
 
@@ -15,6 +16,9 @@ class TasksScreen extends ConsumerWidget {
     final accountAsync = ref.watch(accountProvider);
     final tasksAsync = ref.watch(tasksControllerProvider);
 
+    final lists = tasksAsync.value ?? const <TaskList>[];
+    final canAdd = accountAsync.value != null && lists.isNotEmpty;
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('Aufgaben'),
@@ -26,6 +30,13 @@ class TasksScreen extends ConsumerWidget {
           ),
         ],
       ),
+      floatingActionButton: canAdd
+          ? FloatingActionButton(
+              onPressed: () => showTaskEditor(context, lists: lists),
+              tooltip: 'Neue Aufgabe',
+              child: const Icon(Icons.add),
+            )
+          : null,
       body: accountAsync.maybeWhen(
         orElse: () => const Center(child: CircularProgressIndicator()),
         data: (account) {
@@ -73,6 +84,8 @@ class _TaskListsView extends ConsumerWidget {
             _TaskTile(
               item: item,
               onToggle: () => _toggle(context, ref, item),
+              onEdit: () =>
+                  showTaskEditor(context, lists: lists, existing: item),
             ),
         ],
       ],
@@ -123,9 +136,14 @@ class _ListHeader extends StatelessWidget {
 }
 
 class _TaskTile extends StatelessWidget {
-  const _TaskTile({required this.item, required this.onToggle});
+  const _TaskTile({
+    required this.item,
+    required this.onToggle,
+    required this.onEdit,
+  });
   final TaskItem item;
   final VoidCallback onToggle;
+  final VoidCallback onEdit;
 
   String? _dueLabel() {
     final due = item.due;
@@ -168,7 +186,8 @@ class _TaskTile extends StatelessWidget {
                     : theme.colorScheme.onSurfaceVariant,
               ),
             ),
-      onTap: onToggle,
+      trailing: const Icon(Icons.chevron_right),
+      onTap: onEdit,
     );
   }
 }

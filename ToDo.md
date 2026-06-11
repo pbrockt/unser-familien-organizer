@@ -50,8 +50,9 @@ Stand: Juni 2026 · App: Flutter (Android, später Web)
 - [x] Aufgabenlisten anzeigen (farbcodiert, offen-Zähler)
 - [x] Abhaken (STATUS:COMPLETED) – optimistisch + CalDAV-PUT
 - [x] Fälligkeitsdatum anzeigen (überfällig hervorgehoben)
-- [ ] Aufgabe anlegen/bearbeiten/löschen
+- [x] Aufgabe anlegen/bearbeiten/löschen (Editor-Sheet, CalDAV PUT/DELETE)
 - [ ] Unteraufgaben (RELATED-TO), Priorität nutzen
+- [ ] Termin anlegen/bearbeiten/löschen (analog für VEVENT)
 
 ## 🛒 Phase 6 — Einkaufsliste
 - [ ] VTODO-Collection als Einkaufsliste (Name=SUMMARY, Menge=DESCRIPTION)

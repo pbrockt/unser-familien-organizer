@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/auth/account_providers.dart';
+import '../../core/caldav/ical_builder.dart';
 import '../../core/caldav/ical_parser.dart';
 import '../../shared/utils/hex_color.dart';
 import 'task_item.dart';
@@ -13,6 +14,7 @@ final tasksControllerProvider =
 
 class TasksController extends AsyncNotifier<List<TaskList>> {
   static const _parser = IcalParser();
+  static const _builder = IcalBuilder();
 
   @override
   Future<List<TaskList>> build() async {
@@ -106,6 +108,80 @@ class TasksController extends AsyncNotifier<List<TaskList>> {
       state = AsyncData(_replace(base, item, item, resort: true));
       rethrow;
     }
+  }
+
+  /// Legt eine neue Aufgabe in der Liste [listHref] an (CalDAV-PUT) und lädt
+  /// danach neu.
+  Future<void> createTask({
+    required String listHref,
+    required String summary,
+    DateTime? due,
+    String? description,
+  }) async {
+    final account = await ref.read(accountProvider.future);
+    if (account == null) return;
+    final client = ref.read(caldavClientProvider);
+
+    final uid = _builder.newUid();
+    final ical = _builder.buildTodo(
+      uid: uid,
+      summary: summary,
+      due: due,
+      description: description,
+    );
+    await client.putObject(account, _objectHref(listHref, uid), ical);
+    ref.invalidateSelf();
+    await future;
+  }
+
+  /// Aktualisiert Titel/Fälligkeit/Beschreibung einer Aufgabe.
+  Future<void> updateTask(
+    TaskItem item, {
+    required String summary,
+    DateTime? due,
+    bool clearDue = false,
+    String? description,
+  }) async {
+    final account = await ref.read(accountProvider.future);
+    if (account == null) return;
+    final client = ref.read(caldavClientProvider);
+
+    final ical = _builder.updateTodo(
+      item.rawIcal,
+      summary: summary,
+      due: due,
+      clearDue: clearDue,
+      description: description,
+    );
+    await client.putObject(
+      account,
+      item.objectHref,
+      ical,
+      ifMatchEtag: item.etag.isEmpty ? null : item.etag,
+    );
+    ref.invalidateSelf();
+    await future;
+  }
+
+  /// Löscht eine Aufgabe (CalDAV-DELETE) und lädt danach neu.
+  Future<void> deleteTask(TaskItem item) async {
+    final account = await ref.read(accountProvider.future);
+    if (account == null) return;
+    final client = ref.read(caldavClientProvider);
+
+    await client.deleteObject(
+      account,
+      item.objectHref,
+      ifMatchEtag: item.etag.isEmpty ? null : item.etag,
+    );
+    ref.invalidateSelf();
+    await future;
+  }
+
+  /// Ziel-URL eines neuen Objekts: `<collection>/<uid>.ics`.
+  String _objectHref(String listHref, String uid) {
+    final base = listHref.endsWith('/') ? listHref : '$listHref/';
+    return '$base$uid.ics';
   }
 
   /// Ersetzt [oldItem] (per uid + objectHref) durch [newItem] in den Listen.
