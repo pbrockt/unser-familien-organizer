@@ -157,14 +157,56 @@ class _EventEditorSheetState extends ConsumerState<_EventEditorSheet> {
       return;
     }
 
+    final ev = widget.existing;
+    final isSeriesInstance =
+        ev != null && ev.isRecurring && ev.recurrenceDate != null;
+
+    // Bei Serienterminen fragen: nur diese Instanz oder die ganze Serie?
+    var editOnlyThis = false;
+    if (isSeriesInstance) {
+      final scope = await showDialog<String>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: const Text('Serientermin ändern'),
+          content: const Text(
+              'Möchtest du nur diesen einen Termin oder die ganze Serie '
+              'ändern?'),
+          actions: [
+            TextButton(
+                onPressed: () => Navigator.pop(ctx, 'cancel'),
+                child: const Text('Abbrechen')),
+            TextButton(
+                onPressed: () => Navigator.pop(ctx, 'series'),
+                child: const Text('Ganze Serie')),
+            FilledButton(
+                onPressed: () => Navigator.pop(ctx, 'this'),
+                child: const Text('Nur diesen')),
+          ],
+        ),
+      );
+      if (scope == null || scope == 'cancel') return;
+      editOnlyThis = scope == 'this';
+    }
+    if (!mounted) return;
+
     setState(() => _busy = true);
     final notifier = ref.read(eventsControllerProvider.notifier);
     final location = _locationCtrl.text.trim();
     final desc = _descCtrl.text.trim();
     try {
-      if (_isEdit) {
-        await notifier.updateEvent(
-          widget.existing!,
+      if (!_isEdit) {
+        await notifier.createEvent(
+          calendarHref: calHref,
+          summary: summary,
+          start: times.start,
+          end: times.end,
+          allDay: _allDay,
+          location: location,
+          description: desc,
+        );
+      } else if (editOnlyThis) {
+        await notifier.updateOccurrence(
+          ev!,
           summary: summary,
           start: times.start,
           end: times.end,
@@ -173,8 +215,8 @@ class _EventEditorSheetState extends ConsumerState<_EventEditorSheet> {
           description: desc,
         );
       } else {
-        await notifier.createEvent(
-          calendarHref: calHref,
+        await notifier.updateEvent(
+          ev!,
           summary: summary,
           start: times.start,
           end: times.end,

@@ -17,9 +17,12 @@ Stand: Juni 2026 · App: Flutter (Android, später Web)
       Löschen eines Serientermins fragt der Editor jetzt „Nur diesen" vs
       „Ganze Serie". „Nur diesen" setzt ein `EXDATE` (und entfernt eine evtl.
       Override-Instanz) statt das ganze .ics zu löschen.
-- [ ] Einzelne Serien-Instanz **bearbeiten** (verschieben) erzeugt aktuell
-      noch eine Master-Änderung statt eines Overrides – Folgeschritt.
-- [ ] Ganztags-Serien: EXDATE als VALUE=DATE (umgesetzt, in der Praxis prüfen)
+- [x] Einzelne Serien-Instanz **bearbeiten/verschieben** (FIX in test015):
+      Editor fragt beim Speichern „Nur diesen / Ganze Serie"; „Nur diesen"
+      legt einen Override (RECURRENCE-ID) an, „Ganze Serie" ändert nur den
+      Master (Overrides bleiben erhalten).
+- [ ] Ganztags-Serien: EXDATE/Override als VALUE=DATE (umgesetzt, praktisch
+      prüfen)
 
 ---
 

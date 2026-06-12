@@ -200,6 +200,53 @@ class EventsController extends AsyncNotifier<List<CalendarEvent>> {
     await future;
   }
 
+  /// Ändert nur eine einzelne Serien-Instanz (legt einen Override an), ohne
+  /// die restliche Serie zu verändern.
+  Future<void> updateOccurrence(
+    CalendarEvent event, {
+    required String summary,
+    required DateTime start,
+    DateTime? end,
+    bool allDay = false,
+    String? description,
+    String? location,
+  }) async {
+    final recurrenceId = event.recurrenceDate;
+    if (recurrenceId == null) {
+      // Kein Serien-Kontext → normale Aktualisierung.
+      return updateEvent(event,
+          summary: summary,
+          start: start,
+          end: end,
+          allDay: allDay,
+          description: description,
+          location: location);
+    }
+
+    final account = await ref.read(accountProvider.future);
+    if (account == null) return;
+    final client = ref.read(caldavClientProvider);
+
+    final ical = _builder.upsertOverride(
+      event.rawIcal,
+      recurrenceId: recurrenceId,
+      summary: summary,
+      start: start,
+      end: end,
+      allDay: allDay,
+      description: description,
+      location: location,
+    );
+    await client.putObject(
+      account,
+      event.objectHref,
+      ical,
+      ifMatchEtag: event.etag.isEmpty ? null : event.etag,
+    );
+    ref.invalidateSelf();
+    await future;
+  }
+
   Future<void> deleteEvent(CalendarEvent event) async {
     final account = await ref.read(accountProvider.future);
     if (account == null) return;

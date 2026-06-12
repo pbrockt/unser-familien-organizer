@@ -91,7 +91,8 @@ class IcalBuilder {
             ? start.add(const Duration(days: 1))
             : start.add(const Duration(hours: 1)));
     for (final c in components) {
-      if (c is VEvent) {
+      // Nur den Master/Einzeltermin ändern, Override-Instanzen unangetastet.
+      if (c is VEvent && c.recurrenceId == null) {
         c
           ..summary = summary
           ..start = start
@@ -105,6 +106,76 @@ class IcalBuilder {
     }
     final text = root.toString();
     return allDay ? _applyAllDay(text, start, effectiveEnd) : text;
+  }
+
+  /// Legt für eine Serie eine geänderte Einzel-Instanz (Override) an bzw.
+  /// ersetzt eine bestehende: ein zusätzliches VEVENT mit derselben UID und
+  /// `RECURRENCE-ID = recurrenceId` (= Originaldatum der Instanz). Dadurch wird
+  /// nur dieser eine Termin verschoben/geändert, nicht die ganze Serie.
+  String upsertOverride(
+    String rawIcal, {
+    required DateTime recurrenceId,
+    required String summary,
+    required DateTime start,
+    DateTime? end,
+    bool allDay = false,
+    String? description,
+    String? location,
+  }) {
+    final root = VComponent.parse(rawIcal);
+    if (root is! VCalendar) return rawIcal;
+
+    // UID der Serie ermitteln (Master bevorzugt).
+    String? uid;
+    for (final c in root.children) {
+      if (c is VEvent) {
+        uid ??= c.uid;
+        if (c.recurrenceRule != null) {
+          uid = c.uid;
+          break;
+        }
+      }
+    }
+    uid ??= newUid();
+
+    // Bestehenden Override mit gleicher RECURRENCE-ID ersetzen.
+    root.children.removeWhere((c) =>
+        c is VEvent &&
+        c.recurrenceId != null &&
+        _sameDay(c.recurrenceId!, recurrenceId));
+
+    final effectiveEnd = end ??
+        (allDay
+            ? start.add(const Duration(days: 1))
+            : start.add(const Duration(hours: 1)));
+
+    final override = VEvent(parent: root);
+    root.children.add(override);
+    override
+      ..timeStamp = DateTime.now()
+      ..uid = uid
+      ..recurrenceId = recurrenceId
+      ..summary = summary
+      ..start = start
+      ..end = effectiveEnd;
+    if (description != null && description.isNotEmpty) {
+      override.description = description;
+    }
+    if (location != null && location.isNotEmpty) {
+      override.location = location;
+    }
+
+    final text = root.toString();
+    return allDay ? _toAllDayLines(text) : text;
+  }
+
+  /// Wandelt DTSTART/DTEND/RECURRENCE-ID-Zeilen mit Uhrzeit in reine
+  /// Datumswerte (VALUE=DATE) um – für Ganztags-Serien.
+  String _toAllDayLines(String text) {
+    return text.replaceAllMapped(
+      RegExp(r'(DTSTART|DTEND|RECURRENCE-ID)[^:\r\n]*:(\d{8})T\d{6}Z?'),
+      (m) => '${m.group(1)};VALUE=DATE:${m.group(2)}',
+    );
   }
 
   /// Schließt eine einzelne Serien-Instanz aus: fügt der Serie ein EXDATE für
