@@ -132,8 +132,10 @@ Stand: Juni 2026 · App: Flutter (Android, später Web)
 - [x] Lokale Notifications (flutter_local_notifications + timezone)
 - [x] Erinnerung an anstehende Termine (Vorlaufzeit einstellbar)
 - [x] Benachrichtigungs-Berechtigung anfragen (Android 13+)
-- [ ] Erinnerung an fällige Aufgaben
-- [ ] Reminder über Reboot hinweg / Hintergrund-Sync (workmanager)
+- [x] Erinnerung an fällige Aufgaben (am Fälligkeitstag)
+- [x] Reminder überleben Neustart (Boot-Receiver)
+- [ ] Hintergrund-Sync, damit neue Termine ohne App-Öffnen geplant werden
+      (workmanager)
 
 ## 🔒 Phase 9 — Sicherheit
 - [ ] Keystore/Secrets-Handling final

@@ -63,7 +63,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               secondary: const Icon(Icons.notifications_active_outlined),
               title: const Text('Erinnerungen aktivieren'),
               subtitle: const Text(
-                  'Lokale Benachrichtigung vor anstehenden Terminen'),
+                  'Benachrichtigung vor Terminen und bei fälligen Aufgaben'),
               value: settings.enabled,
               onChanged: _toggleEnabled,
             ),
