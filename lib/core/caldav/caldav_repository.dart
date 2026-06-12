@@ -41,26 +41,52 @@ class CalDavRepository {
 
   bool _isOffline(Object e) => e is SocketException || e is http.ClientException;
 
-  Future<CalDavSnapshot> load(NextcloudAccount account) async {
-    // 1) Offline erzeugte Änderungen zuerst hochladen.
+  /// Sofort verfügbarer Stand aus dem lokalen Cache (kein Netz), oder `null`,
+  /// wenn noch nichts gecacht wurde. Für schnelles Anzeigen beim App-Start.
+  Future<CalDavSnapshot?> cachedSnapshot(NextcloudAccount account) async {
+    final cached = await _cache.load(_key(account));
+    if (cached == null) return null;
+    return CalDavSnapshot(cached.collections, cached.objects, fromCache: true);
+  }
+
+  /// Synchronisiert mit dem Server. **Delta-Sync:** pro Collection wird über
+  /// das CTag geprüft, ob sich etwas geändert hat – unveränderte Collections
+  /// werden NICHT neu heruntergeladen, sondern aus dem Cache übernommen.
+  /// Schlägt das Netz fehl, wird der Cache-Stand zurückgegeben.
+  Future<CalDavSnapshot> sync(NextcloudAccount account) async {
+    final key = _key(account);
+
+    // Offline erzeugte Änderungen zuerst hochladen.
     try {
       await flushQueue(account);
-    } catch (_) {
-      // Weiterhin offline → später erneut.
-    }
+    } catch (_) {}
 
-    // 2) Frisch vom Server laden …
     try {
       final collections = await _client.listCollections(account);
+      final cached = await _cache.load(key);
+      final prevByHref = {
+        for (final c in cached?.collections ?? const []) c.href: c,
+      };
+
       final objects = <String, List<CalDavObject>>{};
-      for (final c in collections) {
-        objects[c.href] = await _client.listObjects(account, c.href);
+      for (final col in collections) {
+        final prev = prevByHref[col.href];
+        final unchanged = prev != null &&
+            prev.ctag != null &&
+            col.ctag != null &&
+            prev.ctag == col.ctag;
+        if (unchanged) {
+          // CTag identisch → kein REPORT nötig, Objekte aus dem Cache.
+          objects[col.href] = cached!.objects[col.href] ?? const [];
+        } else {
+          objects[col.href] = await _client.listObjects(account, col.href);
+        }
       }
-      await _cache.save(_key(account), CachedSnapshot(collections, objects));
+
+      await _cache.save(key, CachedSnapshot(collections, objects));
       return CalDavSnapshot(collections, objects, fromCache: false);
     } catch (e) {
-      // … sonst den letzten Stand aus dem Cache.
-      final cached = await _cache.load(_key(account));
+      final cached = await _cache.load(key);
       if (cached != null) {
         return CalDavSnapshot(cached.collections, cached.objects,
             fromCache: true);

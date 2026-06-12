@@ -1,6 +1,8 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/auth/account_providers.dart';
+import '../../core/auth/nextcloud_account.dart';
+import '../../core/caldav/caldav_repository.dart';
 import '../../core/caldav/ical_builder.dart';
 import '../../core/caldav/ical_parser.dart';
 import '../../core/caldav/recurrence_expander.dart';
@@ -23,12 +25,46 @@ class EventsController extends AsyncNotifier<List<CalendarEvent>> {
   static const _builder = IcalBuilder();
   static const _expander = RecurrenceExpander();
 
+  bool _disposed = false;
+
   @override
   Future<List<CalendarEvent>> build() async {
+    ref.onDispose(() => _disposed = true);
     final account = await ref.watch(accountProvider.future);
     if (account == null) return const [];
+    final repo = ref.watch(caldavRepositoryProvider);
 
-    final snapshot = await ref.watch(caldavRepositoryProvider).load(account);
+    // Gecachte Daten sofort zeigen, im Hintergrund frisch synchronisieren.
+    final cached = await repo.cachedSnapshot(account);
+    if (cached == null) {
+      // Erststart ohne Cache: einmalig synchron laden.
+      return _buildEvents(await repo.sync(account));
+    }
+    Future.microtask(() => _backgroundRefresh(account, repo));
+    return _buildEvents(cached);
+  }
+
+  Future<void> _backgroundRefresh(
+      NextcloudAccount account, CalDavRepository repo) async {
+    try {
+      final fresh = await repo.sync(account);
+      if (_disposed) return;
+      state = AsyncData(_buildEvents(fresh));
+    } catch (_) {
+      // Offline o.ä. → gecachter Stand bleibt sichtbar.
+    }
+  }
+
+  /// Nach einer Änderung: frisch synchronisieren (Delta) und State setzen.
+  Future<void> _refresh(NextcloudAccount account) async {
+    final repo = ref.read(caldavRepositoryProvider);
+    final fresh = await repo.sync(account);
+    if (_disposed) return;
+    state = AsyncData(_buildEvents(fresh));
+  }
+
+  /// Baut aus einem Snapshot die anzuzeigenden Termine (inkl. Serien-Expansion).
+  List<CalendarEvent> _buildEvents(CalDavSnapshot snapshot) {
     final eventCollections =
         snapshot.collections.where((c) => c.supportsEvents);
 
@@ -137,8 +173,7 @@ class EventsController extends AsyncNotifier<List<CalendarEvent>> {
       ical,
       ifMatchEtag: event.etag.isEmpty ? null : event.etag,
     );
-    ref.invalidateSelf();
-    await future;
+    await _refresh(account);
   }
 
   Future<void> createEvent({
@@ -165,8 +200,7 @@ class EventsController extends AsyncNotifier<List<CalendarEvent>> {
       location: location,
     );
     await repo.putObject(account, _objectHref(calendarHref, uid), ical);
-    ref.invalidateSelf();
-    await future;
+    await _refresh(account);
   }
 
   Future<void> updateEvent(
@@ -197,8 +231,7 @@ class EventsController extends AsyncNotifier<List<CalendarEvent>> {
       ical,
       ifMatchEtag: event.etag.isEmpty ? null : event.etag,
     );
-    ref.invalidateSelf();
-    await future;
+    await _refresh(account);
   }
 
   /// Ändert nur eine einzelne Serien-Instanz (legt einen Override an), ohne
@@ -244,8 +277,7 @@ class EventsController extends AsyncNotifier<List<CalendarEvent>> {
       ical,
       ifMatchEtag: event.etag.isEmpty ? null : event.etag,
     );
-    ref.invalidateSelf();
-    await future;
+    await _refresh(account);
   }
 
   Future<void> deleteEvent(CalendarEvent event) async {
@@ -258,8 +290,7 @@ class EventsController extends AsyncNotifier<List<CalendarEvent>> {
       event.objectHref,
       ifMatchEtag: event.etag.isEmpty ? null : event.etag,
     );
-    ref.invalidateSelf();
-    await future;
+    await _refresh(account);
   }
 
   String _objectHref(String collectionHref, String uid) {

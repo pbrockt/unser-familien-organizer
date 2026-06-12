@@ -1,6 +1,8 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/auth/account_providers.dart';
+import '../../core/auth/nextcloud_account.dart';
+import '../../core/caldav/caldav_repository.dart';
 import '../../core/caldav/ical_builder.dart';
 import '../../core/caldav/ical_parser.dart';
 import '../../shared/utils/hex_color.dart';
@@ -17,13 +19,46 @@ class TasksController extends AsyncNotifier<List<TaskList>> {
   static const _parser = IcalParser();
   static const _builder = IcalBuilder();
 
+  bool _disposed = false;
+
   @override
   Future<List<TaskList>> build() async {
+    ref.onDispose(() => _disposed = true);
     final account = await ref.watch(accountProvider.future);
     if (account == null) return const [];
-
-    final snapshot = await ref.watch(caldavRepositoryProvider).load(account);
+    final repo = ref.watch(caldavRepositoryProvider);
     final settings = ref.watch(memberSettingsProvider).value ?? const {};
+
+    final cached = await repo.cachedSnapshot(account);
+    if (cached == null) {
+      return _buildLists(await repo.sync(account), settings);
+    }
+    Future.microtask(() => _backgroundRefresh(account, repo, settings));
+    return _buildLists(cached, settings);
+  }
+
+  Future<void> _backgroundRefresh(NextcloudAccount account,
+      CalDavRepository repo, Map<String, MemberSetting> settings) async {
+    try {
+      final fresh = await repo.sync(account);
+      if (_disposed) return;
+      state = AsyncData(_buildLists(fresh, settings));
+    } catch (_) {
+      // Offline o.ä. → gecachter Stand bleibt sichtbar.
+    }
+  }
+
+  /// Nach einer Änderung frisch synchronisieren (Delta) und State setzen.
+  Future<void> _refresh(NextcloudAccount account) async {
+    final repo = ref.read(caldavRepositoryProvider);
+    final settings = ref.read(memberSettingsProvider).value ?? const {};
+    final fresh = await repo.sync(account);
+    if (_disposed) return;
+    state = AsyncData(_buildLists(fresh, settings));
+  }
+
+  List<TaskList> _buildLists(
+      CalDavSnapshot snapshot, Map<String, MemberSetting> settings) {
     final todoCollections =
         snapshot.collections.where((c) => c.supportsTodos);
 
@@ -137,8 +172,7 @@ class TasksController extends AsyncNotifier<List<TaskList>> {
       description: description,
     );
     await repo.putObject(account, _objectHref(listHref, uid), ical);
-    ref.invalidateSelf();
-    await future;
+    await _refresh(account);
   }
 
   /// Aktualisiert Titel/Fälligkeit/Beschreibung einer Aufgabe.
@@ -166,8 +200,7 @@ class TasksController extends AsyncNotifier<List<TaskList>> {
       ical,
       ifMatchEtag: item.etag.isEmpty ? null : item.etag,
     );
-    ref.invalidateSelf();
-    await future;
+    await _refresh(account);
   }
 
   /// Löscht eine Aufgabe (CalDAV-DELETE) und lädt danach neu.
@@ -181,8 +214,7 @@ class TasksController extends AsyncNotifier<List<TaskList>> {
       item.objectHref,
       ifMatchEtag: item.etag.isEmpty ? null : item.etag,
     );
-    ref.invalidateSelf();
-    await future;
+    await _refresh(account);
   }
 
   /// Löscht alle erledigten Aufgaben einer Liste (z.B. „Erledigte entfernen"
@@ -208,8 +240,7 @@ class TasksController extends AsyncNotifier<List<TaskList>> {
         ifMatchEtag: item.etag.isEmpty ? null : item.etag,
       );
     }
-    ref.invalidateSelf();
-    await future;
+    await _refresh(account);
   }
 
   /// Ziel-URL eines neuen Objekts: `<collection>/<uid>.ics`.
