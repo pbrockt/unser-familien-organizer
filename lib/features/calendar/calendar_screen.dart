@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 import 'package:table_calendar/table_calendar.dart';
 
 import '../../core/auth/account_providers.dart';
+import '../members/member_settings.dart';
 import 'calendar_event.dart';
 import 'event_editor_sheet.dart';
 import 'event_providers.dart';
@@ -23,6 +24,35 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
   CalendarFormat _format = CalendarFormat.month;
 
   DateTime _dayKey(DateTime d) => DateTime(d.year, d.month, d.day);
+
+  /// Farb-Legende der Mitglieder, zugleich Schnellfilter (Tippen blendet
+  /// einen Kalender ein/aus).
+  Widget _legend(List<Member> members) {
+    if (members.length < 2) return const SizedBox.shrink();
+    return SizedBox(
+      height: 46,
+      child: ListView(
+        scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+        children: [
+          for (final m in members)
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 4),
+              child: FilterChip(
+                selected: !m.hidden,
+                showCheckmark: false,
+                visualDensity: VisualDensity.compact,
+                avatar: CircleAvatar(backgroundColor: m.color, radius: 7),
+                label: Text(m.name),
+                onSelected: (sel) => ref
+                    .read(memberSettingsProvider.notifier)
+                    .setHidden(m.href, !sel),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -115,6 +145,7 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
                   },
                 ),
               ),
+              _legend(ref.watch(membersProvider)),
               const Divider(height: 1),
               Expanded(
                 child: eventsAsync.when(

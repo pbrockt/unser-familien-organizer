@@ -81,7 +81,13 @@ class CalendarEvent {
     );
   }
 
-  CalendarEvent copyWith({DateTime? start, DateTime? end, DateTime? recurrenceDate, bool? isRecurring}) {
+  CalendarEvent copyWith({
+    DateTime? start,
+    DateTime? end,
+    DateTime? recurrenceDate,
+    bool? isRecurring,
+    Color? color,
+  }) {
     return CalendarEvent(
       uid: uid,
       summary: summary,
@@ -91,7 +97,7 @@ class CalendarEvent {
       location: location,
       allDay: allDay,
       isRecurring: isRecurring ?? this.isRecurring,
-      color: color,
+      color: color ?? this.color,
       calendarName: calendarName,
       calendarHref: calendarHref,
       objectHref: objectHref,

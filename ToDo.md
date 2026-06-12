@@ -93,8 +93,11 @@ Stand: Juni 2026 · App: Flutter (Android, später Web)
 - [ ] Menge im Artikel (DESCRIPTION)
 
 ## 👪 Phase 7 — Familiengruppen
-- [ ] Mitglieder + Farbzuordnung
-- [ ] Geteilte Kalender/Listen auswählen
+- [x] Mitglieder & Farben: Kalender lokal benennen, Farbe wählen, ein-/
+      ausblenden (Mitglieder-Screen im Familie-Tab)
+- [x] Farb-Legende im Kalender (zugleich Schnellfilter pro Person)
+- [x] Sichtbarkeitsfilter wirkt auf Kalender + Dashboard
+- [ ] Mitglieder-Farbe auch in Aufgaben/Einkauf anwenden
 - [ ] (Optional) Einladungs-/Verknüpfungslogik
 
 ## 🏠 Startseite / Dashboard

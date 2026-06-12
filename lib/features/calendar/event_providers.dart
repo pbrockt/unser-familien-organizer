@@ -5,6 +5,7 @@ import '../../core/caldav/ical_builder.dart';
 import '../../core/caldav/ical_parser.dart';
 import '../../core/caldav/recurrence_expander.dart';
 import '../../shared/utils/hex_color.dart';
+import '../members/member_settings.dart';
 import 'calendar_event.dart';
 
 /// Lädt alle Termine aus den Kalender-Collections der Nextcloud und verwaltet
@@ -268,12 +269,32 @@ class EventsController extends AsyncNotifier<List<CalendarEvent>> {
   }
 }
 
+/// Sichtbare Termine: wendet Mitglieder-Anpassungen an (eigene Farbe) und
+/// blendet ausgeblendete Kalender aus.
+final visibleEventsProvider = Provider.autoDispose<List<CalendarEvent>>((ref) {
+  final events = ref.watch(eventsControllerProvider).value ?? const [];
+  final settings = ref.watch(memberSettingsProvider).value ?? const {};
+  if (settings.isEmpty) return events;
+  final out = <CalendarEvent>[];
+  for (final e in events) {
+    final s = settings[e.calendarHref];
+    if (s == null) {
+      out.add(e);
+      continue;
+    }
+    if (s.hidden) continue;
+    final override = parseHexColor(s.colorHex);
+    out.add(override != null ? e.copyWith(color: override) : e);
+  }
+  return out;
+});
+
 /// Termine gruppiert nach Tag – praktisch als `eventLoader` für table_calendar.
 final eventsByDayProvider =
     Provider.autoDispose<Map<DateTime, List<CalendarEvent>>>((ref) {
-  final asyncEvents = ref.watch(eventsControllerProvider);
+  final visible = ref.watch(visibleEventsProvider);
   final map = <DateTime, List<CalendarEvent>>{};
-  for (final e in asyncEvents.value ?? const []) {
+  for (final e in visible) {
     // Mehrtägige Termine an jedem Tag eintragen (mit Sicherheitskappe).
     var day = e.startDay;
     final last = e.endDayInclusive;

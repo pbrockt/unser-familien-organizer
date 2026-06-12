@@ -20,7 +20,7 @@ class HomeScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final account = ref.watch(accountProvider).value;
-    final events = ref.watch(eventsControllerProvider).value ?? const [];
+    final events = ref.watch(visibleEventsProvider);
     final taskLists = ref.watch(tasksControllerProvider).value ?? const [];
     final shopping = ref.watch(shoppingSummaryProvider).value;
     final pendingSync = ref.watch(pendingSyncCountProvider).value ?? 0;

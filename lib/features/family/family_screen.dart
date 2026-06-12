@@ -5,6 +5,7 @@ import '../../core/auth/account_providers.dart';
 import '../../core/auth/nextcloud_account.dart';
 import '../../core/caldav/caldav_client.dart';
 import '../../shared/utils/hex_color.dart';
+import '../members/members_screen.dart';
 import '../settings/settings_screen.dart';
 import 'connection_screen.dart';
 
@@ -114,6 +115,18 @@ class _Connected extends ConsumerWidget {
                 icon: const Icon(Icons.edit_outlined),
                 tooltip: 'Bearbeiten',
                 onPressed: onEdit,
+              ),
+            ),
+          ),
+          const SizedBox(height: 12),
+          Card(
+            child: ListTile(
+              leading: const CircleAvatar(child: Icon(Icons.palette_outlined)),
+              title: const Text('Mitglieder & Farben'),
+              subtitle: const Text('Namen, Farben & Sichtbarkeit pro Kalender'),
+              trailing: const Icon(Icons.chevron_right),
+              onTap: () => Navigator.of(context).push(
+                MaterialPageRoute(builder: (_) => const MembersScreen()),
               ),
             ),
           ),
