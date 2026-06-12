@@ -76,7 +76,7 @@ class _MemberTile extends ConsumerWidget {
           ),
         ),
         title: Text(member.name),
-        subtitle: Text(member.hidden ? 'Ausgeblendet' : 'Sichtbar'),
+        subtitle: Text(_typeLabel()),
         trailing: Switch(
           value: !member.hidden,
           onChanged: (visible) => notifier.setHidden(member.href, !visible),
@@ -84,6 +84,14 @@ class _MemberTile extends ConsumerWidget {
         onTap: () => _rename(context, ref),
       ),
     );
+  }
+
+  String _typeLabel() {
+    final types = [
+      if (member.supportsEvents) 'Termine',
+      if (member.supportsTodos) 'Aufgaben',
+    ];
+    return types.isEmpty ? 'Liste' : types.join(' · ');
   }
 
   Future<void> _rename(BuildContext context, WidgetRef ref) async {

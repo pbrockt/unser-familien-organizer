@@ -4,6 +4,7 @@ import '../../core/auth/account_providers.dart';
 import '../../core/caldav/ical_builder.dart';
 import '../../core/caldav/ical_parser.dart';
 import '../../shared/utils/hex_color.dart';
+import '../members/member_settings.dart';
 import 'task_item.dart';
 
 /// Lädt Aufgabenlisten aus der Nextcloud und verwaltet das Abhaken.
@@ -22,12 +23,18 @@ class TasksController extends AsyncNotifier<List<TaskList>> {
     if (account == null) return const [];
 
     final snapshot = await ref.watch(caldavRepositoryProvider).load(account);
+    final settings = ref.watch(memberSettingsProvider).value ?? const {};
     final todoCollections =
         snapshot.collections.where((c) => c.supportsTodos);
 
     final lists = <TaskList>[];
     for (final col in todoCollections) {
-      final color = parseHexColor(col.color);
+      // Mitglieder-Anpassung (eigene Farbe/Name) anwenden.
+      final member = settings[col.href];
+      final color = parseHexColor(member?.colorHex) ?? parseHexColor(col.color);
+      final name = (member?.name != null && member!.name!.isNotEmpty)
+          ? member.name!
+          : col.displayName;
       final objects = snapshot.objectsOf(col.href);
 
       final items = <TaskItem>[];
@@ -45,7 +52,7 @@ class TasksController extends AsyncNotifier<List<TaskList>> {
       _sortItems(items);
       lists.add(TaskList(
         href: col.href,
-        name: col.displayName,
+        name: name,
         color: color,
         items: items,
       ));

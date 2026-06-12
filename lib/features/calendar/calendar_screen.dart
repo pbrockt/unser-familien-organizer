@@ -145,7 +145,10 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
                   },
                 ),
               ),
-              _legend(ref.watch(membersProvider)),
+              _legend(ref
+                  .watch(membersProvider)
+                  .where((m) => m.supportsEvents)
+                  .toList()),
               const Divider(height: 1),
               Expanded(
                 child: eventsAsync.when(

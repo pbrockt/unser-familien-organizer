@@ -88,26 +88,36 @@ class MemberSettingsController
       _update(href, _of(href).copyWith(hidden: hidden));
 }
 
-/// Ein anzeigbares „Mitglied" = ein Kalender mit effektivem Namen/Farbe.
+/// Ein anzeigbares „Mitglied" = ein Kalender/eine Liste mit effektivem
+/// Namen/Farbe.
 typedef Member = ({
   String href,
   String name,
   Color color,
   bool hidden,
+  bool supportsEvents,
+  bool supportsTodos,
 });
 
-/// Mitglieder-Liste (event-fähige Kalender) mit angewandten Anpassungen.
+/// Mitglieder-Liste (alle Collections) mit angewandten Anpassungen.
 final membersProvider = Provider.autoDispose<List<Member>>((ref) {
   final collections = ref.watch(collectionsProvider).value ?? const [];
   final settings = ref.watch(memberSettingsProvider).value ?? const {};
   final result = <Member>[];
-  for (final c in collections.where((c) => c.supportsEvents)) {
+  for (final c in collections) {
     final s = settings[c.href];
-    final name = (s?.name != null && s!.name!.isNotEmpty) ? s.name! : c.displayName;
-    final color = parseHexColor(s?.colorHex) ??
-        parseHexColor(c.color) ??
-        AppTheme.seed;
-    result.add((href: c.href, name: name, color: color, hidden: s?.hidden ?? false));
+    final name =
+        (s?.name != null && s!.name!.isNotEmpty) ? s.name! : c.displayName;
+    final color =
+        parseHexColor(s?.colorHex) ?? parseHexColor(c.color) ?? AppTheme.seed;
+    result.add((
+      href: c.href,
+      name: name,
+      color: color,
+      hidden: s?.hidden ?? false,
+      supportsEvents: c.supportsEvents,
+      supportsTodos: c.supportsTodos,
+    ));
   }
   return result;
 });

@@ -97,7 +97,8 @@ Stand: Juni 2026 · App: Flutter (Android, später Web)
       ausblenden (Mitglieder-Screen im Familie-Tab)
 - [x] Farb-Legende im Kalender (zugleich Schnellfilter pro Person)
 - [x] Sichtbarkeitsfilter wirkt auf Kalender + Dashboard
-- [ ] Mitglieder-Farbe auch in Aufgaben/Einkauf anwenden
+- [x] Mitglieder-Farbe & -Name auch in Aufgaben/Einkauf; Mitglieder-Screen
+      deckt alle Listen ab (Termine + Aufgaben), Legende zeigt nur Kalender
 - [ ] (Optional) Einladungs-/Verknüpfungslogik
 
 ## 🏠 Startseite / Dashboard
