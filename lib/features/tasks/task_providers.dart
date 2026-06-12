@@ -78,7 +78,7 @@ class TasksController extends AsyncNotifier<List<TaskList>> {
 
     final account = await ref.read(accountProvider.future);
     if (account == null) return;
-    final client = ref.read(caldavClientProvider);
+    final repo = ref.read(caldavRepositoryProvider);
 
     final target = !item.completed;
 
@@ -88,17 +88,17 @@ class TasksController extends AsyncNotifier<List<TaskList>> {
     try {
       final newIcal =
           _parser.toggleTodoCompletion(item.rawIcal, completed: target);
-      final newEtag = await client.putObject(
+      final newEtag = await repo.putObject(
         account,
         item.objectHref,
         newIcal,
         ifMatchEtag: item.etag.isEmpty ? null : item.etag,
       );
-      // 2) Erfolg: rawIcal/ETag im State aktualisieren.
+      // 2) Erfolg: rawIcal/ETag im State aktualisieren (offline: ETag bleibt).
       final updated = item.copyWith(
         completed: target,
         rawIcal: newIcal,
-        etag: newEtag,
+        etag: newEtag ?? item.etag,
       );
       final base = state.value ?? current;
       state = AsyncData(_replace(base, item, updated, resort: true));
@@ -120,7 +120,7 @@ class TasksController extends AsyncNotifier<List<TaskList>> {
   }) async {
     final account = await ref.read(accountProvider.future);
     if (account == null) return;
-    final client = ref.read(caldavClientProvider);
+    final repo = ref.read(caldavRepositoryProvider);
 
     final uid = _builder.newUid();
     final ical = _builder.buildTodo(
@@ -129,7 +129,7 @@ class TasksController extends AsyncNotifier<List<TaskList>> {
       due: due,
       description: description,
     );
-    await client.putObject(account, _objectHref(listHref, uid), ical);
+    await repo.putObject(account, _objectHref(listHref, uid), ical);
     ref.invalidateSelf();
     await future;
   }
@@ -144,7 +144,7 @@ class TasksController extends AsyncNotifier<List<TaskList>> {
   }) async {
     final account = await ref.read(accountProvider.future);
     if (account == null) return;
-    final client = ref.read(caldavClientProvider);
+    final repo = ref.read(caldavRepositoryProvider);
 
     final ical = _builder.updateTodo(
       item.rawIcal,
@@ -153,7 +153,7 @@ class TasksController extends AsyncNotifier<List<TaskList>> {
       clearDue: clearDue,
       description: description,
     );
-    await client.putObject(
+    await repo.putObject(
       account,
       item.objectHref,
       ical,
@@ -167,9 +167,9 @@ class TasksController extends AsyncNotifier<List<TaskList>> {
   Future<void> deleteTask(TaskItem item) async {
     final account = await ref.read(accountProvider.future);
     if (account == null) return;
-    final client = ref.read(caldavClientProvider);
+    final repo = ref.read(caldavRepositoryProvider);
 
-    await client.deleteObject(
+    await repo.deleteObject(
       account,
       item.objectHref,
       ifMatchEtag: item.etag.isEmpty ? null : item.etag,
@@ -185,7 +185,7 @@ class TasksController extends AsyncNotifier<List<TaskList>> {
     if (lists == null) return;
     final account = await ref.read(accountProvider.future);
     if (account == null) return;
-    final client = ref.read(caldavClientProvider);
+    final repo = ref.read(caldavRepositoryProvider);
 
     final completed = <TaskItem>[];
     for (final list in lists) {
@@ -195,7 +195,7 @@ class TasksController extends AsyncNotifier<List<TaskList>> {
     if (completed.isEmpty) return;
 
     for (final item in completed) {
-      await client.deleteObject(
+      await repo.deleteObject(
         account,
         item.objectHref,
         ifMatchEtag: item.etag.isEmpty ? null : item.etag,

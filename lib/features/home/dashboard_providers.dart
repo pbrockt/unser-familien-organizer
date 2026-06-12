@@ -1,8 +1,20 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../../core/auth/account_providers.dart';
+import '../calendar/event_providers.dart';
 import '../tasks/task_item.dart';
 import '../tasks/task_providers.dart';
+
+/// Anzahl offline erzeugter Änderungen, die noch auf Synchronisierung warten.
+final pendingSyncCountProvider = FutureProvider.autoDispose<int>((ref) async {
+  // Bei Änderungen an Terminen/Aufgaben neu auswerten.
+  ref.watch(eventsControllerProvider);
+  ref.watch(tasksControllerProvider);
+  final account = await ref.watch(accountProvider.future);
+  if (account == null) return 0;
+  return ref.read(caldavRepositoryProvider).pendingCount(account);
+});
 
 /// Kurz-Zusammenfassung der Einkaufsliste fürs Dashboard.
 typedef ShoppingSummary = ({String? listName, int openCount});

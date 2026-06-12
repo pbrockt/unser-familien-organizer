@@ -123,14 +123,14 @@ class EventsController extends AsyncNotifier<List<CalendarEvent>> {
 
     final account = await ref.read(accountProvider.future);
     if (account == null) return;
-    final client = ref.read(caldavClientProvider);
+    final repo = ref.read(caldavRepositoryProvider);
 
     final ical = _builder.excludeOccurrence(
       event.rawIcal,
       date,
       allDay: event.allDay,
     );
-    await client.putObject(
+    await repo.putObject(
       account,
       event.objectHref,
       ical,
@@ -151,7 +151,7 @@ class EventsController extends AsyncNotifier<List<CalendarEvent>> {
   }) async {
     final account = await ref.read(accountProvider.future);
     if (account == null) return;
-    final client = ref.read(caldavClientProvider);
+    final repo = ref.read(caldavRepositoryProvider);
 
     final uid = _builder.newUid();
     final ical = _builder.buildEvent(
@@ -163,7 +163,7 @@ class EventsController extends AsyncNotifier<List<CalendarEvent>> {
       description: description,
       location: location,
     );
-    await client.putObject(account, _objectHref(calendarHref, uid), ical);
+    await repo.putObject(account, _objectHref(calendarHref, uid), ical);
     ref.invalidateSelf();
     await future;
   }
@@ -179,7 +179,7 @@ class EventsController extends AsyncNotifier<List<CalendarEvent>> {
   }) async {
     final account = await ref.read(accountProvider.future);
     if (account == null) return;
-    final client = ref.read(caldavClientProvider);
+    final repo = ref.read(caldavRepositoryProvider);
 
     final ical = _builder.updateEvent(
       event.rawIcal,
@@ -190,7 +190,7 @@ class EventsController extends AsyncNotifier<List<CalendarEvent>> {
       description: description,
       location: location,
     );
-    await client.putObject(
+    await repo.putObject(
       account,
       event.objectHref,
       ical,
@@ -225,7 +225,7 @@ class EventsController extends AsyncNotifier<List<CalendarEvent>> {
 
     final account = await ref.read(accountProvider.future);
     if (account == null) return;
-    final client = ref.read(caldavClientProvider);
+    final repo = ref.read(caldavRepositoryProvider);
 
     final ical = _builder.upsertOverride(
       event.rawIcal,
@@ -237,7 +237,7 @@ class EventsController extends AsyncNotifier<List<CalendarEvent>> {
       description: description,
       location: location,
     );
-    await client.putObject(
+    await repo.putObject(
       account,
       event.objectHref,
       ical,
@@ -250,9 +250,9 @@ class EventsController extends AsyncNotifier<List<CalendarEvent>> {
   Future<void> deleteEvent(CalendarEvent event) async {
     final account = await ref.read(accountProvider.future);
     if (account == null) return;
-    final client = ref.read(caldavClientProvider);
+    final repo = ref.read(caldavRepositoryProvider);
 
-    await client.deleteObject(
+    await repo.deleteObject(
       account,
       event.objectHref,
       ifMatchEtag: event.etag.isEmpty ? null : event.etag,

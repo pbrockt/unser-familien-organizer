@@ -23,6 +23,7 @@ class HomeScreen extends ConsumerWidget {
     final events = ref.watch(eventsControllerProvider).value ?? const [];
     final taskLists = ref.watch(tasksControllerProvider).value ?? const [];
     final shopping = ref.watch(shoppingSummaryProvider).value;
+    final pendingSync = ref.watch(pendingSyncCountProvider).value ?? 0;
 
     final now = DateTime.now();
     final today = DateTime(now.year, now.month, now.day);
@@ -42,6 +43,15 @@ class HomeScreen extends ConsumerWidget {
           padding: EdgeInsets.zero,
           children: [
             _Header(date: now),
+            if (account != null && pendingSync > 0)
+              _SyncBanner(
+                count: pendingSync,
+                onSync: () {
+                  ref.invalidate(eventsControllerProvider);
+                  ref.invalidate(tasksControllerProvider);
+                  ref.invalidate(pendingSyncCountProvider);
+                },
+              ),
             if (account == null)
               const _ConnectCard()
             else ...[
@@ -323,6 +333,40 @@ class _ShoppingCard extends StatelessWidget {
           subtitle: Text('${summary.openCount} Artikel offen'),
           trailing: const Icon(Icons.chevron_right),
           onTap: onTap,
+        ),
+      ),
+    );
+  }
+}
+
+class _SyncBanner extends StatelessWidget {
+  const _SyncBanner({required this.count, required this.onSync});
+  final int count;
+  final VoidCallback onSync;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+      child: Card(
+        color: scheme.secondaryContainer,
+        child: ListTile(
+          leading: Icon(Icons.cloud_sync_outlined,
+              color: scheme.onSecondaryContainer),
+          title: Text(
+            count == 1
+                ? '1 Änderung wartet auf Synchronisierung'
+                : '$count Änderungen warten auf Synchronisierung',
+            style: TextStyle(color: scheme.onSecondaryContainer),
+          ),
+          subtitle: Text('Offline gespeichert – tippe zum Hochladen',
+              style: TextStyle(color: scheme.onSecondaryContainer)),
+          trailing: FilledButton.tonal(
+            onPressed: onSync,
+            child: const Text('Sync'),
+          ),
+          onTap: onSync,
         ),
       ),
     );

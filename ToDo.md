@@ -51,8 +51,11 @@ Stand: Juni 2026 · App: Flutter (Android, später Web)
 - [x] Serientermine (RRULE) expandieren (tägl./wöch./monatl./jährl.,
       INTERVAL/COUNT/UNTIL/BYDAY)
 - [x] SQLite-Cache (sqflite) für Offline-Lesen (Repository mit Cache-Fallback)
-- [ ] Offline-Hinweis im UI + Schreib-Queue für Offline-Änderungen
-- [ ] `SyncEngine`: Delta-Sync (CTag/ETag) + Konfliktlösung
+- [x] Offline-Schreiben: Queue (SQLite) + optimistischer Cache, automatisches
+      Abspielen beim nächsten Online-Laden; Dashboard-Hinweis „X Änderungen
+      warten auf Sync" mit manuellem Sync
+- [ ] Konfliktlösung bei ETag-Mismatch (aktuell: Server gewinnt / Op verworfen)
+- [ ] Delta-Sync via CTag/ETag (nur Geändertes laden)
 
 ## 🔐 Phase 3 — Nextcloud-Verbindung & Onboarding
 - [ ] Nextcloud Login Flow v2 (App-Passwort, nie Hauptpasswort)
