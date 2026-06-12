@@ -48,8 +48,7 @@ class _FakeCache extends CalDavCache {
 
 /// Fake-Client mit umschaltbarem Offline-Zustand.
 class _FakeClient implements CalDavClient {
-  _FakeClient({this.offline = false});
-  bool offline;
+  bool offline = false;
   final List<String> puts = [];
   final List<String> deletes = [];
 
