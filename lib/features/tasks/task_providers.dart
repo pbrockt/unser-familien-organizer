@@ -5,9 +5,9 @@ import '../../core/auth/nextcloud_account.dart';
 import '../../core/caldav/caldav_repository.dart';
 import '../../core/caldav/ical_builder.dart';
 import '../../core/caldav/ical_parser.dart';
-import '../../shared/utils/hex_color.dart';
 import '../members/member_settings.dart';
 import 'task_item.dart';
+import 'tasks_builder.dart';
 
 /// Lädt Aufgabenlisten aus der Nextcloud und verwaltet das Abhaken.
 final tasksControllerProvider =
@@ -31,10 +31,10 @@ class TasksController extends AsyncNotifier<List<TaskList>> {
 
     final cached = await repo.cachedSnapshot(account);
     if (cached == null) {
-      return _buildLists(await repo.sync(account), settings);
+      return buildTaskListsFromSnapshot(await repo.sync(account), settings);
     }
     Future.microtask(() => _backgroundRefresh(account, repo, settings));
-    return _buildLists(cached, settings);
+    return buildTaskListsFromSnapshot(cached, settings);
   }
 
   Future<void> _backgroundRefresh(NextcloudAccount account,
@@ -42,7 +42,7 @@ class TasksController extends AsyncNotifier<List<TaskList>> {
     try {
       final fresh = await repo.sync(account);
       if (_disposed) return;
-      state = AsyncData(_buildLists(fresh, settings));
+      state = AsyncData(buildTaskListsFromSnapshot(fresh, settings));
     } catch (_) {
       // Offline o.ä. → gecachter Stand bleibt sichtbar.
     }
@@ -54,62 +54,7 @@ class TasksController extends AsyncNotifier<List<TaskList>> {
     final settings = ref.read(memberSettingsProvider).value ?? const {};
     final fresh = await repo.sync(account);
     if (_disposed) return;
-    state = AsyncData(_buildLists(fresh, settings));
-  }
-
-  List<TaskList> _buildLists(
-      CalDavSnapshot snapshot, Map<String, MemberSetting> settings) {
-    final todoCollections =
-        snapshot.collections.where((c) => c.supportsTodos);
-
-    final lists = <TaskList>[];
-    for (final col in todoCollections) {
-      // Mitglieder-Anpassung (eigene Farbe/Name) anwenden.
-      final member = settings[col.href];
-      final color = parseHexColor(member?.colorHex) ?? parseHexColor(col.color);
-      final name = (member?.name != null && member!.name!.isNotEmpty)
-          ? member.name!
-          : col.displayName;
-      final objects = snapshot.objectsOf(col.href);
-
-      final items = <TaskItem>[];
-      for (final obj in objects) {
-        for (final parsed in _parser.parseTodos(obj.icalData)) {
-          items.add(TaskItem.fromParsed(
-            parsed,
-            objectHref: obj.href,
-            etag: obj.etag,
-            rawIcal: obj.icalData,
-            color: color,
-          ));
-        }
-      }
-      _sortItems(items);
-      lists.add(TaskList(
-        href: col.href,
-        name: name,
-        color: color,
-        items: items,
-      ));
-    }
-    return lists;
-  }
-
-  /// Offene zuerst, dann nach Fälligkeit (ohne Datum ans Ende), dann Name.
-  void _sortItems(List<TaskItem> items) {
-    items.sort((a, b) {
-      if (a.completed != b.completed) return a.completed ? 1 : -1;
-      final ad = a.due, bd = b.due;
-      if (ad != null && bd != null) {
-        final c = ad.compareTo(bd);
-        if (c != 0) return c;
-      } else if (ad != null) {
-        return -1;
-      } else if (bd != null) {
-        return 1;
-      }
-      return a.summary.toLowerCase().compareTo(b.summary.toLowerCase());
-    });
+    state = AsyncData(buildTaskListsFromSnapshot(fresh, settings));
   }
 
   /// Hakt eine Aufgabe ab bzw. wieder auf – optimistisch im UI, dann per
@@ -265,7 +210,7 @@ class TasksController extends AsyncNotifier<List<TaskList>> {
         }
         return t;
       }).toList();
-      if (changed && resort) _sortItems(items);
+      if (changed && resort) sortTaskItems(items);
       return changed ? list.withItems(items) : list;
     }).toList();
   }

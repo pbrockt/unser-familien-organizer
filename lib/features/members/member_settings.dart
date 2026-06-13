@@ -7,6 +7,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../../core/auth/account_providers.dart';
 import '../../shared/theme/app_theme.dart';
 import '../../shared/utils/hex_color.dart';
+import '../calendar/calendar_event.dart';
 
 /// Lokale Anpassung eines Kalenders/einer Person: eigener Name, eigene Farbe,
 /// Sichtbarkeit. Gilt nur auf diesem Gerät (kein Eingriff in Nextcloud).
@@ -98,6 +99,28 @@ typedef Member = ({
   bool supportsEvents,
   bool supportsTodos,
 });
+
+/// Wendet Mitglieder-Anpassungen auf Termine an: blendet ausgeblendete
+/// Kalender aus und überschreibt die Farbe. Reine Funktion (auch im
+/// Hintergrund-Isolate nutzbar).
+List<CalendarEvent> filterVisibleEvents(
+  List<CalendarEvent> events,
+  Map<String, MemberSetting> settings,
+) {
+  if (settings.isEmpty) return events;
+  final out = <CalendarEvent>[];
+  for (final e in events) {
+    final s = settings[e.calendarHref];
+    if (s == null) {
+      out.add(e);
+      continue;
+    }
+    if (s.hidden) continue;
+    final override = parseHexColor(s.colorHex);
+    out.add(override != null ? e.copyWith(color: override) : e);
+  }
+  return out;
+}
 
 /// Mitglieder-Liste (alle Collections) mit angewandten Anpassungen.
 final membersProvider = Provider.autoDispose<List<Member>>((ref) {

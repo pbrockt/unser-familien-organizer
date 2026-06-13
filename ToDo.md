@@ -134,8 +134,9 @@ Stand: Juni 2026 · App: Flutter (Android, später Web)
 - [x] Benachrichtigungs-Berechtigung anfragen (Android 13+)
 - [x] Erinnerung an fällige Aufgaben (am Fälligkeitstag)
 - [x] Reminder überleben Neustart (Boot-Receiver)
-- [ ] Hintergrund-Sync, damit neue Termine ohne App-Öffnen geplant werden
-      (workmanager)
+- [x] Hintergrund-Sync (workmanager): synchronisiert ~alle 2 h im Hintergrund
+      und plant Erinnerungen neu – neue Termine werden auch ohne App-Öffnen
+      berücksichtigt (an/aus über die Erinnerungs-Einstellung)
 
 ## 🔒 Phase 9 — Sicherheit
 - [ ] Keystore/Secrets-Handling final

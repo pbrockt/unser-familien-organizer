@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../core/background/background_sync.dart';
 import 'about_update_sheet.dart';
 import 'notification_providers.dart';
 
@@ -45,6 +46,12 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       }
     }
     await ref.read(notificationSettingsProvider.notifier).setEnabled(value);
+    // Hintergrund-Sync entsprechend starten/stoppen.
+    if (value) {
+      await registerBackgroundSync();
+    } else {
+      await cancelBackgroundSync();
+    }
   }
 
   @override
