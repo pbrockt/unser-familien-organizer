@@ -6,7 +6,7 @@
     <!-- Damit geplante Erinnerungen einen Neustart überleben. -->
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED"/>
     <application
-        android:label="family_planner"
+        android:label="Unser Familien-Organizer"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">
         <activity

@@ -123,7 +123,7 @@ class NotificationService {
     await init();
     await _plugin.show(
       id: 999999,
-      title: 'FamilyPlanner',
+      title: 'Unser Familien-Organizer',
       body: 'Benachrichtigungen funktionieren ✓',
       notificationDetails: const NotificationDetails(
         android: AndroidNotificationDetails(

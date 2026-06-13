@@ -1,8 +1,10 @@
-# 📅 FamilyPlanner
+# 📅 Unser Familien-Organizer
 
-Selbst-gehosteter **Familienplaner** im Planily/FamilyWall-Stil — Kalender,
-Aufgaben und Einkaufsliste für die ganze Familie. Alle Daten leben in deiner
-eigenen **Nextcloud** und werden per **CalDAV** synchronisiert.
+**Der Familienplaner für die Nextcloud!**
+
+Selbst-gehosteter **Familien-Organizer** — Kalender, Aufgaben und Einkaufsliste
+für die ganze Familie. Alle Daten leben in deiner eigenen **Nextcloud** und
+werden per **CalDAV** synchronisiert.
 
 > Kein fremder Server. Kein Abo. Kein fremdes Konto.
 

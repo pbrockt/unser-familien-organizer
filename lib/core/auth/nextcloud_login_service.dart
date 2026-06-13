@@ -49,7 +49,7 @@ class NextcloudLoginService {
         Uri.parse('$baseUrl/index.php/login/v2'),
         headers: const {
           // Wird Nextcloud als App-Name angezeigt.
-          'User-Agent': 'FamilyPlanner',
+          'User-Agent': 'Unser Familien-Organizer',
           'Accept': 'application/json',
         },
       );

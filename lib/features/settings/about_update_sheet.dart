@@ -52,7 +52,14 @@ class _AboutUpdateSheet extends StatelessWidget {
                     style: theme.textTheme.titleLarge),
               ],
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: 12),
+            Text('Unser Familien-Organizer',
+                style: theme.textTheme.titleMedium
+                    ?.copyWith(fontWeight: FontWeight.w700)),
+            Text('Der Familienplaner für die Nextcloud!',
+                style: theme.textTheme.bodySmall
+                    ?.copyWith(color: theme.colorScheme.onSurfaceVariant)),
+            const SizedBox(height: 12),
             FutureBuilder<PackageInfo>(
               future: PackageInfo.fromPlatform(),
               builder: (context, snapshot) {

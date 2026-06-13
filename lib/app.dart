@@ -16,7 +16,7 @@ class FamilyPlannerApp extends ConsumerWidget {
     final router = ref.watch(routerProvider);
     final themeMode = ref.watch(themeModeProvider).value ?? ThemeMode.system;
     return MaterialApp.router(
-      title: 'FamilyPlanner',
+      title: 'Unser Familien-Organizer',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.light(),
       darkTheme: AppTheme.dark(),
