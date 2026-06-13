@@ -37,13 +37,7 @@ class HomeScreen extends ConsumerWidget {
     return Scaffold(
       body: Stack(
         children: [
-          const Positioned(
-            top: 0,
-            left: 0,
-            right: 0,
-            height: 460,
-            child: BlobBackground(),
-          ),
+          const Positioned.fill(child: BlobBackground()),
           SafeArea(
             child: RefreshIndicator(
               onRefresh: () async {
@@ -101,14 +95,21 @@ class HomeScreen extends ConsumerWidget {
     );
   }
 
+  /// Nur Termine von heute und (maximal) morgen. Sind heute keine, erscheinen
+  /// automatisch die von morgen.
   List<CalendarEvent> _upcoming(
       List<CalendarEvent> events, DateTime now, DateTime today) {
+    final tomorrow = today.add(const Duration(days: 1));
+    final endExclusive = today.add(const Duration(days: 2));
     final list = events.where((e) {
-      if (e.allDay) return !e.endDayInclusive.isBefore(today);
-      return e.start.isAfter(now);
+      if (e.allDay) {
+        return !e.endDayInclusive.isBefore(today) &&
+            !e.startDay.isAfter(tomorrow);
+      }
+      return e.start.isAfter(now) && e.start.isBefore(endExclusive);
     }).toList()
       ..sort((a, b) => a.start.compareTo(b.start));
-    return list.take(8).toList();
+    return list.take(12).toList();
   }
 }
 
@@ -258,13 +259,7 @@ class _EventCard extends StatelessWidget {
                 children: [
                   const _IconChip(icon: Icons.event),
                   const Spacer(),
-                  if (highlighted)
-                    Container(
-                      width: 9,
-                      height: 9,
-                      decoration: const BoxDecoration(
-                          color: AppTheme.orange, shape: BoxShape.circle),
-                    ),
+                  _DayPill(label: _dayLabel()),
                 ],
               ),
               const SizedBox(height: 10),
@@ -276,11 +271,18 @@ class _EventCard extends StatelessWidget {
                       fontWeight: FontWeight.w700,
                       color: AppTheme.brown)),
               const SizedBox(height: 2),
-              Text(soon ?? _dayLabel(),
-                  style: TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w600,
-                      color: soon != null ? AppTheme.orange : AppTheme.brownSoft)),
+              if (soon != null)
+                Text(soon,
+                    style: const TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w700,
+                        color: AppTheme.orange))
+              else if (event.location != null && event.location!.isNotEmpty)
+                Text('📍 ${event.location}',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                        fontSize: 13, color: AppTheme.brownSoft)),
               const Spacer(),
               Row(
                 crossAxisAlignment: CrossAxisAlignment.end,
@@ -367,6 +369,27 @@ class _ListCard extends StatelessWidget {
 }
 
 // ---------- Bausteine ----------
+
+class _DayPill extends StatelessWidget {
+  const _DayPill({required this.label});
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    final isToday = label == 'Heute';
+    final bg = isToday
+        ? AppTheme.orange.withValues(alpha: 0.16)
+        : const Color(0xFFEDE6DA);
+    final fg = isToday ? AppTheme.orange : AppTheme.brownSoft;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 5),
+      decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(20)),
+      child: Text(label,
+          style: TextStyle(
+              fontSize: 12, fontWeight: FontWeight.w800, color: fg)),
+    );
+  }
+}
 
 class _IconChip extends StatelessWidget {
   const _IconChip({required this.icon, this.color});

@@ -125,7 +125,11 @@ Stand: Juni 2026 · App: Flutter (Android, später Web)
       runde weiße Karten, dekorative Pastell-„Blobs")
 - [x] Dashboard im Screenshot-Stil: Begrüßung + Avatar + Zahnrad, anstehende
       Termine als horizontale Karten, Listen mit Fortschritt
-- [ ] Feinschliff nach Screenshot-Vorlage (Abstände, Karten, Familien-Pille)
+- [x] Ruhiger einfarbiger Hintergrund mit leichtem Verlauf + sehr dezenten
+      Kreisen (statt bunter Blobs)
+- [x] Anstehende Termine nur heute + max. morgen, mit klarer „Heute/Morgen"-
+      Markierung (heute leer → morgen wird gezeigt)
+- [ ] Feinschliff nach Screenshot-Vorlage (Abstände, Familien-Pille)
 - [ ] Theme-Wahl (hell/dunkel/system) in den Einstellungen
 
 ## ⚙️ Einstellungen
