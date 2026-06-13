@@ -60,6 +60,9 @@ jobs:
       - name: Flutter pub get
         run: flutter pub get
 
+      - name: Generate app icons
+        run: dart run flutter_launcher_icons
+
       - name: Analyze
         run: flutter analyze
 
@@ -109,6 +112,8 @@ jobs:
         run: flutter config --enable-windows-desktop
       - name: Flutter pub get
         run: flutter pub get
+      - name: Generate app icons
+        run: dart run flutter_launcher_icons
       - name: Build Windows
         # flutter_local_notifications_windows nutzt <experimental/coroutine>,
         # das der neueste MSVC als Fehler wertet (STL1011). Define schaltet das

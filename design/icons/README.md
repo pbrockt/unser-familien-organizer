@@ -1,26 +1,26 @@
-# App-Icons – „Unser Familien-Organizer"
+# App-Icon – „Unser Familien-Organizer"
 
-Sechs flache, minimale Icon-Konzepte zur Auswahl. Motiv: **Kalender + Familie/Personen**,
-Markenfarben aus der App (Orange `#E8964F`, Creme `#F3EEE4`, Braun `#3E322A`, Sage `#A9C29B`,
+Gewähltes Icon: **Familie auf dem Kalenderblatt** (Konzept 4). Flach & minimal in den
+Markenfarben (Orange `#E8964F`, Creme `#F3EEE4`, Braun `#3E322A`, Sage `#A9C29B`,
 Sky `#AFC6DD`, Terracotta `#D89B79`).
 
-Jedes Icon ist 1024×1024 (Quelle als SVG, gerendert als PNG). Sag mir einfach die **Nummer**
-deines Favoriten – dann baue ich ihn als richtiges App-Icon ein (Android adaptive + Windows
-`.ico` + Linux) und mache ein neues Test-Release.
+![Icon](icon.png)
 
-| # | Vorschau | Konzept |
-|---|----------|---------|
-| 1 | ![](concept-1.png) | **Kalender + Mitglieder-Punkte.** Weißes Kalenderblatt, orange Kopfleiste, vier farbige Punkte (Orange/Sage/Blau/Terracotta) wie die Mitglieder-Legende. Creme-Hintergrund. |
-| 2 | ![](concept-2.png) | **Kalender + Herz.** Gleiches Blatt, aber ein warmes Herz als „Tag" – Familie & Zuneigung. |
-| 3 | ![](concept-3.png) | **Familienkreis.** Drei abstrakte Figuren (Elternteil + zwei Kinder) in Mitgliederfarben, ohne Kalender – sehr klar als „Familie" lesbar. |
-| 4 | ![](concept-4.png) | **Familie auf dem Kalenderblatt.** Kombiniert beide Motive: drei Figuren stehen auf der Kalenderfläche. |
-| 5 | ![](concept-5.png) | **Kontrast-Variante (oranger Hintergrund).** Konzept 1 invertiert – oranger Grund, cremefarbenes Blatt, braune Kopfleiste. Knalliger Launcher-Look. |
-| 6 | ![](concept-6.png) | **Monats-Punktraster.** Gedämpftes Punktraster eines Monats, in der Mitte bilden vier farbige Punkte eine kleine Familie. Sehr minimal. |
+## Dateien
 
-## Meine Empfehlung
+| Datei | Zweck |
+|-------|-------|
+| `icon.svg` / `icon.png` | Voll-Icon (1024×1024) – Quelle für Windows-`.ico`, Web und Legacy-Launcher. |
+| `icon-foreground.svg` / `icon-foreground.png` | Motiv auf transparentem Grund, in die Adaptive-Safe-Zone skaliert – Vordergrund des Android-Adaptive-Icons (Hintergrund = Creme `#F3EEE4`). |
 
-- **Konzept 1** – am eindeutigsten „Familienkalender", sauber, skaliert gut auf kleine Größen.
-- **Konzept 5** – falls es im Launcher mehr knallen soll (oranger Hintergrund sticht heraus).
-- **Konzept 3** – wenn der Fokus klar auf „Familie" statt „Kalender" liegen soll.
+## Generierung
 
-Quelldateien: `concept-1.svg` … `concept-6.svg` (editierbar, falls du Feinschliff möchtest).
+Die Launcher-Icons werden aus diesen Quellen erzeugt:
+
+```sh
+dart run flutter_launcher_icons
+```
+
+Die Konfiguration steht in `pubspec.yaml` unter `flutter_launcher_icons:`. Im CI
+(GitHub Actions) läuft dieser Schritt automatisch vor jedem Build, daher müssen die
+generierten `mipmap-*`-Dateien nicht eingecheckt werden.

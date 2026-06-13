@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
+  <rect width="1024" height="1024" rx="180" fill="#F3EEE4"/>
+  <rect x="356" y="240" width="40" height="92" rx="20" fill="#3E322A"/>
+  <rect x="628" y="240" width="40" height="92" rx="20" fill="#3E322A"/>
+  <rect x="232" y="288" width="560" height="476" rx="56" fill="#FFFFFF"/>
+  <path d="M232 412 L232 344 Q232 288 288 288 L736 288 Q792 288 792 344 L792 412 Z" fill="#E8964F"/>
+  <!-- family on the calendar face -->
+  <path d="M360 702 Q360 626 430 626 Q500 626 500 702 Z" fill="#A9C29B"/>
+  <circle cx="430" cy="566" r="54" fill="#A9C29B"/>
+  <path d="M524 702 Q524 626 594 626 Q664 626 664 702 Z" fill="#AFC6DD"/>
+  <circle cx="594" cy="566" r="54" fill="#AFC6DD"/>
+  <path d="M442 712 Q442 648 512 648 Q582 648 582 712 Z" fill="#D89B79"/>
+  <circle cx="512" cy="596" r="48" fill="#D89B79"/>
+</svg>
