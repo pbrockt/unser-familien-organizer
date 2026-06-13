@@ -120,6 +120,14 @@ Stand: Juni 2026 · App: Flutter (Android, später Web)
   - [x] Pull-to-Refresh, nutzt Offline-Cache
 - [ ] Optional: Mitglieder-Filter / Wetter / Geburtstage hervorheben
 
+## 🧩 Home-Screen-Widgets (Android)
+- [x] Kalender: Heute / Heute+Morgen / Woche / Monat
+- [x] Aufgaben (offene) + Einkauf (offene Artikel)
+- [x] Native, schlicht (Text), aktualisieren im Hintergrund (workmanager) und
+      beim App-Öffnen; Antippen öffnet den passenden Tab
+- [ ] Optional: Deep-Link-Navigation zum Tab beim Antippen
+- [ ] Optional: scrollbare Listen-Widgets / Monatsraster als Bild
+
 ## 🎨 Design
 - [x] Warmes Planily-Theme (Creme-Hintergrund, Orange-Akzent, braune Schrift,
       runde weiße Karten, dekorative Pastell-„Blobs")

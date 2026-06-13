@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../core/widgets/home_widgets.dart';
 import '../calendar/event_providers.dart';
 import '../tasks/task_providers.dart';
 import 'notification_providers.dart';
@@ -22,6 +23,12 @@ class ReminderSync extends ConsumerWidget {
   }
 
   Future<void> _reschedule(WidgetRef ref) async {
+    final events = ref.read(visibleEventsProvider);
+    final lists = ref.read(tasksControllerProvider).value ?? const [];
+
+    // Home-Screen-Widgets immer aktualisieren (unabhängig von Erinnerungen).
+    await HomeWidgets.update(events: events, lists: lists);
+
     final settings = ref.read(notificationSettingsProvider).value;
     final service = ref.read(notificationServiceProvider);
     if (settings == null) return;
@@ -33,8 +40,8 @@ class ReminderSync extends ConsumerWidget {
     if (!await service.areNotificationsEnabled()) return;
 
     final reminders = planReminders(
-      events: ref.read(visibleEventsProvider),
-      taskLists: ref.read(tasksControllerProvider).value ?? const [],
+      events: events,
+      taskLists: lists,
       leadMinutes: settings.leadMinutes,
     );
     await service.schedule(reminders);

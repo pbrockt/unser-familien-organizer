@@ -8,6 +8,7 @@ import '../../features/settings/notification_providers.dart';
 import '../../features/settings/reminder_planner.dart';
 import '../../features/tasks/tasks_builder.dart';
 import '../auth/account_providers.dart';
+import '../widgets/home_widgets.dart';
 
 const _uniqueName = 'familyplanner-sync';
 const _taskName = 'familyplanner-periodic-sync';
@@ -19,17 +20,10 @@ void callbackDispatcher() {
     WidgetsFlutterBinding.ensureInitialized();
     final container = ProviderContainer();
     try {
-      final settings =
-          await container.read(notificationSettingsProvider.future);
-      if (!settings.enabled) return true;
-
-      final service = container.read(notificationServiceProvider);
-      if (!await service.areNotificationsEnabled()) return true;
-
       final account = await container.read(accountProvider.future);
       if (account == null) return true;
 
-      // Frisch synchronisieren (Delta) und Erinnerungen neu planen.
+      // Frisch synchronisieren (Delta).
       final repo = container.read(caldavRepositoryProvider);
       final snapshot = await repo.sync(account);
       final memberSettings =
@@ -38,12 +32,21 @@ void callbackDispatcher() {
       final events = filterVisibleEvents(
           buildEventsFromSnapshot(snapshot), memberSettings);
       final lists = buildTaskListsFromSnapshot(snapshot, memberSettings);
-      final reminders = planReminders(
-        events: events,
-        taskLists: lists,
-        leadMinutes: settings.leadMinutes,
-      );
-      await service.schedule(reminders);
+
+      // Home-Screen-Widgets immer aktualisieren.
+      await HomeWidgets.update(events: events, lists: lists);
+
+      // Erinnerungen nur, wenn aktiviert.
+      final settings =
+          await container.read(notificationSettingsProvider.future);
+      final service = container.read(notificationServiceProvider);
+      if (settings.enabled && await service.areNotificationsEnabled()) {
+        await service.schedule(planReminders(
+          events: events,
+          taskLists: lists,
+          leadMinutes: settings.leadMinutes,
+        ));
+      }
       return true;
     } catch (_) {
       return false; // WorkManager versucht es später erneut.
