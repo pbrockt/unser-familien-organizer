@@ -15,11 +15,18 @@ import '../tasks/task_item.dart';
 import '../tasks/task_providers.dart';
 import 'dashboard_providers.dart';
 
-const _softShadow = [
-  BoxShadow(color: Color(0x14000000), blurRadius: 16, offset: Offset(0, 6)),
-];
+List<BoxShadow> _softShadow(BuildContext context) {
+  final dark = Theme.of(context).brightness == Brightness.dark;
+  return [
+    BoxShadow(
+      color: Colors.black.withValues(alpha: dark ? 0.25 : 0.08),
+      blurRadius: 16,
+      offset: const Offset(0, 6),
+    ),
+  ];
+}
 
-/// Startseite als „Familien-Snapshot" im warmen Planily-Stil.
+/// Startseite als „Familien-Snapshot". Passt sich Hell/Dunkel an.
 class HomeScreen extends ConsumerWidget {
   const HomeScreen({super.key});
 
@@ -63,7 +70,7 @@ class HomeScreen extends ConsumerWidget {
                   else ...[
                     const _SectionLabel('Anstehende Termine'),
                     if (upcoming.isEmpty)
-                      const _EmptyHint('Keine anstehenden Termine 🎉')
+                      const _EmptyHint('Keine Termine heute oder morgen 🎉')
                     else
                       SizedBox(
                         height: 168,
@@ -95,8 +102,7 @@ class HomeScreen extends ConsumerWidget {
     );
   }
 
-  /// Nur Termine von heute und (maximal) morgen. Sind heute keine, erscheinen
-  /// automatisch die von morgen.
+  /// Nur Termine von heute und (maximal) morgen.
   List<CalendarEvent> _upcoming(
       List<CalendarEvent> events, DateTime now, DateTime today) {
     final tomorrow = today.add(const Duration(days: 1));
@@ -121,6 +127,7 @@ class _TopBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
     final name = account?.username;
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
@@ -129,7 +136,7 @@ class _TopBar extends StatelessWidget {
           _Avatar(name: name ?? '?', color: AppTheme.orange, radius: 22),
           const Spacer(),
           Material(
-            color: Colors.white,
+            color: Theme.of(context).cardColor,
             shape: const CircleBorder(),
             elevation: 2,
             shadowColor: Colors.black26,
@@ -138,9 +145,9 @@ class _TopBar extends StatelessWidget {
               onTap: () => Navigator.of(context).push(
                 MaterialPageRoute(builder: (_) => const SettingsScreen()),
               ),
-              child: const Padding(
-                padding: EdgeInsets.all(10),
-                child: Icon(Icons.settings_outlined, color: AppTheme.brown),
+              child: Padding(
+                padding: const EdgeInsets.all(10),
+                child: Icon(Icons.settings_outlined, color: scheme.onSurface),
               ),
             ),
           ),
@@ -164,6 +171,7 @@ class _Greeting extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
     final name = account?.username;
     final who = (name == null || name.isEmpty)
         ? ''
@@ -173,14 +181,14 @@ class _Greeting extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            '${_greeting()}$who',
-            style: const TextStyle(
-                fontSize: 28, fontWeight: FontWeight.w800, color: AppTheme.brown),
-          ),
+          Text('${_greeting()}$who',
+              style: TextStyle(
+                  fontSize: 28,
+                  fontWeight: FontWeight.w800,
+                  color: scheme.onSurface)),
           const SizedBox(height: 2),
-          const Text('Hier ist euer Familien-Überblick',
-              style: TextStyle(fontSize: 15, color: AppTheme.brownSoft)),
+          Text('Hier ist euer Familien-Überblick',
+              style: TextStyle(fontSize: 15, color: scheme.onSurfaceVariant)),
         ],
       ),
     );
@@ -195,8 +203,10 @@ class _SectionLabel extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.fromLTRB(20, 22, 20, 12),
       child: Text(text,
-          style: const TextStyle(
-              fontSize: 15, fontWeight: FontWeight.w800, color: AppTheme.brown)),
+          style: TextStyle(
+              fontSize: 15,
+              fontWeight: FontWeight.w800,
+              color: Theme.of(context).colorScheme.onSurface)),
     );
   }
 }
@@ -235,6 +245,7 @@ class _EventCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
     final color = event.color ?? AppTheme.orange;
     final soon = _soon();
     return Padding(
@@ -245,9 +256,9 @@ class _EventCard extends StatelessWidget {
           width: 230,
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
-            color: Colors.white,
+            color: Theme.of(context).cardColor,
             borderRadius: BorderRadius.circular(22),
-            boxShadow: _softShadow,
+            boxShadow: _softShadow(context),
             border: highlighted
                 ? Border.all(color: AppTheme.orange, width: 1.6)
                 : null,
@@ -266,10 +277,10 @@ class _EventCard extends StatelessWidget {
               Text(event.summary,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
+                  style: TextStyle(
                       fontSize: 17,
                       fontWeight: FontWeight.w700,
-                      color: AppTheme.brown)),
+                      color: scheme.onSurface)),
               const SizedBox(height: 2),
               if (soon != null)
                 Text(soon,
@@ -281,8 +292,8 @@ class _EventCard extends StatelessWidget {
                 Text('📍 ${event.location}',
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                        fontSize: 13, color: AppTheme.brownSoft)),
+                    style: TextStyle(
+                        fontSize: 13, color: scheme.onSurfaceVariant)),
               const Spacer(),
               Row(
                 crossAxisAlignment: CrossAxisAlignment.end,
@@ -291,10 +302,10 @@ class _EventCard extends StatelessWidget {
                     event.allDay
                         ? 'Ganztägig'
                         : DateFormat('HH:mm').format(event.start),
-                    style: const TextStyle(
+                    style: TextStyle(
                         fontSize: 22,
                         fontWeight: FontWeight.w800,
-                        color: AppTheme.brown),
+                        color: scheme.onSurface),
                   ),
                   const Spacer(),
                   _Avatar(name: event.calendarName, color: color, radius: 14),
@@ -321,6 +332,7 @@ class _ListCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
     final total = list.items.length;
     final done = list.items.where((t) => t.completed).length;
     final color = list.color ?? AppTheme.orange;
@@ -331,9 +343,9 @@ class _ListCard extends StatelessWidget {
         child: Container(
           padding: const EdgeInsets.all(14),
           decoration: BoxDecoration(
-            color: Colors.white,
+            color: Theme.of(context).cardColor,
             borderRadius: BorderRadius.circular(20),
-            boxShadow: _softShadow,
+            boxShadow: _softShadow(context),
           ),
           child: Row(
             children: [
@@ -348,18 +360,18 @@ class _ListCard extends StatelessWidget {
                     Text(list.name,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
+                        style: TextStyle(
                             fontSize: 16,
                             fontWeight: FontWeight.w700,
-                            color: AppTheme.brown)),
+                            color: scheme.onSurface)),
                     const SizedBox(height: 2),
                     Text('$done/$total erledigt',
-                        style: const TextStyle(
-                            fontSize: 13, color: AppTheme.brownSoft)),
+                        style: TextStyle(
+                            fontSize: 13, color: scheme.onSurfaceVariant)),
                   ],
                 ),
               ),
-              const Icon(Icons.chevron_right, color: AppTheme.brownSoft),
+              Icon(Icons.chevron_right, color: scheme.onSurfaceVariant),
             ],
           ),
         ),
@@ -376,17 +388,19 @@ class _DayPill extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
     final isToday = label == 'Heute';
     final bg = isToday
         ? AppTheme.orange.withValues(alpha: 0.16)
-        : const Color(0xFFEDE6DA);
-    final fg = isToday ? AppTheme.orange : AppTheme.brownSoft;
+        : scheme.surfaceContainerHighest;
+    final fg = isToday ? AppTheme.orange : scheme.onSurfaceVariant;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 5),
-      decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(20)),
+      decoration:
+          BoxDecoration(color: bg, borderRadius: BorderRadius.circular(20)),
       child: Text(label,
-          style: TextStyle(
-              fontSize: 12, fontWeight: FontWeight.w800, color: fg)),
+          style:
+              TextStyle(fontSize: 12, fontWeight: FontWeight.w800, color: fg)),
     );
   }
 }
@@ -421,9 +435,7 @@ class _Avatar extends StatelessWidget {
     final trimmed = name.trim();
     if (trimmed.isEmpty) return '?';
     final parts = trimmed.split(RegExp(r'\s+'));
-    if (parts.length >= 2) {
-      return (parts[0][0] + parts[1][0]).toUpperCase();
-    }
+    if (parts.length >= 2) return (parts[0][0] + parts[1][0]).toUpperCase();
     return trimmed.length >= 2
         ? trimmed.substring(0, 2).toUpperCase()
         : trimmed.toUpperCase();
@@ -450,24 +462,25 @@ class _SyncBanner extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
         decoration: BoxDecoration(
-          color: AppTheme.peach,
+          color: scheme.primaryContainer,
           borderRadius: BorderRadius.circular(16),
         ),
         child: Row(
           children: [
-            const Icon(Icons.cloud_sync_outlined, color: AppTheme.brown),
+            Icon(Icons.cloud_sync_outlined, color: scheme.onPrimaryContainer),
             const SizedBox(width: 12),
             Expanded(
               child: Text(
                 count == 1
                     ? '1 Änderung wartet auf Sync'
                     : '$count Änderungen warten auf Sync',
-                style: const TextStyle(color: AppTheme.brown),
+                style: TextStyle(color: scheme.onPrimaryContainer),
               ),
             ),
             TextButton(onPressed: onSync, child: const Text('Sync')),
@@ -485,7 +498,9 @@ class _EmptyHint extends StatelessWidget {
   Widget build(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.fromLTRB(20, 0, 20, 8),
-      child: Text(text, style: const TextStyle(color: AppTheme.brownSoft)),
+      child: Text(text,
+          style:
+              TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant)),
     );
   }
 }
@@ -494,30 +509,31 @@ class _ConnectCard extends StatelessWidget {
   const _ConnectCard();
   @override
   Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
     return Padding(
       padding: const EdgeInsets.all(16),
       child: Container(
         padding: const EdgeInsets.all(22),
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: Theme.of(context).cardColor,
           borderRadius: BorderRadius.circular(22),
-          boxShadow: _softShadow,
+          boxShadow: _softShadow(context),
         ),
         child: Column(
           children: [
             const _IconChip(icon: Icons.cloud_off_outlined),
             const SizedBox(height: 12),
-            const Text('Noch nicht verbunden',
+            Text('Noch nicht verbunden',
                 style: TextStyle(
                     fontSize: 17,
                     fontWeight: FontWeight.w700,
-                    color: AppTheme.brown)),
+                    color: scheme.onSurface)),
             const SizedBox(height: 6),
-            const Text(
+            Text(
               'Verbinde im Tab „Familie" deine Nextcloud, damit hier eure '
               'Termine und Listen erscheinen.',
               textAlign: TextAlign.center,
-              style: TextStyle(color: AppTheme.brownSoft),
+              style: TextStyle(color: scheme.onSurfaceVariant),
             ),
             const SizedBox(height: 16),
             FilledButton.icon(

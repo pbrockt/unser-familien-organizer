@@ -5,6 +5,7 @@ import 'package:package_info_plus/package_info_plus.dart';
 import '../../core/background/background_sync.dart';
 import 'about_update_sheet.dart';
 import 'notification_providers.dart';
+import 'theme_provider.dart';
 
 /// Einstellungen: Benachrichtigungen & Berechtigungen, App-Update.
 class SettingsScreen extends ConsumerStatefulWidget {
@@ -58,6 +59,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   @override
   Widget build(BuildContext context) {
     final settingsAsync = ref.watch(notificationSettingsProvider);
+    final themeMode = ref.watch(themeModeProvider).value ?? ThemeMode.system;
 
     return Scaffold(
       appBar: AppBar(title: const Text('Einstellungen')),
@@ -66,6 +68,30 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         error: (e, _) => Center(child: Text('Fehler: $e')),
         data: (settings) => ListView(
           children: [
+            _sectionHeader(context, 'Darstellung'),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 4, 16, 12),
+              child: SegmentedButton<ThemeMode>(
+                segments: const [
+                  ButtonSegment(
+                      value: ThemeMode.system,
+                      icon: Icon(Icons.brightness_auto),
+                      label: Text('System')),
+                  ButtonSegment(
+                      value: ThemeMode.light,
+                      icon: Icon(Icons.light_mode),
+                      label: Text('Hell')),
+                  ButtonSegment(
+                      value: ThemeMode.dark,
+                      icon: Icon(Icons.dark_mode),
+                      label: Text('Dunkel')),
+                ],
+                selected: {themeMode},
+                onSelectionChanged: (s) =>
+                    ref.read(themeModeProvider.notifier).set(s.first),
+              ),
+            ),
+            const Divider(),
             _sectionHeader(context, 'Erinnerungen'),
             SwitchListTile(
               secondary: const Icon(Icons.notifications_active_outlined),

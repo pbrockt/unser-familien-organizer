@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'core/router/app_router.dart';
 import 'features/settings/reminder_sync.dart';
+import 'features/settings/theme_provider.dart';
 import 'shared/theme/app_theme.dart';
 
 /// Wurzel-Widget. Bindet Router und Theme ein.
@@ -13,12 +14,13 @@ class FamilyPlannerApp extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final router = ref.watch(routerProvider);
+    final themeMode = ref.watch(themeModeProvider).value ?? ThemeMode.system;
     return MaterialApp.router(
       title: 'FamilyPlanner',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.light(),
       darkTheme: AppTheme.dark(),
-      themeMode: ThemeMode.system,
+      themeMode: themeMode,
       // Deutsche Lokalisierung: Datums-/Zeit-Picker auf Deutsch,
       // Wochenstart Montag.
       locale: const Locale('de'),

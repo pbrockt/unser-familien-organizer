@@ -33,19 +33,23 @@ class BlobBackground extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final dark = Theme.of(context).brightness == Brightness.dark;
+    final gradient = dark
+        ? const [Color(0xFF2A2420), Color(0xFF211C18)]
+        : const [Color(0xFFF8F4EC), Color(0xFFF0EADF)];
     return IgnorePointer(
       child: Stack(
         children: [
-          // Ganz leichter Verlauf im Creme-Ton.
-          const DecoratedBox(
+          // Ganz leichter Verlauf (hell: Creme, dunkel: warmes Anthrazit).
+          DecoratedBox(
             decoration: BoxDecoration(
               gradient: LinearGradient(
                 begin: Alignment.topCenter,
                 end: Alignment.bottomCenter,
-                colors: [Color(0xFFF8F4EC), Color(0xFFF0EADF)],
+                colors: gradient,
               ),
             ),
-            child: SizedBox.expand(),
+            child: const SizedBox.expand(),
           ),
           // Sehr dezente, weich geblurrte Kreise.
           ClipRect(

@@ -130,7 +130,8 @@ Stand: Juni 2026 · App: Flutter (Android, später Web)
 - [x] Anstehende Termine nur heute + max. morgen, mit klarer „Heute/Morgen"-
       Markierung (heute leer → morgen wird gezeigt)
 - [ ] Feinschliff nach Screenshot-Vorlage (Abstände, Familien-Pille)
-- [ ] Theme-Wahl (hell/dunkel/system) in den Einstellungen
+- [x] Theme-Wahl (System/Hell/Dunkel) in den Einstellungen; Startseite +
+      Hintergrund passen sich Hell/Dunkel an
 
 ## ⚙️ Einstellungen
 - [x] Update-Funktion (Releases öffnen) – jetzt im Einstellungs-Screen
