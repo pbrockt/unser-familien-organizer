@@ -4,16 +4,22 @@ import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 
 import '../../core/auth/account_providers.dart';
+import '../../core/auth/nextcloud_account.dart';
+import '../../shared/theme/app_theme.dart';
+import '../../shared/widgets/blob_background.dart';
 import '../calendar/calendar_event.dart';
 import '../calendar/event_editor_sheet.dart';
 import '../calendar/event_providers.dart';
-import '../tasks/task_editor_sheet.dart';
+import '../settings/settings_screen.dart';
 import '../tasks/task_item.dart';
 import '../tasks/task_providers.dart';
 import 'dashboard_providers.dart';
 
-/// Startseite als Dashboard „Heute & morgen": die wichtigsten Dinge auf einen
-/// Blick – heutige & morgige Termine, fällige Aufgaben, Einkauf.
+const _softShadow = [
+  BoxShadow(color: Color(0x14000000), blurRadius: 16, offset: Offset(0, 6)),
+];
+
+/// Startseite als „Familien-Snapshot" im warmen Planily-Stil.
 class HomeScreen extends ConsumerWidget {
   const HomeScreen({super.key});
 
@@ -22,134 +28,134 @@ class HomeScreen extends ConsumerWidget {
     final account = ref.watch(accountProvider).value;
     final events = ref.watch(visibleEventsProvider);
     final taskLists = ref.watch(tasksControllerProvider).value ?? const [];
-    final shopping = ref.watch(shoppingSummaryProvider).value;
     final pendingSync = ref.watch(pendingSyncCountProvider).value ?? 0;
 
     final now = DateTime.now();
     final today = DateTime(now.year, now.month, now.day);
-    final tomorrow = today.add(const Duration(days: 1));
-
-    final todayEvents = _eventsOn(events, today);
-    final tomorrowEvents = _eventsOn(events, tomorrow);
-    final dueTasks = _dueTasks(taskLists, tomorrow);
+    final upcoming = _upcoming(events, now, today);
 
     return Scaffold(
-      body: RefreshIndicator(
-        onRefresh: () async {
-          ref.invalidate(eventsControllerProvider);
-          ref.invalidate(tasksControllerProvider);
-        },
-        child: ListView(
-          padding: EdgeInsets.zero,
-          children: [
-            _Header(date: now),
-            if (account != null && pendingSync > 0)
-              _SyncBanner(
-                count: pendingSync,
-                onSync: () {
-                  ref.invalidate(eventsControllerProvider);
-                  ref.invalidate(tasksControllerProvider);
-                  ref.invalidate(pendingSyncCountProvider);
-                },
-              ),
-            if (account == null)
-              const _ConnectCard()
-            else ...[
-              _Section(
-                title: 'Heute',
-                icon: Icons.wb_sunny_outlined,
-                child: todayEvents.isEmpty
-                    ? const _EmptyHint('Heute nichts geplant 🎉')
-                    : Column(
-                        children: [
-                          for (final e in todayEvents)
-                            _EventRow(
-                              event: e,
-                              onTap: () =>
-                                  showEventEditor(context, existing: e),
-                            ),
-                        ],
-                      ),
-                onSeeAll: () => context.go('/calendar'),
-              ),
-              if (dueTasks.isNotEmpty)
-                _Section(
-                  title: 'Fällige Aufgaben',
-                  icon: Icons.checklist,
-                  onSeeAll: () => context.go('/tasks'),
-                  child: Column(
-                    children: [
-                      for (final t in dueTasks)
-                        _TaskRow(
-                          task: t,
-                          today: today,
-                          onToggle: () => ref
-                              .read(tasksControllerProvider.notifier)
-                              .toggle(t),
-                          onTap: () => showTaskEditor(context,
-                              lists: taskLists, existing: t),
+      body: Stack(
+        children: [
+          const Positioned(
+            top: 0,
+            left: 0,
+            right: 0,
+            height: 460,
+            child: BlobBackground(),
+          ),
+          SafeArea(
+            child: RefreshIndicator(
+              onRefresh: () async {
+                ref.invalidate(eventsControllerProvider);
+                ref.invalidate(tasksControllerProvider);
+              },
+              child: ListView(
+                padding: const EdgeInsets.only(bottom: 28),
+                children: [
+                  _TopBar(account: account),
+                  _Greeting(account: account, now: now),
+                  if (pendingSync > 0)
+                    _SyncBanner(
+                      count: pendingSync,
+                      onSync: () {
+                        ref.invalidate(eventsControllerProvider);
+                        ref.invalidate(tasksControllerProvider);
+                        ref.invalidate(pendingSyncCountProvider);
+                      },
+                    ),
+                  if (account == null)
+                    const _ConnectCard()
+                  else ...[
+                    const _SectionLabel('Anstehende Termine'),
+                    if (upcoming.isEmpty)
+                      const _EmptyHint('Keine anstehenden Termine 🎉')
+                    else
+                      SizedBox(
+                        height: 168,
+                        child: ListView.builder(
+                          scrollDirection: Axis.horizontal,
+                          padding: const EdgeInsets.symmetric(horizontal: 16),
+                          itemCount: upcoming.length,
+                          itemBuilder: (context, i) => _EventCard(
+                            event: upcoming[i],
+                            now: now,
+                            highlighted: i == 0,
+                            onTap: () =>
+                                showEventEditor(context, existing: upcoming[i]),
+                          ),
                         ),
-                    ],
-                  ),
-                ),
-              if (shopping != null && shopping.openCount > 0)
-                _ShoppingCard(
-                  summary: shopping,
-                  onTap: () => context.go('/shopping'),
-                ),
-              _Section(
-                title: 'Morgen',
-                icon: Icons.wb_twilight,
-                onSeeAll: () => context.go('/calendar'),
-                child: tomorrowEvents.isEmpty
-                    ? const _EmptyHint('Morgen nichts geplant')
-                    : Column(
-                        children: [
-                          for (final e in tomorrowEvents)
-                            _EventRow(
-                              event: e,
-                              onTap: () =>
-                                  showEventEditor(context, existing: e),
-                            ),
-                        ],
                       ),
+                    const _SectionLabel('Listen'),
+                    if (taskLists.isEmpty)
+                      const _EmptyHint('Noch keine Listen vorhanden')
+                    else
+                      ...taskLists.map((l) => _ListCard(list: l)),
+                  ],
+                ],
               ),
-              const SizedBox(height: 24),
-            ],
-          ],
-        ),
+            ),
+          ),
+        ],
       ),
     );
   }
 
-  List<CalendarEvent> _eventsOn(List<CalendarEvent> events, DateTime day) {
-    final list = events.where((e) => e.occursOn(day)).toList()
-      ..sort((a, b) {
-        if (a.allDay != b.allDay) return a.allDay ? -1 : 1;
-        return a.start.compareTo(b.start);
-      });
-    return list;
-  }
-
-  List<TaskItem> _dueTasks(List<TaskList> lists, DateTime tomorrow) {
-    final due = <TaskItem>[];
-    for (final l in lists) {
-      for (final t in l.items) {
-        if (t.completed || t.due == null) continue;
-        if (t.due!.isBefore(tomorrow)) due.add(t); // heute fällig oder überfällig
-      }
-    }
-    due.sort((a, b) => a.due!.compareTo(b.due!));
-    return due;
+  List<CalendarEvent> _upcoming(
+      List<CalendarEvent> events, DateTime now, DateTime today) {
+    final list = events.where((e) {
+      if (e.allDay) return !e.endDayInclusive.isBefore(today);
+      return e.start.isAfter(now);
+    }).toList()
+      ..sort((a, b) => a.start.compareTo(b.start));
+    return list.take(8).toList();
   }
 }
 
-class _Header extends StatelessWidget {
-  const _Header({required this.date});
-  final DateTime date;
+// ---------- Kopfbereich ----------
+
+class _TopBar extends StatelessWidget {
+  const _TopBar({required this.account});
+  final NextcloudAccount? account;
+
+  @override
+  Widget build(BuildContext context) {
+    final name = account?.username;
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+      child: Row(
+        children: [
+          _Avatar(name: name ?? '?', color: AppTheme.orange, radius: 22),
+          const Spacer(),
+          Material(
+            color: Colors.white,
+            shape: const CircleBorder(),
+            elevation: 2,
+            shadowColor: Colors.black26,
+            child: InkWell(
+              customBorder: const CircleBorder(),
+              onTap: () => Navigator.of(context).push(
+                MaterialPageRoute(builder: (_) => const SettingsScreen()),
+              ),
+              child: const Padding(
+                padding: EdgeInsets.all(10),
+                child: Icon(Icons.settings_outlined, color: AppTheme.brown),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _Greeting extends StatelessWidget {
+  const _Greeting({required this.account, required this.now});
+  final NextcloudAccount? account;
+  final DateTime now;
 
   String _greeting() {
-    final h = date.hour;
+    final h = now.hour;
     if (h < 11) return 'Guten Morgen';
     if (h < 17) return 'Hallo';
     return 'Guten Abend';
@@ -157,184 +163,259 @@ class _Header extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    final dateLabel = DateFormat('EEEE, d. MMMM', 'de_DE').format(date);
-    return Container(
-      padding: EdgeInsets.fromLTRB(
-          24, MediaQuery.of(context).padding.top + 24, 24, 28),
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [scheme.primary, Color.alphaBlend(Colors.white24, scheme.primary)],
-        ),
-        borderRadius: const BorderRadius.only(
-          bottomLeft: Radius.circular(28),
-          bottomRight: Radius.circular(28),
-        ),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            '${_greeting()} 👋',
-            style: TextStyle(
-              color: scheme.onPrimary,
-              fontSize: 26,
-              fontWeight: FontWeight.w800,
-            ),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            dateLabel[0].toUpperCase() + dateLabel.substring(1),
-            style: TextStyle(
-              color: scheme.onPrimary.withValues(alpha: 0.9),
-              fontSize: 15,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _Section extends StatelessWidget {
-  const _Section({
-    required this.title,
-    required this.icon,
-    required this.child,
-    this.onSeeAll,
-  });
-  final String title;
-  final IconData icon;
-  final Widget child;
-  final VoidCallback? onSeeAll;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
+    final name = account?.username;
+    final who = (name == null || name.isEmpty)
+        ? ''
+        : ', ${name[0].toUpperCase()}${name.substring(1)}';
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 20, 16, 0),
+      padding: const EdgeInsets.fromLTRB(20, 14, 20, 4),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Padding(
-            padding: const EdgeInsets.only(left: 4, bottom: 8),
-            child: Row(
-              children: [
-                Icon(icon, size: 20, color: theme.colorScheme.primary),
-                const SizedBox(width: 8),
-                Text(title,
-                    style: theme.textTheme.titleMedium
-                        ?.copyWith(fontWeight: FontWeight.w700)),
-                const Spacer(),
-                if (onSeeAll != null)
-                  TextButton(
-                    onPressed: onSeeAll,
-                    child: const Text('Alle'),
-                  ),
-              ],
-            ),
+          Text(
+            '${_greeting()}$who',
+            style: const TextStyle(
+                fontSize: 28, fontWeight: FontWeight.w800, color: AppTheme.brown),
           ),
-          Card(child: Padding(padding: const EdgeInsets.all(4), child: child)),
+          const SizedBox(height: 2),
+          const Text('Hier ist euer Familien-Überblick',
+              style: TextStyle(fontSize: 15, color: AppTheme.brownSoft)),
         ],
       ),
     );
   }
 }
 
-class _EventRow extends StatelessWidget {
-  const _EventRow({required this.event, required this.onTap});
-  final CalendarEvent event;
-  final VoidCallback onTap;
-
+class _SectionLabel extends StatelessWidget {
+  const _SectionLabel(this.text);
+  final String text;
   @override
   Widget build(BuildContext context) {
-    final color = event.color ?? Theme.of(context).colorScheme.primary;
-    final time = event.allDay
-        ? 'Ganztägig'
-        : DateFormat('HH:mm').format(event.start);
-    return ListTile(
-      leading: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Text(time,
-              style: TextStyle(
-                  fontWeight: FontWeight.w600,
-                  color: Theme.of(context).colorScheme.onSurfaceVariant,
-                  fontSize: 13)),
-        ],
-      ),
-      title: Text(event.summary, maxLines: 1, overflow: TextOverflow.ellipsis),
-      subtitle: (event.location != null && event.location!.isNotEmpty)
-          ? Text('📍 ${event.location}',
-              maxLines: 1, overflow: TextOverflow.ellipsis)
-          : null,
-      trailing: Container(width: 5, height: 36, decoration: BoxDecoration(
-        color: color, borderRadius: BorderRadius.circular(3))),
-      onTap: onTap,
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 22, 20, 12),
+      child: Text(text,
+          style: const TextStyle(
+              fontSize: 15, fontWeight: FontWeight.w800, color: AppTheme.brown)),
     );
   }
 }
 
-class _TaskRow extends StatelessWidget {
-  const _TaskRow({
-    required this.task,
-    required this.today,
-    required this.onToggle,
+// ---------- Termin-Karte (horizontal) ----------
+
+class _EventCard extends StatelessWidget {
+  const _EventCard({
+    required this.event,
+    required this.now,
+    required this.highlighted,
     required this.onTap,
   });
-  final TaskItem task;
-  final DateTime today;
-  final VoidCallback onToggle;
+  final CalendarEvent event;
+  final DateTime now;
+  final bool highlighted;
   final VoidCallback onTap;
+
+  String _dayLabel() {
+    final day = DateTime(event.start.year, event.start.month, event.start.day);
+    final today = DateTime(now.year, now.month, now.day);
+    final diff = day.difference(today).inDays;
+    if (diff == 0) return 'Heute';
+    if (diff == 1) return 'Morgen';
+    return DateFormat('EEE, d. MMM', 'de_DE').format(event.start);
+  }
+
+  String? _soon() {
+    if (event.allDay) return null;
+    final diff = event.start.difference(now);
+    if (!diff.isNegative && diff.inMinutes < 60) {
+      return 'Beginnt in ${diff.inMinutes} Min';
+    }
+    return null;
+  }
 
   @override
   Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    final overdue = task.due!.isBefore(today);
-    final label = overdue
-        ? 'Überfällig: ${DateFormat('d. MMM', 'de_DE').format(task.due!)}'
-        : 'Heute fällig';
-    return ListTile(
-      leading: Checkbox(
-        value: task.completed,
-        shape: const CircleBorder(),
-        onChanged: (_) => onToggle(),
+    final color = event.color ?? AppTheme.orange;
+    final soon = _soon();
+    return Padding(
+      padding: const EdgeInsets.only(right: 12, top: 2, bottom: 6),
+      child: GestureDetector(
+        onTap: onTap,
+        child: Container(
+          width: 230,
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(22),
+            boxShadow: _softShadow,
+            border: highlighted
+                ? Border.all(color: AppTheme.orange, width: 1.6)
+                : null,
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  const _IconChip(icon: Icons.event),
+                  const Spacer(),
+                  if (highlighted)
+                    Container(
+                      width: 9,
+                      height: 9,
+                      decoration: const BoxDecoration(
+                          color: AppTheme.orange, shape: BoxShape.circle),
+                    ),
+                ],
+              ),
+              const SizedBox(height: 10),
+              Text(event.summary,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                      fontSize: 17,
+                      fontWeight: FontWeight.w700,
+                      color: AppTheme.brown)),
+              const SizedBox(height: 2),
+              Text(soon ?? _dayLabel(),
+                  style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                      color: soon != null ? AppTheme.orange : AppTheme.brownSoft)),
+              const Spacer(),
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  Text(
+                    event.allDay
+                        ? 'Ganztägig'
+                        : DateFormat('HH:mm').format(event.start),
+                    style: const TextStyle(
+                        fontSize: 22,
+                        fontWeight: FontWeight.w800,
+                        color: AppTheme.brown),
+                  ),
+                  const Spacer(),
+                  _Avatar(name: event.calendarName, color: color, radius: 14),
+                ],
+              ),
+            ],
+          ),
+        ),
       ),
-      title: Text(task.summary, maxLines: 1, overflow: TextOverflow.ellipsis),
-      subtitle: Text(label,
-          style: TextStyle(
-              color: overdue ? scheme.error : scheme.onSurfaceVariant)),
-      onTap: onTap,
     );
   }
 }
 
-class _ShoppingCard extends StatelessWidget {
-  const _ShoppingCard({required this.summary, required this.onTap});
-  final ShoppingSummary summary;
-  final VoidCallback onTap;
+// ---------- Listen-Karte ----------
+
+class _ListCard extends StatelessWidget {
+  const _ListCard({required this.list});
+  final TaskList list;
+
+  bool get _isShopping {
+    final n = list.name.toLowerCase();
+    return n.contains('einkauf') || n.contains('shopping');
+  }
 
   @override
   Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
+    final total = list.items.length;
+    final done = list.items.where((t) => t.completed).length;
+    final color = list.color ?? AppTheme.orange;
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 20, 16, 0),
-      child: Card(
-        color: scheme.tertiaryContainer,
-        child: ListTile(
-          leading: CircleAvatar(
-            backgroundColor: scheme.tertiary,
-            child: Icon(Icons.shopping_cart, color: scheme.onTertiary),
+      padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+      child: GestureDetector(
+        onTap: () => context.go(_isShopping ? '/shopping' : '/tasks'),
+        child: Container(
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(20),
+            boxShadow: _softShadow,
           ),
-          title: Text(summary.listName ?? 'Einkaufsliste',
-              style: const TextStyle(fontWeight: FontWeight.w700)),
-          subtitle: Text('${summary.openCount} Artikel offen'),
-          trailing: const Icon(Icons.chevron_right),
-          onTap: onTap,
+          child: Row(
+            children: [
+              _IconChip(
+                  icon: _isShopping ? Icons.shopping_cart : Icons.checklist,
+                  color: color),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(list.name,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w700,
+                            color: AppTheme.brown)),
+                    const SizedBox(height: 2),
+                    Text('$done/$total erledigt',
+                        style: const TextStyle(
+                            fontSize: 13, color: AppTheme.brownSoft)),
+                  ],
+                ),
+              ),
+              const Icon(Icons.chevron_right, color: AppTheme.brownSoft),
+            ],
+          ),
         ),
       ),
+    );
+  }
+}
+
+// ---------- Bausteine ----------
+
+class _IconChip extends StatelessWidget {
+  const _IconChip({required this.icon, this.color});
+  final IconData icon;
+  final Color? color;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = color ?? AppTheme.orange;
+    return Container(
+      width: 42,
+      height: 42,
+      decoration: BoxDecoration(
+        color: c.withValues(alpha: 0.18),
+        borderRadius: BorderRadius.circular(13),
+      ),
+      child: Icon(icon, color: c, size: 22),
+    );
+  }
+}
+
+class _Avatar extends StatelessWidget {
+  const _Avatar({required this.name, required this.color, this.radius = 16});
+  final String name;
+  final Color color;
+  final double radius;
+
+  String get _initials {
+    final trimmed = name.trim();
+    if (trimmed.isEmpty) return '?';
+    final parts = trimmed.split(RegExp(r'\s+'));
+    if (parts.length >= 2) {
+      return (parts[0][0] + parts[1][0]).toUpperCase();
+    }
+    return trimmed.length >= 2
+        ? trimmed.substring(0, 2).toUpperCase()
+        : trimmed.toUpperCase();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return CircleAvatar(
+      radius: radius,
+      backgroundColor: color,
+      child: Text(_initials,
+          style: TextStyle(
+              color: Colors.white,
+              fontSize: radius * 0.7,
+              fontWeight: FontWeight.w700)),
     );
   }
 }
@@ -346,27 +427,28 @@ class _SyncBanner extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
-      child: Card(
-        color: scheme.secondaryContainer,
-        child: ListTile(
-          leading: Icon(Icons.cloud_sync_outlined,
-              color: scheme.onSecondaryContainer),
-          title: Text(
-            count == 1
-                ? '1 Änderung wartet auf Synchronisierung'
-                : '$count Änderungen warten auf Synchronisierung',
-            style: TextStyle(color: scheme.onSecondaryContainer),
-          ),
-          subtitle: Text('Offline gespeichert – tippe zum Hochladen',
-              style: TextStyle(color: scheme.onSecondaryContainer)),
-          trailing: FilledButton.tonal(
-            onPressed: onSync,
-            child: const Text('Sync'),
-          ),
-          onTap: onSync,
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+        decoration: BoxDecoration(
+          color: AppTheme.peach,
+          borderRadius: BorderRadius.circular(16),
+        ),
+        child: Row(
+          children: [
+            const Icon(Icons.cloud_sync_outlined, color: AppTheme.brown),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                count == 1
+                    ? '1 Änderung wartet auf Sync'
+                    : '$count Änderungen warten auf Sync',
+                style: const TextStyle(color: AppTheme.brown),
+              ),
+            ),
+            TextButton(onPressed: onSync, child: const Text('Sync')),
+          ],
         ),
       ),
     );
@@ -376,51 +458,51 @@ class _SyncBanner extends StatelessWidget {
 class _EmptyHint extends StatelessWidget {
   const _EmptyHint(this.text);
   final String text;
-
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.all(16),
-      child: Text(text,
-          style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant)),
+      padding: const EdgeInsets.fromLTRB(20, 0, 20, 8),
+      child: Text(text, style: const TextStyle(color: AppTheme.brownSoft)),
     );
   }
 }
 
 class _ConnectCard extends StatelessWidget {
   const _ConnectCard();
-
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
     return Padding(
       padding: const EdgeInsets.all(16),
-      child: Card(
-        child: Padding(
-          padding: const EdgeInsets.all(20),
-          child: Column(
-            children: [
-              Icon(Icons.cloud_off_outlined,
-                  size: 48, color: theme.colorScheme.primary),
-              const SizedBox(height: 12),
-              Text('Noch nicht verbunden',
-                  style: theme.textTheme.titleMedium),
-              const SizedBox(height: 6),
-              Text(
-                'Verbinde im Tab „Familie" deine Nextcloud, damit hier deine '
-                'Termine, Aufgaben und der Einkauf erscheinen.',
-                textAlign: TextAlign.center,
-                style: theme.textTheme.bodyMedium?.copyWith(
-                    color: theme.colorScheme.onSurfaceVariant),
-              ),
-              const SizedBox(height: 16),
-              FilledButton.icon(
-                onPressed: () => context.go('/family'),
-                icon: const Icon(Icons.cloud_outlined),
-                label: const Text('Verbinden'),
-              ),
-            ],
-          ),
+      child: Container(
+        padding: const EdgeInsets.all(22),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(22),
+          boxShadow: _softShadow,
+        ),
+        child: Column(
+          children: [
+            const _IconChip(icon: Icons.cloud_off_outlined),
+            const SizedBox(height: 12),
+            const Text('Noch nicht verbunden',
+                style: TextStyle(
+                    fontSize: 17,
+                    fontWeight: FontWeight.w700,
+                    color: AppTheme.brown)),
+            const SizedBox(height: 6),
+            const Text(
+              'Verbinde im Tab „Familie" deine Nextcloud, damit hier eure '
+              'Termine und Listen erscheinen.',
+              textAlign: TextAlign.center,
+              style: TextStyle(color: AppTheme.brownSoft),
+            ),
+            const SizedBox(height: 16),
+            FilledButton.icon(
+              onPressed: () => context.go('/family'),
+              icon: const Icon(Icons.cloud_outlined),
+              label: const Text('Verbinden'),
+            ),
+          ],
         ),
       ),
     );

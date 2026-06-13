@@ -1,81 +1,132 @@
 import 'package:flutter/material.dart';
 
-/// Zentrales App-Theme im Planily/FamilyWall-Stil: freundlich, klar,
-/// kartenbasiert mit weichen, runden Flächen.
+/// App-Theme im warmen „Planily"-Stil: cremefarbener Hintergrund, Orange als
+/// Akzent, braune Schrift, weiche runde weiße Karten.
 class AppTheme {
   AppTheme._();
 
-  /// Marken-/Akzentfarbe (modernes Violett). Familienmitglieder bekommen
-  /// eigene Farben (siehe [familyColors]).
-  static const Color seed = Color(0xFF6C5CE7);
+  // Kernfarben.
+  static const Color orange = Color(0xFFE8964F); // Akzent
+  static const Color cream = Color(0xFFF3EEE4); // Hintergrund
+  static const Color brown = Color(0xFF3E322A); // Text
+  static const Color brownSoft = Color(0xFF8C7F73); // Sekundärtext
+  static const Color peach = Color(0xFFF7DEC2); // Icon-Chips
 
-  static ThemeData light() => _base(Brightness.light);
-  static ThemeData dark() => _base(Brightness.dark);
+  // Dekorative Blob-/Mitgliederfarben.
+  static const Color sage = Color(0xFFA9C29B);
+  static const Color sky = Color(0xFFAFC6DD);
+  static const Color terracotta = Color(0xFFD89B79);
 
-  static ThemeData _base(Brightness brightness) {
-    final scheme = ColorScheme.fromSeed(
-      seedColor: seed,
-      brightness: brightness,
+  /// Akzentfarbe (für Code, der noch `seed` referenziert).
+  static const Color seed = orange;
+
+  static ThemeData light() {
+    final base = ColorScheme.fromSeed(seedColor: orange);
+    final scheme = base.copyWith(
+      primary: orange,
+      onPrimary: Colors.white,
+      primaryContainer: peach,
+      onPrimaryContainer: brown,
+      secondary: sage,
+      tertiary: terracotta,
+      tertiaryContainer: const Color(0xFFF6E2D2),
+      onTertiaryContainer: brown,
+      surface: cream,
+      onSurface: brown,
+      onSurfaceVariant: brownSoft,
+      outline: const Color(0xFFE0D6C6),
+      outlineVariant: const Color(0xFFEBE3D6),
     );
-    final isLight = brightness == Brightness.light;
+    return _build(scheme, isLight: true, scaffold: cream, card: Colors.white);
+  }
+
+  static ThemeData dark() {
+    const bg = Color(0xFF241F1B);
+    const card = Color(0xFF2E2823);
+    final base = ColorScheme.fromSeed(
+        seedColor: orange, brightness: Brightness.dark);
+    final scheme = base.copyWith(
+      primary: orange,
+      onPrimary: Colors.black,
+      primaryContainer: const Color(0xFF4A3A2A),
+      onPrimaryContainer: peach,
+      surface: bg,
+      onSurface: const Color(0xFFEDE6DC),
+      onSurfaceVariant: const Color(0xFFB6A99B),
+    );
+    return _build(scheme, isLight: false, scaffold: bg, card: card);
+  }
+
+  static ThemeData _build(ColorScheme scheme,
+      {required bool isLight, required Color scaffold, required Color card}) {
     return ThemeData(
       colorScheme: scheme,
       useMaterial3: true,
-      scaffoldBackgroundColor:
-          isLight ? const Color(0xFFF6F5FB) : scheme.surface,
+      scaffoldBackgroundColor: scaffold,
       appBarTheme: AppBarTheme(
         centerTitle: false,
-        backgroundColor: isLight ? const Color(0xFFF6F5FB) : scheme.surface,
+        backgroundColor: scaffold,
+        surfaceTintColor: Colors.transparent,
         scrolledUnderElevation: 0,
         elevation: 0,
         titleTextStyle: TextStyle(
           color: scheme.onSurface,
           fontSize: 22,
-          fontWeight: FontWeight.w700,
+          fontWeight: FontWeight.w800,
         ),
+        iconTheme: IconThemeData(color: scheme.onSurface),
       ),
       cardTheme: CardThemeData(
         elevation: 0,
-        color: isLight ? Colors.white : scheme.surfaceContainerHigh,
+        color: card,
+        surfaceTintColor: Colors.transparent,
+        shadowColor: Colors.black.withValues(alpha: 0.10),
         clipBehavior: Clip.antiAlias,
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(20),
+          borderRadius: BorderRadius.circular(22),
         ),
       ),
       navigationBarTheme: NavigationBarThemeData(
-        backgroundColor: isLight ? Colors.white : scheme.surfaceContainer,
+        backgroundColor: isLight ? Colors.white : scheme.surfaceContainerHigh,
         elevation: 3,
         height: 68,
+        surfaceTintColor: Colors.transparent,
         labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
-        indicatorColor: scheme.primaryContainer,
+        indicatorColor: AppTheme.peach,
         labelTextStyle: WidgetStateProperty.all(
-          const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+          TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+              color: scheme.onSurface),
         ),
+        iconTheme: WidgetStateProperty.resolveWith((states) {
+          final selected = states.contains(WidgetState.selected);
+          return IconThemeData(
+              color: selected ? brown : scheme.onSurfaceVariant);
+        }),
       ),
       filledButtonTheme: FilledButtonThemeData(
         style: FilledButton.styleFrom(
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(14),
-          ),
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
         ),
       ),
       inputDecorationTheme: InputDecorationTheme(
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(14),
-        ),
+        border:
+            OutlineInputBorder(borderRadius: BorderRadius.circular(14)),
       ),
     );
   }
 
   /// Vorschlags-Palette für Familienmitglieder / Kalender ohne eigene Farbe.
   static const List<Color> familyColors = [
-    Color(0xFFEF5350), // rot
-    Color(0xFF42A5F5), // blau
-    Color(0xFF66BB6A), // grün
-    Color(0xFFFFA726), // orange
-    Color(0xFFAB47BC), // lila
-    Color(0xFF26C6DA), // türkis
-    Color(0xFFEC407A), // pink
-    Color(0xFF8D6E63), // braun
+    Color(0xFFEF5350),
+    Color(0xFF42A5F5),
+    Color(0xFF66BB6A),
+    Color(0xFFFFA726),
+    Color(0xFFAB47BC),
+    Color(0xFF26C6DA),
+    Color(0xFFEC407A),
+    Color(0xFF8D6E63),
   ];
 }

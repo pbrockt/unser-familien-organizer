@@ -121,7 +121,11 @@ Stand: Juni 2026 · App: Flutter (Android, später Web)
 - [ ] Optional: Mitglieder-Filter / Wetter / Geburtstage hervorheben
 
 ## 🎨 Design
-- [x] Frisches Planily-artiges Theme (Violett-Akzent, runde Karten, NavBar)
+- [x] Warmes Planily-Theme (Creme-Hintergrund, Orange-Akzent, braune Schrift,
+      runde weiße Karten, dekorative Pastell-„Blobs")
+- [x] Dashboard im Screenshot-Stil: Begrüßung + Avatar + Zahnrad, anstehende
+      Termine als horizontale Karten, Listen mit Fortschritt
+- [ ] Feinschliff nach Screenshot-Vorlage (Abstände, Karten, Familien-Pille)
 - [ ] Theme-Wahl (hell/dunkel/system) in den Einstellungen
 
 ## ⚙️ Einstellungen
