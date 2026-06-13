@@ -122,12 +122,22 @@ jobs:
         env:
           CL: /D_SILENCE_EXPERIMENTAL_COROUTINE_DEPRECATION_WARNINGS
         run: flutter build windows --release
-      - name: Package ZIP
+      - name: Package ZIP (portabel)
         run: Compress-Archive -Path build/windows/x64/runner/Release/* -DestinationPath "FamilyPlanner-windows-${{ github.ref_name }}.zip"
+      - name: Install Inno Setup
+        run: choco install innosetup -y --no-progress
+      - name: Build Windows installer (Setup.exe)
+        run: |
+          & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" `
+            "/DMyAppVersion=${{ github.ref_name }}" `
+            "/DSourceDir=build\windows\x64\runner\Release" `
+            installer\windows\setup.iss
       - name: Upload to release
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh release upload "${{ github.ref_name }}" "FamilyPlanner-windows-${{ github.ref_name }}.zip" --clobber
+        run: |
+          gh release upload "${{ github.ref_name }}" "FamilyPlanner-windows-${{ github.ref_name }}.zip" --clobber
+          gh release upload "${{ github.ref_name }}" "installer\windows\installer_output\UnserFamilienOrganizer-Setup-${{ github.ref_name }}.exe" --clobber
 
   # Linux-Desktop (Bundle als tar.gz) – nur bei Tags.
   build-linux:
@@ -153,9 +163,18 @@ jobs:
         run: flutter pub get
       - name: Build Linux
         run: flutter build linux --release
-      - name: Package tar.gz
+      - name: Build .deb package
+        run: bash installer/linux/build-deb.sh "${{ github.ref_name }}"
+      - name: Add installer scripts to bundle
+        run: |
+          cp installer/linux/install.sh installer/linux/uninstall.sh build/linux/x64/release/bundle/
+          cp design/icons/icon.png build/linux/x64/release/bundle/unser-familien-organizer.png
+          chmod +x build/linux/x64/release/bundle/install.sh build/linux/x64/release/bundle/uninstall.sh
+      - name: Package tar.gz (mit install.sh)
         run: tar -czf "FamilyPlanner-linux-${{ github.ref_name }}.tar.gz" -C build/linux/x64/release/bundle .
       - name: Upload to release
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh release upload "${{ github.ref_name }}" "FamilyPlanner-linux-${{ github.ref_name }}.tar.gz" --clobber
+        run: |
+          gh release upload "${{ github.ref_name }}" "FamilyPlanner-linux-${{ github.ref_name }}.tar.gz" --clobber
+          gh release upload "${{ github.ref_name }}" "UnserFamilienOrganizer-${{ github.ref_name }}-amd64.deb" --clobber
