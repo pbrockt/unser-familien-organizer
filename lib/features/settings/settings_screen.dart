@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 
 import '../../core/background/background_sync.dart';
+import '../../core/platform/platform_support.dart';
 import 'about_update_sheet.dart';
 import 'notification_providers.dart';
 import 'theme_provider.dart';
@@ -92,6 +93,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               ),
             ),
             const Divider(),
+            if (isAndroid) ...[
             _sectionHeader(context, 'Erinnerungen'),
             SwitchListTile(
               secondary: const Icon(Icons.notifications_active_outlined),
@@ -161,6 +163,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               },
             ),
             const Divider(),
+            ],
             _sectionHeader(context, 'App'),
             ListTile(
               leading: const Icon(Icons.system_update),

@@ -162,6 +162,14 @@ Stand: Juni 2026 · App: Flutter (Android, später Web)
 - [ ] Keystore/Secrets-Handling final
 - [ ] Self-Signed-Cert UX (Vertrauen bestätigen)
 
+## 🖥️ Desktop (Windows + Linux)
+- [x] Windows-Build (.exe, portabel als ZIP) + Linux-Build (Bundle als tar.gz)
+      aus demselben Flutter-Code; CI-Jobs auf windows-latest/ubuntu-latest
+- [x] Plattform-Weichen: Benachrichtigungen/Widgets/Hintergrund-Sync nur Android;
+      SQLite über sqflite_common_ffi, DB-Pfad via path_provider
+- [ ] Desktop-Politur: Fenstergröße/-titel, ggf. Tray, Timer-Sync
+- [ ] Echte Installer: Windows MSIX/Inno-Setup, Linux AppImage/.deb
+
 ## 🚀 Phase 10 — Release
 - [ ] Testing
 - [ ] F-Droid / Play Store / direkter APK-Download

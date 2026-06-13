@@ -3,6 +3,8 @@ import 'package:flutter_timezone/flutter_timezone.dart';
 import 'package:timezone/data/latest_all.dart' as tzdata;
 import 'package:timezone/timezone.dart' as tz;
 
+import '../platform/platform_support.dart';
+
 /// Eine geplante Erinnerung (entkoppelt von App-Modellen).
 class ScheduledReminder {
   const ScheduledReminder({
@@ -30,7 +32,7 @@ class NotificationService {
   static const _channelId = 'reminders';
 
   Future<void> init() async {
-    if (_inited) return;
+    if (!isAndroid || _inited) return;
 
     tzdata.initializeTimeZones();
     try {
@@ -61,6 +63,7 @@ class NotificationService {
 
   /// Fragt die Benachrichtigungs-Berechtigung an (Android 13+).
   Future<bool> requestPermission() async {
+    if (!isAndroid) return false;
     await init();
     final androidImpl =
         _plugin.resolvePlatformSpecificImplementation<
@@ -70,6 +73,7 @@ class NotificationService {
   }
 
   Future<bool> areNotificationsEnabled() async {
+    if (!isAndroid) return false;
     await init();
     final androidImpl =
         _plugin.resolvePlatformSpecificImplementation<
@@ -79,6 +83,7 @@ class NotificationService {
 
   /// Ersetzt alle geplanten Erinnerungen durch [reminders] (nur Zukunft).
   Future<void> schedule(List<ScheduledReminder> reminders) async {
+    if (!isAndroid) return;
     await init();
     await _plugin.cancelAll();
 
@@ -107,12 +112,14 @@ class NotificationService {
   }
 
   Future<void> cancelAll() async {
+    if (!isAndroid) return;
     await init();
     await _plugin.cancelAll();
   }
 
   /// Sofortige Test-Benachrichtigung (zum Prüfen der Berechtigung).
   Future<void> showTest() async {
+    if (!isAndroid) return;
     await init();
     await _plugin.show(
       id: 999999,

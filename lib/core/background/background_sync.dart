@@ -8,6 +8,7 @@ import '../../features/settings/notification_providers.dart';
 import '../../features/settings/reminder_planner.dart';
 import '../../features/tasks/tasks_builder.dart';
 import '../auth/account_providers.dart';
+import '../platform/platform_support.dart';
 import '../widgets/home_widgets.dart';
 
 const _uniqueName = 'familyplanner-sync';
@@ -56,19 +57,26 @@ void callbackDispatcher() {
   });
 }
 
-/// Initialisiert WorkManager (in main aufrufen).
-Future<void> initBackgroundSync() =>
-    Workmanager().initialize(callbackDispatcher);
+/// Initialisiert WorkManager (in main aufrufen). Nur Android.
+Future<void> initBackgroundSync() async {
+  if (!isAndroid) return;
+  await Workmanager().initialize(callbackDispatcher);
+}
 
 /// Plant den periodischen Hintergrund-Sync (alle ~2 Stunden, nur mit Netz).
-Future<void> registerBackgroundSync() => Workmanager().registerPeriodicTask(
-      _uniqueName,
-      _taskName,
-      frequency: const Duration(hours: 2),
-      constraints: Constraints(networkType: NetworkType.connected),
-      existingWorkPolicy: ExistingPeriodicWorkPolicy.update,
-    );
+Future<void> registerBackgroundSync() async {
+  if (!isAndroid) return;
+  await Workmanager().registerPeriodicTask(
+    _uniqueName,
+    _taskName,
+    frequency: const Duration(hours: 2),
+    constraints: Constraints(networkType: NetworkType.connected),
+    existingWorkPolicy: ExistingPeriodicWorkPolicy.update,
+  );
+}
 
 /// Stoppt den periodischen Hintergrund-Sync.
-Future<void> cancelBackgroundSync() =>
-    Workmanager().cancelByUniqueName(_uniqueName);
+Future<void> cancelBackgroundSync() async {
+  if (!isAndroid) return;
+  await Workmanager().cancelByUniqueName(_uniqueName);
+}

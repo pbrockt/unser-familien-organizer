@@ -3,6 +3,7 @@ import 'package:intl/intl.dart';
 
 import '../../features/calendar/calendar_event.dart';
 import '../../features/tasks/task_item.dart';
+import '../platform/platform_support.dart';
 
 /// Aktualisiert die Android-Home-Screen-Widgets (Kalender heute / heute+morgen
 /// / Woche / Monat, Aufgaben, Einkauf). Schiebt formatierte Texte in die
@@ -16,6 +17,7 @@ class HomeWidgets {
     required List<CalendarEvent> events,
     required List<TaskList> lists,
   }) async {
+    if (!isAndroid) return; // Home-Widgets gibt es nur auf Android.
     final now = DateTime.now();
     final today = DateTime(now.year, now.month, now.day);
     final tomorrow = today.add(const Duration(days: 1));

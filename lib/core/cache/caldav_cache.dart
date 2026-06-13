@@ -1,7 +1,9 @@
 import 'package:path/path.dart' as p;
+import 'package:path_provider/path_provider.dart';
 import 'package:sqflite/sqflite.dart';
 
 import '../caldav/caldav_client.dart';
+import '../platform/platform_support.dart';
 
 /// Lokal zwischengespeicherter Stand: Collections + ihre Objekte.
 class CachedSnapshot {
@@ -36,7 +38,10 @@ class CalDavCache {
 
   Future<Database> _open() async {
     if (_db != null) return _db!;
-    final dir = await getDatabasesPath();
+    // Auf dem Desktop einen stabilen, beschreibbaren Ort verwenden.
+    final dir = isDesktop
+        ? (await getApplicationSupportDirectory()).path
+        : await getDatabasesPath();
     _db = await openDatabase(
       p.join(dir, 'caldav_cache.db'),
       version: 2,
