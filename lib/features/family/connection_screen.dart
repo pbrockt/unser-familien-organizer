@@ -1,19 +1,18 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../core/auth/account_providers.dart';
 import '../../core/auth/nextcloud_account.dart';
 import '../../core/caldav/caldav_exception.dart';
 
-/// Formular zum Verbinden mit der eigenen Nextcloud.
+/// Verbindung mit der eigenen Nextcloud herstellen.
 ///
-/// Der Nutzer trägt **seine eigene URL**, Benutzername und App-Passwort ein.
-/// "Verbinden & Testen" macht einen echten PROPFIND gegen den Server: nur
-/// wenn der klappt, werden die Daten verschlüsselt gespeichert.
+/// Primär per **Login Flow v2** (Anmeldung im Browser, App erhält automatisch
+/// ein App-Passwort). Alternativ manuell mit App-Passwort.
 class ConnectionScreen extends ConsumerStatefulWidget {
   const ConnectionScreen({super.key, this.existing});
 
-  /// Bestehendes Konto zum Vorbefüllen (Bearbeiten statt neu verbinden).
   final NextcloudAccount? existing;
 
   @override
@@ -21,7 +20,6 @@ class ConnectionScreen extends ConsumerStatefulWidget {
 }
 
 class _ConnectionScreenState extends ConsumerState<ConnectionScreen> {
-  final _formKey = GlobalKey<FormState>();
   late final TextEditingController _urlCtrl;
   late final TextEditingController _userCtrl;
   late final TextEditingController _passCtrl;
@@ -29,6 +27,11 @@ class _ConnectionScreenState extends ConsumerState<ConnectionScreen> {
   bool _obscure = true;
   bool _busy = false;
   String? _error;
+
+  // Login-Flow-Zustand.
+  bool _waitingForLogin = false;
+  bool _loginCancelled = false;
+  String? _lastLoginUrl;
 
   @override
   void initState() {
@@ -48,8 +51,96 @@ class _ConnectionScreenState extends ConsumerState<ConnectionScreen> {
     super.dispose();
   }
 
-  Future<void> _testAndSave() async {
-    if (!_formKey.currentState!.validate()) return;
+  bool _validUrl() {
+    final host = _urlCtrl.text.trim().replaceFirst(RegExp(r'^(https?://)+'), '');
+    return host.isNotEmpty && host.contains('.');
+  }
+
+  // ---- Login Flow v2 ----
+
+  Future<void> _loginWithBrowser() async {
+    if (!_validUrl()) {
+      setState(() => _error = 'Bitte eine gültige Server-Adresse eingeben.');
+      return;
+    }
+    setState(() {
+      _busy = true;
+      _error = null;
+    });
+    final service = ref.read(nextcloudLoginServiceProvider);
+    final base = service.normalizeBase(_urlCtrl.text);
+    try {
+      final init = await service.start(base, allowInsecure: _allowInsecure);
+      final opened = await launchUrl(
+        Uri.parse(init.loginUrl),
+        mode: LaunchMode.externalApplication,
+      );
+      if (!opened) {
+        setState(() {
+          _busy = false;
+          _error = 'Konnte den Browser nicht öffnen.';
+        });
+        return;
+      }
+      _lastLoginUrl = init.loginUrl;
+      setState(() {
+        _waitingForLogin = true;
+        _loginCancelled = false;
+      });
+
+      final account = await service.poll(
+        init,
+        allowInsecure: _allowInsecure,
+        isCancelled: () => _loginCancelled || !mounted,
+      );
+      if (!mounted) return;
+
+      if (account != null) {
+        await ref.read(accountProvider.notifier).save(account);
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Angemeldet als ${account.username} ✓')),
+        );
+        Navigator.of(context).pop();
+      } else {
+        setState(() {
+          _waitingForLogin = false;
+          _busy = false;
+          if (!_loginCancelled) {
+            _error = 'Zeitüberschreitung. Bitte erneut versuchen.';
+          }
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _waitingForLogin = false;
+          _busy = false;
+          _error = 'Anmeldung fehlgeschlagen: $e';
+        });
+      }
+    }
+  }
+
+  void _cancelLogin() {
+    setState(() {
+      _loginCancelled = true;
+      _waitingForLogin = false;
+      _busy = false;
+    });
+  }
+
+  // ---- Manuell (App-Passwort) ----
+
+  Future<void> _manualSave() async {
+    if (!_validUrl()) {
+      setState(() => _error = 'Bitte eine gültige Server-Adresse eingeben.');
+      return;
+    }
+    if (_userCtrl.text.trim().isEmpty || _passCtrl.text.isEmpty) {
+      setState(() => _error = 'Benutzername und App-Passwort eingeben.');
+      return;
+    }
     setState(() {
       _busy = true;
       _error = null;
@@ -63,18 +154,13 @@ class _ConnectionScreenState extends ConsumerState<ConnectionScreen> {
     ).normalized();
 
     try {
-      // Echter Verbindungstest: Collections abrufen (PROPFIND).
       final client = ref.read(caldavClientProvider);
       final collections = await client.listCollections(account);
-
       await ref.read(accountProvider.notifier).save(account);
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            'Verbunden! ${collections.length} Kalender/Listen gefunden.',
-          ),
-        ),
+        SnackBar(content: Text(
+            'Verbunden! ${collections.length} Kalender/Listen gefunden.')),
       );
       Navigator.of(context).pop();
     } on CalDavException catch (e) {
@@ -95,44 +181,122 @@ class _ConnectionScreenState extends ConsumerState<ConnectionScreen> {
             : 'Verbindung bearbeiten'),
       ),
       body: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(16),
-          child: Form(
-            key: _formKey,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
+        child: _waitingForLogin ? _waitingView() : _formView(),
+      ),
+    );
+  }
+
+  Widget _waitingView() {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(28),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const CircularProgressIndicator(),
+            const SizedBox(height: 24),
+            Text('Anmeldung im Browser…',
+                style: Theme.of(context).textTheme.titleMedium),
+            const SizedBox(height: 8),
+            Text(
+              'Melde dich im geöffneten Browser bei Nextcloud an und bestätige '
+              'den Zugriff. Danach geht es hier automatisch weiter.',
+              textAlign: TextAlign.center,
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                  color: Theme.of(context).colorScheme.onSurfaceVariant),
+            ),
+            const SizedBox(height: 24),
+            if (_lastLoginUrl != null)
+              TextButton.icon(
+                onPressed: () => launchUrl(Uri.parse(_lastLoginUrl!),
+                    mode: LaunchMode.externalApplication),
+                icon: const Icon(Icons.open_in_new),
+                label: const Text('Browser erneut öffnen'),
+              ),
+            OutlinedButton(
+              onPressed: _cancelLogin,
+              child: const Text('Abbrechen'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _formView() {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text(
+            'Verbinde deine eigene Nextcloud. Am einfachsten per Anmeldung im '
+            'Browser – die App erhält automatisch ein App-Passwort.',
+            style: Theme.of(context).textTheme.bodyMedium,
+          ),
+          const SizedBox(height: 20),
+          TextField(
+            controller: _urlCtrl,
+            keyboardType: TextInputType.url,
+            autocorrect: false,
+            onChanged: (_) {
+              if (_error != null) setState(() => _error = null);
+            },
+            decoration: const InputDecoration(
+              labelText: 'Server-Adresse',
+              hintText: 'https://pb.lah-cx.de',
+              helperText: 'Nur die Adresse – den Rest macht die App.',
+              prefixIcon: Icon(Icons.cloud_outlined),
+              border: OutlineInputBorder(),
+            ),
+          ),
+          const SizedBox(height: 4),
+          SwitchListTile(
+            contentPadding: EdgeInsets.zero,
+            value: _allowInsecure,
+            onChanged: (v) => setState(() => _allowInsecure = v),
+            title: const Text('Selbst-signiertes Zertifikat erlauben'),
+            subtitle: const Text('Für Heimserver (Unraid) ohne offizielles '
+                'TLS-Zertifikat'),
+          ),
+          if (_error != null) ...[
+            const SizedBox(height: 8),
+            _ErrorBanner(message: _error!),
+          ],
+          const SizedBox(height: 16),
+          FilledButton.icon(
+            onPressed: _busy ? null : _loginWithBrowser,
+            icon: _busy
+                ? const SizedBox(
+                    width: 18,
+                    height: 18,
+                    child: CircularProgressIndicator(strokeWidth: 2))
+                : const Icon(Icons.login),
+            label: Text(_busy ? 'Öffne Browser…' : 'Mit Nextcloud anmelden'),
+            style: FilledButton.styleFrom(
+                padding: const EdgeInsets.symmetric(vertical: 14)),
+          ),
+          const SizedBox(height: 12),
+          Row(children: [
+            const Expanded(child: Divider()),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 12),
+              child: Text('oder',
+                  style: TextStyle(
+                      color: Theme.of(context).colorScheme.onSurfaceVariant)),
+            ),
+            const Expanded(child: Divider()),
+          ]),
+          const SizedBox(height: 4),
+          Theme(
+            data: Theme.of(context)
+                .copyWith(dividerColor: Colors.transparent),
+            child: ExpansionTile(
+              tilePadding: EdgeInsets.zero,
+              childrenPadding: const EdgeInsets.only(bottom: 8),
+              title: const Text('Manuell mit App-Passwort'),
               children: [
-                Text(
-                  'Trage deine eigene Nextcloud-Adresse ein. Die App spricht '
-                  'direkt per CalDAV mit deinem Server – kein fremdes Konto.',
-                  style: Theme.of(context).textTheme.bodyMedium,
-                ),
-                const SizedBox(height: 20),
-                TextFormField(
-                  controller: _urlCtrl,
-                  keyboardType: TextInputType.url,
-                  autocorrect: false,
-                  decoration: const InputDecoration(
-                    labelText: 'Server-Adresse',
-                    hintText: 'https://pb.lah-cx.de',
-                    helperText: 'Nur die Adresse deines Servers – den Rest '
-                        '(/remote.php/…) hängt die App selbst an.',
-                    helperMaxLines: 2,
-                    prefixIcon: Icon(Icons.cloud_outlined),
-                    border: OutlineInputBorder(),
-                  ),
-                  validator: (v) {
-                    final t = (v ?? '').trim();
-                    final host = t.replaceFirst(RegExp(r'^(https?://)+'), '');
-                    if (host.isEmpty) return 'Server-Adresse eingeben';
-                    if (!host.contains('.')) {
-                      return 'Vollständige Adresse, z.B. pb.lah-cx.de';
-                    }
-                    return null;
-                  },
-                ),
-                const SizedBox(height: 16),
-                TextFormField(
+                TextField(
                   controller: _userCtrl,
                   autocorrect: false,
                   decoration: const InputDecoration(
@@ -140,11 +304,9 @@ class _ConnectionScreenState extends ConsumerState<ConnectionScreen> {
                     prefixIcon: Icon(Icons.person_outline),
                     border: OutlineInputBorder(),
                   ),
-                  validator: (v) =>
-                      (v ?? '').trim().isEmpty ? 'Benutzername eingeben' : null,
                 ),
-                const SizedBox(height: 16),
-                TextFormField(
+                const SizedBox(height: 12),
+                TextField(
                   controller: _passCtrl,
                   obscureText: _obscure,
                   autocorrect: false,
@@ -152,7 +314,7 @@ class _ConnectionScreenState extends ConsumerState<ConnectionScreen> {
                   decoration: InputDecoration(
                     labelText: 'App-Passwort',
                     helperText: 'Nextcloud → Einstellungen → Sicherheit → '
-                        'App-Passwort (nicht dein Login-Passwort)',
+                        'App-Passwort',
                     helperMaxLines: 2,
                     prefixIcon: const Icon(Icons.key_outlined),
                     suffixIcon: IconButton(
@@ -162,41 +324,17 @@ class _ConnectionScreenState extends ConsumerState<ConnectionScreen> {
                     ),
                     border: const OutlineInputBorder(),
                   ),
-                  validator: (v) =>
-                      (v ?? '').isEmpty ? 'App-Passwort eingeben' : null,
                 ),
-                const SizedBox(height: 8),
-                SwitchListTile(
-                  contentPadding: EdgeInsets.zero,
-                  value: _allowInsecure,
-                  onChanged: (v) => setState(() => _allowInsecure = v),
-                  title: const Text('Selbst-signiertes Zertifikat erlauben'),
-                  subtitle: const Text(
-                      'Für Heimserver (Unraid) ohne offizielles TLS-Zertifikat'),
-                ),
-                if (_error != null) ...[
-                  const SizedBox(height: 8),
-                  _ErrorBanner(message: _error!),
-                ],
-                const SizedBox(height: 24),
-                FilledButton.icon(
-                  onPressed: _busy ? null : _testAndSave,
-                  icon: _busy
-                      ? const SizedBox(
-                          width: 18,
-                          height: 18,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        )
-                      : const Icon(Icons.link),
-                  label: Text(_busy ? 'Teste Verbindung…' : 'Verbinden & Testen'),
-                  style: FilledButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(vertical: 14),
-                  ),
+                const SizedBox(height: 12),
+                OutlinedButton.icon(
+                  onPressed: _busy ? null : _manualSave,
+                  icon: const Icon(Icons.link),
+                  label: const Text('Verbinden & Testen'),
                 ),
               ],
             ),
           ),
-        ),
+        ],
       ),
     );
   }
@@ -220,10 +358,8 @@ class _ErrorBanner extends StatelessWidget {
           Icon(Icons.error_outline, color: scheme.onErrorContainer),
           const SizedBox(width: 12),
           Expanded(
-            child: Text(
-              message,
-              style: TextStyle(color: scheme.onErrorContainer),
-            ),
+            child: Text(message,
+                style: TextStyle(color: scheme.onErrorContainer)),
           ),
         ],
       ),

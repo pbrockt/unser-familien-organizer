@@ -64,10 +64,10 @@ Stand: Juni 2026 · App: Flutter (Android, später Web)
       bei Konflikt automatisch erzwungen
 
 ## 🔐 Phase 3 — Nextcloud-Verbindung & Onboarding
-- [ ] Nextcloud Login Flow v2 (App-Passwort, nie Hauptpasswort)
-- [ ] Credentials in `flutter_secure_storage` (Android Keystore)
-- [ ] Onboarding-Flow + Verbindungstest
-- [ ] Navigation/Design-Feinschliff
+- [x] Nextcloud Login Flow v2 (Anmeldung im Browser, App-Passwort automatisch)
+- [x] Credentials in `flutter_secure_storage` (Android Keystore)
+- [x] Manuell-mit-App-Passwort als Fallback + Verbindungstest
+- [x] Self-Signed-Zertifikat-Option beim Login
 
 ## 📅 Phase 4 — Kalender-UI
 - [x] `table_calendar`: Monat / 2 Wochen / Woche mit Event-Markern

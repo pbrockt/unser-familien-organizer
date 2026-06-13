@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 
 import '../../core/background/background_sync.dart';
 import 'about_update_sheet.dart';
@@ -140,6 +141,19 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               title: const Text('Nach Updates suchen'),
               subtitle: const Text('Neueste Version von GitHub laden'),
               onTap: () => showAboutUpdateSheet(context),
+            ),
+            FutureBuilder<PackageInfo>(
+              future: PackageInfo.fromPlatform(),
+              builder: (context, snapshot) {
+                final info = snapshot.data;
+                return ListTile(
+                  leading: const Icon(Icons.info_outline),
+                  title: const Text('Version'),
+                  subtitle: Text(info == null
+                      ? '…'
+                      : '${info.version} (${info.buildNumber})'),
+                );
+              },
             ),
           ],
         ),

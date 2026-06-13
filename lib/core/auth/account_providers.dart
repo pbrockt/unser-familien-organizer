@@ -6,6 +6,7 @@ import '../caldav/caldav_repository.dart';
 import '../caldav/http_caldav_client.dart';
 import 'account_storage.dart';
 import 'nextcloud_account.dart';
+import 'nextcloud_login_service.dart';
 
 /// Verschlüsselter Konto-Speicher.
 final accountStorageProvider = Provider<AccountStorage>((ref) {
@@ -16,6 +17,10 @@ final accountStorageProvider = Provider<AccountStorage>((ref) {
 final caldavClientProvider = Provider<CalDavClient>((ref) {
   return const HttpCalDavClient();
 });
+
+/// Nextcloud Login Flow v2 (Browser-Anmeldung).
+final nextcloudLoginServiceProvider =
+    Provider<NextcloudLoginService>((ref) => const NextcloudLoginService());
 
 /// Lokaler SQLite-Cache der CalDAV-Daten (Offline-Lesen).
 final caldavCacheProvider = Provider<CalDavCache>((ref) => CalDavCache());
