@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
+  <rect width="1024" height="1024" rx="180" fill="#F3EEE4"/>
+  <rect x="356" y="248" width="40" height="92" rx="20" fill="#3E322A"/>
+  <rect x="628" y="248" width="40" height="92" rx="20" fill="#3E322A"/>
+  <rect x="232" y="296" width="560" height="468" rx="56" fill="#FFFFFF"/>
+  <path d="M232 420 L232 352 Q232 296 288 296 L736 296 Q792 296 792 352 L792 420 Z" fill="#E8964F"/>
+  <!-- heart as the "day" -->
+  <path d="M512 712
+           C 424 648, 352 596, 352 524
+           C 352 472, 398 442, 446 456
+           C 478 466, 500 490, 512 510
+           C 524 490, 546 466, 578 456
+           C 626 442, 672 472, 672 524
+           C 672 596, 600 648, 512 712 Z" fill="#D9785A"/>
+</svg>
