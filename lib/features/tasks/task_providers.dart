@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/auth/account_providers.dart';
 import '../../core/auth/nextcloud_account.dart';
+import '../../core/caldav/caldav_exception.dart';
 import '../../core/caldav/caldav_repository.dart';
 import '../../core/caldav/ical_builder.dart';
 import '../../core/caldav/ical_parser.dart';
@@ -90,7 +91,22 @@ class TasksController extends AsyncNotifier<List<TaskList>> {
       final base = state.value ?? current;
       state = AsyncData(_replace(base, item, updated, resort: true));
     } catch (e) {
-      // 3) Fehler: zurückrollen und Fehler nach oben geben.
+      // Konflikt: Abhaken ist unkritisch → erzwingen (letzte Änderung gewinnt).
+      if (e is CalDavException && e.isConflict) {
+        try {
+          final forced =
+              _parser.toggleTodoCompletion(item.rawIcal, completed: target);
+          await repo.putObject(account, item.objectHref, forced, force: true);
+          final base = state.value ?? current;
+          state = AsyncData(_replace(
+              base, item, item.copyWith(completed: target, rawIcal: forced),
+              resort: true));
+          return;
+        } catch (_) {
+          // fällt unten zum Rollback durch
+        }
+      }
+      // Sonstiger Fehler: zurückrollen und nach oben geben.
       final base = state.value ?? current;
       state = AsyncData(_replace(base, item, item, resort: true));
       rethrow;
@@ -127,6 +143,7 @@ class TasksController extends AsyncNotifier<List<TaskList>> {
     DateTime? due,
     bool clearDue = false,
     String? description,
+    bool force = false,
   }) async {
     final account = await ref.read(accountProvider.future);
     if (account == null) return;
@@ -144,12 +161,13 @@ class TasksController extends AsyncNotifier<List<TaskList>> {
       item.objectHref,
       ical,
       ifMatchEtag: item.etag.isEmpty ? null : item.etag,
+      force: force,
     );
     await _refresh(account);
   }
 
   /// Löscht eine Aufgabe (CalDAV-DELETE) und lädt danach neu.
-  Future<void> deleteTask(TaskItem item) async {
+  Future<void> deleteTask(TaskItem item, {bool force = false}) async {
     final account = await ref.read(accountProvider.future);
     if (account == null) return;
     final repo = ref.read(caldavRepositoryProvider);
@@ -158,6 +176,7 @@ class TasksController extends AsyncNotifier<List<TaskList>> {
       account,
       item.objectHref,
       ifMatchEtag: item.etag.isEmpty ? null : item.etag,
+      force: force,
     );
     await _refresh(account);
   }

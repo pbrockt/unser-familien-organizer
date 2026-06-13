@@ -62,9 +62,10 @@ class EventsController extends AsyncNotifier<List<CalendarEvent>> {
 
   /// Löscht nur eine einzelne Serien-Instanz: setzt ein EXDATE und schreibt
   /// das Objekt zurück (statt die ganze Serie zu löschen).
-  Future<void> deleteOccurrence(CalendarEvent event) async {
+  Future<void> deleteOccurrence(CalendarEvent event,
+      {bool force = false}) async {
     final date = event.recurrenceDate;
-    if (date == null) return deleteEvent(event); // kein Serien-Kontext
+    if (date == null) return deleteEvent(event, force: force);
 
     final account = await ref.read(accountProvider.future);
     if (account == null) return;
@@ -80,6 +81,7 @@ class EventsController extends AsyncNotifier<List<CalendarEvent>> {
       event.objectHref,
       ical,
       ifMatchEtag: event.etag.isEmpty ? null : event.etag,
+      force: force,
     );
     await _refresh(account);
   }
@@ -119,6 +121,7 @@ class EventsController extends AsyncNotifier<List<CalendarEvent>> {
     bool allDay = false,
     String? description,
     String? location,
+    bool force = false,
   }) async {
     final account = await ref.read(accountProvider.future);
     if (account == null) return;
@@ -138,6 +141,7 @@ class EventsController extends AsyncNotifier<List<CalendarEvent>> {
       event.objectHref,
       ical,
       ifMatchEtag: event.etag.isEmpty ? null : event.etag,
+      force: force,
     );
     await _refresh(account);
   }
@@ -152,6 +156,7 @@ class EventsController extends AsyncNotifier<List<CalendarEvent>> {
     bool allDay = false,
     String? description,
     String? location,
+    bool force = false,
   }) async {
     final recurrenceId = event.recurrenceDate;
     if (recurrenceId == null) {
@@ -162,7 +167,8 @@ class EventsController extends AsyncNotifier<List<CalendarEvent>> {
           end: end,
           allDay: allDay,
           description: description,
-          location: location);
+          location: location,
+          force: force);
     }
 
     final account = await ref.read(accountProvider.future);
@@ -184,11 +190,12 @@ class EventsController extends AsyncNotifier<List<CalendarEvent>> {
       event.objectHref,
       ical,
       ifMatchEtag: event.etag.isEmpty ? null : event.etag,
+      force: force,
     );
     await _refresh(account);
   }
 
-  Future<void> deleteEvent(CalendarEvent event) async {
+  Future<void> deleteEvent(CalendarEvent event, {bool force = false}) async {
     final account = await ref.read(accountProvider.future);
     if (account == null) return;
     final repo = ref.read(caldavRepositoryProvider);
@@ -197,6 +204,7 @@ class EventsController extends AsyncNotifier<List<CalendarEvent>> {
       account,
       event.objectHref,
       ifMatchEtag: event.etag.isEmpty ? null : event.etag,
+      force: force,
     );
     await _refresh(account);
   }

@@ -58,7 +58,10 @@ Stand: Juni 2026 · App: Flutter (Android, später Web)
       aktualisieren (stale-while-revalidate)
 - [x] Delta-Sync via CTag: unveränderte Kalender/Listen werden nicht neu
       heruntergeladen (deutlich schnellerer Sync)
-- [ ] Konfliktlösung bei ETag-Mismatch (aktuell: Server gewinnt / Op verworfen)
+- [x] Konfliktlösung bei ETag-Mismatch (HTTP 412): beim Bearbeiten Dialog
+      „Meine behalten" (überschreiben) vs „Aktuelle Version laden"; in der
+      Offline-Queue gewinnt die bewusste Offline-Änderung (force); Abhaken
+      bei Konflikt automatisch erzwungen
 
 ## 🔐 Phase 3 — Nextcloud-Verbindung & Onboarding
 - [ ] Nextcloud Login Flow v2 (App-Passwort, nie Hauptpasswort)

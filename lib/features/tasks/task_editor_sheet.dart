@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
+import '../../core/caldav/caldav_exception.dart';
+import '../../shared/widgets/conflict_dialog.dart';
 import 'task_item.dart';
 import 'task_providers.dart';
 
@@ -79,36 +81,59 @@ class _TaskEditorSheetState extends ConsumerState<_TaskEditorSheet> {
       );
       return;
     }
-    setState(() => _busy = true);
     final notifier = ref.read(tasksControllerProvider.notifier);
     final desc = _descCtrl.text.trim();
-    try {
-      if (_isEdit) {
-        await notifier.updateTask(
-          widget.existing!,
-          summary: summary,
-          due: _due,
-          clearDue: _due == null,
-          description: desc,
-        );
-      } else {
-        await notifier.createTask(
-          listHref: _listHref,
-          summary: summary,
-          due: _due,
-          description: desc,
-        );
-      }
-      if (mounted) Navigator.of(context).pop();
-    } catch (e) {
-      if (mounted) {
-        setState(() => _busy = false);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Speichern fehlgeschlagen: $e')),
-        );
+
+    Future<bool> write(bool force) async {
+      try {
+        if (_isEdit) {
+          await notifier.updateTask(
+            widget.existing!,
+            summary: summary,
+            due: _due,
+            clearDue: _due == null,
+            description: desc,
+            force: force,
+          );
+        } else {
+          await notifier.createTask(
+            listHref: _listHref,
+            summary: summary,
+            due: _due,
+            description: desc,
+          );
+        }
+        return true;
+      } on CalDavException catch (e) {
+        if (e.isConflict && mounted) {
+          final choice = await showConflictDialog(context);
+          if (choice == ConflictChoice.keepMine) return write(true);
+          if (choice == ConflictChoice.loadServer) {
+            ref.invalidate(tasksControllerProvider);
+            return true;
+          }
+          return false;
+        }
+        if (mounted) _snack('Speichern fehlgeschlagen: $e');
+        return false;
+      } catch (e) {
+        if (mounted) _snack('Speichern fehlgeschlagen: $e');
+        return false;
       }
     }
+
+    setState(() => _busy = true);
+    final ok = await write(false);
+    if (!mounted) return;
+    if (ok) {
+      Navigator.of(context).pop();
+    } else {
+      setState(() => _busy = false);
+    }
   }
+
+  void _snack(String msg) => ScaffoldMessenger.of(context)
+      .showSnackBar(SnackBar(content: Text(msg)));
 
   Future<void> _delete() async {
     final ok = await showDialog<bool>(
@@ -130,19 +155,37 @@ class _TaskEditorSheetState extends ConsumerState<_TaskEditorSheet> {
       ),
     );
     if (ok != true) return;
-    setState(() => _busy = true);
-    try {
-      await ref.read(tasksControllerProvider.notifier).deleteTask(
-            widget.existing!,
-          );
-      if (mounted) Navigator.of(context).pop();
-    } catch (e) {
-      if (mounted) {
-        setState(() => _busy = false);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Löschen fehlgeschlagen: $e')),
-        );
+    final notifier = ref.read(tasksControllerProvider.notifier);
+
+    Future<bool> runDelete(bool force) async {
+      try {
+        await notifier.deleteTask(widget.existing!, force: force);
+        return true;
+      } on CalDavException catch (e) {
+        if (e.isConflict && mounted) {
+          final choice = await showConflictDialog(context);
+          if (choice == ConflictChoice.keepMine) return runDelete(true);
+          if (choice == ConflictChoice.loadServer) {
+            ref.invalidate(tasksControllerProvider);
+            return true;
+          }
+          return false;
+        }
+        if (mounted) _snack('Löschen fehlgeschlagen: $e');
+        return false;
+      } catch (e) {
+        if (mounted) _snack('Löschen fehlgeschlagen: $e');
+        return false;
       }
+    }
+
+    setState(() => _busy = true);
+    final done = await runDelete(false);
+    if (!mounted) return;
+    if (done) {
+      Navigator.of(context).pop();
+    } else {
+      setState(() => _busy = false);
     }
   }
 

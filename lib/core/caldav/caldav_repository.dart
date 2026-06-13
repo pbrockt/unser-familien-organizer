@@ -5,6 +5,7 @@ import 'package:http/http.dart' as http;
 import '../auth/nextcloud_account.dart';
 import '../cache/caldav_cache.dart';
 import 'caldav_client.dart';
+import 'caldav_exception.dart';
 
 /// Ergebnis eines Ladevorgangs: Collections + Objekte und ob die Daten aus
 /// dem Offline-Cache stammen.
@@ -102,10 +103,12 @@ class CalDavRepository {
     String objectHref,
     String icalData, {
     String? ifMatchEtag,
+    bool force = false,
   }) async {
     try {
+      // force → ohne If-Match (überschreibt den Serverstand).
       return await _client.putObject(account, objectHref, icalData,
-          ifMatchEtag: ifMatchEtag);
+          ifMatchEtag: force ? null : ifMatchEtag);
     } catch (e) {
       if (!_isOffline(e)) rethrow;
       await _cache.addPendingOp(_key(account),
@@ -127,9 +130,11 @@ class CalDavRepository {
     NextcloudAccount account,
     String objectHref, {
     String? ifMatchEtag,
+    bool force = false,
   }) async {
     try {
-      await _client.deleteObject(account, objectHref, ifMatchEtag: ifMatchEtag);
+      await _client.deleteObject(account, objectHref,
+          ifMatchEtag: force ? null : ifMatchEtag);
     } catch (e) {
       if (!_isOffline(e)) rethrow;
       await _cache.addPendingOp(_key(account),
@@ -158,7 +163,14 @@ class CalDavRepository {
         await _cache.removePendingOp(op.id);
       } catch (e) {
         if (_isOffline(e)) return; // immer noch offline → später weiter
-        await _cache.removePendingOp(op.id); // Konflikt/weg → verwerfen
+        // Konflikt bei einer offline geänderten Aufgabe/Termin: die bewusste
+        // Offline-Änderung gewinnt → ohne If-Match erneut schreiben.
+        if (e is CalDavException && e.isConflict && op.isPut) {
+          try {
+            await _client.putObject(account, op.objectHref, op.icalData ?? '');
+          } catch (_) {/* endgültig aufgeben */}
+        }
+        await _cache.removePendingOp(op.id); // erledigt/verworfen
       }
     }
   }

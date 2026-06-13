@@ -3,7 +3,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
 import '../../core/auth/account_providers.dart';
+import '../../core/caldav/caldav_exception.dart';
 import '../../shared/utils/hex_color.dart';
+import '../../shared/widgets/conflict_dialog.dart';
 import '../../shared/widgets/countdown_confirm_dialog.dart';
 import 'calendar_event.dart';
 import 'event_providers.dart';
@@ -189,48 +191,71 @@ class _EventEditorSheetState extends ConsumerState<_EventEditorSheet> {
     }
     if (!mounted) return;
 
-    setState(() => _busy = true);
     final notifier = ref.read(eventsControllerProvider.notifier);
     final location = _locationCtrl.text.trim();
     final desc = _descCtrl.text.trim();
-    try {
-      if (!_isEdit) {
-        await notifier.createEvent(
-          calendarHref: calHref,
-          summary: summary,
-          start: times.start,
-          end: times.end,
-          allDay: _allDay,
-          location: location,
-          description: desc,
-        );
-      } else if (editOnlyThis) {
-        await notifier.updateOccurrence(
-          ev!,
-          summary: summary,
-          start: times.start,
-          end: times.end,
-          allDay: _allDay,
-          location: location,
-          description: desc,
-        );
-      } else {
-        await notifier.updateEvent(
-          ev!,
-          summary: summary,
-          start: times.start,
-          end: times.end,
-          allDay: _allDay,
-          location: location,
-          description: desc,
-        );
+
+    Future<bool> write(bool force) async {
+      try {
+        if (!_isEdit) {
+          await notifier.createEvent(
+            calendarHref: calHref,
+            summary: summary,
+            start: times.start,
+            end: times.end,
+            allDay: _allDay,
+            location: location,
+            description: desc,
+          );
+        } else if (editOnlyThis) {
+          await notifier.updateOccurrence(
+            ev!,
+            summary: summary,
+            start: times.start,
+            end: times.end,
+            allDay: _allDay,
+            location: location,
+            description: desc,
+            force: force,
+          );
+        } else {
+          await notifier.updateEvent(
+            ev!,
+            summary: summary,
+            start: times.start,
+            end: times.end,
+            allDay: _allDay,
+            location: location,
+            description: desc,
+            force: force,
+          );
+        }
+        return true;
+      } on CalDavException catch (e) {
+        if (e.isConflict && mounted) {
+          final choice = await showConflictDialog(context);
+          if (choice == ConflictChoice.keepMine) return write(true);
+          if (choice == ConflictChoice.loadServer) {
+            ref.invalidate(eventsControllerProvider);
+            return true; // eigene Änderung verwerfen, Editor schließen
+          }
+          return false; // abgebrochen
+        }
+        if (mounted) _snack('Speichern fehlgeschlagen: $e');
+        return false;
+      } catch (e) {
+        if (mounted) _snack('Speichern fehlgeschlagen: $e');
+        return false;
       }
-      if (mounted) Navigator.of(context).pop();
-    } catch (e) {
-      if (mounted) {
-        setState(() => _busy = false);
-        _snack('Speichern fehlgeschlagen: $e');
-      }
+    }
+
+    setState(() => _busy = true);
+    final ok = await write(false);
+    if (!mounted) return;
+    if (ok) {
+      Navigator.of(context).pop();
+    } else {
+      setState(() => _busy = false);
     }
   }
 
@@ -283,20 +308,41 @@ class _EventEditorSheetState extends ConsumerState<_EventEditorSheet> {
     );
     if (!ok) return;
 
+    final notifier = ref.read(eventsControllerProvider.notifier);
+
+    Future<bool> runDelete(bool force) async {
+      try {
+        if (deleteOnlyThis) {
+          await notifier.deleteOccurrence(ev, force: force);
+        } else {
+          await notifier.deleteEvent(ev, force: force);
+        }
+        return true;
+      } on CalDavException catch (e) {
+        if (e.isConflict && mounted) {
+          final choice = await showConflictDialog(context);
+          if (choice == ConflictChoice.keepMine) return runDelete(true);
+          if (choice == ConflictChoice.loadServer) {
+            ref.invalidate(eventsControllerProvider);
+            return true;
+          }
+          return false;
+        }
+        if (mounted) _snack('Löschen fehlgeschlagen: $e');
+        return false;
+      } catch (e) {
+        if (mounted) _snack('Löschen fehlgeschlagen: $e');
+        return false;
+      }
+    }
+
     setState(() => _busy = true);
-    try {
-      final notifier = ref.read(eventsControllerProvider.notifier);
-      if (deleteOnlyThis) {
-        await notifier.deleteOccurrence(ev);
-      } else {
-        await notifier.deleteEvent(ev);
-      }
-      if (mounted) Navigator.of(context).pop();
-    } catch (e) {
-      if (mounted) {
-        setState(() => _busy = false);
-        _snack('Löschen fehlgeschlagen: $e');
-      }
+    final done = await runDelete(false);
+    if (!mounted) return;
+    if (done) {
+      Navigator.of(context).pop();
+    } else {
+      setState(() => _busy = false);
     }
   }
 
