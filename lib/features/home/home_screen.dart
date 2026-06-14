@@ -269,19 +269,19 @@ class _EventCard extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Row(
+                mainAxisAlignment: MainAxisAlignment.end,
                 children: [
-                  const _IconChip(icon: Icons.event),
-                  const Spacer(),
                   _DayPill(label: _dayLabel()),
                 ],
               ),
               const SizedBox(height: 10),
               Text(event.summary,
-                  maxLines: 1,
+                  maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(
-                      fontSize: 17,
+                      fontSize: 20,
                       fontWeight: FontWeight.w700,
+                      height: 1.15,
                       color: scheme.onSurface)),
               const SizedBox(height: 2),
               if (soon != null)
@@ -300,16 +300,39 @@ class _EventCard extends StatelessWidget {
               Row(
                 crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
-                  Text(
-                    event.allDay
-                        ? 'Ganztägig'
-                        : DateFormat('HH:mm').format(event.start),
-                    style: TextStyle(
-                        fontSize: 22,
-                        fontWeight: FontWeight.w800,
-                        color: scheme.onSurface),
+                  Expanded(
+                    child: event.allDay
+                        ? Text('Ganztägig',
+                            style: TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.w800,
+                                color: scheme.onSurface))
+                        : Row(
+                            crossAxisAlignment: CrossAxisAlignment.end,
+                            children: [
+                              Text(
+                                DateFormat('HH:mm').format(event.start),
+                                style: TextStyle(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.w800,
+                                    color: scheme.onSurface),
+                              ),
+                              if (event.end != null)
+                                Padding(
+                                  padding: const EdgeInsets.only(left: 4),
+                                  child: Text(
+                                    '– ${DateFormat('HH:mm').format(event.end!)}',
+                                    style: TextStyle(
+                                        fontSize: 16,
+                                        fontWeight: FontWeight.w600,
+                                        color: scheme.onSurface
+                                            .withValues(alpha: 0.45)),
+                                  ),
+                                ),
+                            ],
+                          ),
                   ),
-                  const Spacer(),
+                  const SizedBox(width: 8),
                   _Avatar(name: event.calendarName, color: color, radius: 14),
                 ],
               ),
