@@ -99,7 +99,7 @@ class HomeScreen extends ConsumerWidget {
                                 showEventEditor(context, existing: e),
                           )),
                     ],
-                    const _SectionLabel('Listen'),
+                    const _SectionLabel('Überblick'),
                     if (taskLists.isEmpty)
                       const _EmptyHint('Noch keine Listen vorhanden')
                     else
