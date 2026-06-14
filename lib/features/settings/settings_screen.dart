@@ -6,6 +6,7 @@ import '../../core/background/background_sync.dart';
 import '../../core/platform/platform_support.dart';
 import '../../shared/theme/app_theme.dart';
 import '../calendar/event_templates.dart';
+import '../family/family_screen.dart';
 import '../members/member_settings.dart';
 import '../weather/weather_service.dart';
 import 'about_update_sheet.dart';
@@ -79,6 +80,18 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         error: (e, _) => Center(child: Text('Fehler: $e')),
         data: (settings) => ListView(
           children: [
+            _sectionHeader(context, 'Konto'),
+            ListTile(
+              leading: const Icon(Icons.people_outline),
+              title: const Text('Familie & Verbindung'),
+              subtitle:
+                  const Text('Nextcloud, Kalender, Mitglieder & Freigaben'),
+              trailing: const Icon(Icons.chevron_right),
+              onTap: () => Navigator.of(context).push(
+                MaterialPageRoute(builder: (_) => const FamilyScreen()),
+              ),
+            ),
+            const Divider(),
             _sectionHeader(context, 'Darstellung'),
             Padding(
               padding: const EdgeInsets.fromLTRB(16, 4, 16, 12),

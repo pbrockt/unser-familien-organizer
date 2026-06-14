@@ -242,7 +242,7 @@ class _ConnectPrompt extends StatelessWidget {
             Text('Nicht verbunden', style: theme.textTheme.titleLarge),
             const SizedBox(height: 8),
             Text(
-              'Verbinde im Tab „Familie" deine Nextcloud, '
+              'Verbinde unter „Einstellungen → Familie" deine Nextcloud, '
               'um Aufgaben zu sehen.',
               textAlign: TextAlign.center,
               style: theme.textTheme.bodyMedium?.copyWith(

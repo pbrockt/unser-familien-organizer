@@ -7,7 +7,6 @@ import '../../core/caldav/caldav_client.dart';
 import '../../shared/utils/hex_color.dart';
 import '../../shared/widgets/countdown_confirm_dialog.dart';
 import '../members/members_screen.dart';
-import '../settings/settings_screen.dart';
 import 'connection_screen.dart';
 import 'new_calendar_sheet.dart';
 import 'share_calendar_sheet.dart';
@@ -22,18 +21,7 @@ class FamilyScreen extends ConsumerWidget {
     final accountAsync = ref.watch(accountProvider);
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Familie'),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.settings_outlined),
-            tooltip: 'Einstellungen',
-            onPressed: () => Navigator.of(context).push(
-              MaterialPageRoute(builder: (_) => const SettingsScreen()),
-            ),
-          ),
-        ],
-      ),
+      appBar: AppBar(title: const Text('Familie')),
       body: accountAsync.when(
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (e, _) => Center(child: Text('Fehler: $e')),

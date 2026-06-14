@@ -107,8 +107,16 @@ class CalDavRepository {
   }) async {
     try {
       // force → ohne If-Match (überschreibt den Serverstand).
-      return await _client.putObject(account, objectHref, icalData,
+      final etag = await _client.putObject(account, objectHref, icalData,
           ifMatchEtag: force ? null : ifMatchEtag);
+      // Cache sofort aktualisieren, damit Änderungen direkt sichtbar sind –
+      // auch wenn der CTag-Delta-Sync den Server-Stand noch nicht erkennt.
+      await _cache.upsertObject(
+        _key(account),
+        _collectionOf(objectHref),
+        CalDavObject(href: objectHref, etag: etag ?? '', icalData: icalData),
+      );
+      return etag;
     } catch (e) {
       if (!_isOffline(e)) rethrow;
       await _cache.addPendingOp(_key(account),
@@ -135,6 +143,8 @@ class CalDavRepository {
     try {
       await _client.deleteObject(account, objectHref,
           ifMatchEtag: force ? null : ifMatchEtag);
+      // Cache sofort nachziehen, damit die Löschung direkt sichtbar ist.
+      await _cache.removeObject(_key(account), objectHref);
     } catch (e) {
       if (!_isOffline(e)) rethrow;
       await _cache.addPendingOp(_key(account),

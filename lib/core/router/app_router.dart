@@ -3,7 +3,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../features/calendar/calendar_screen.dart';
-import '../../features/family/family_screen.dart';
 import '../../features/home/home_screen.dart';
 import '../../features/shopping/shopping_screen.dart';
 import '../../features/tasks/tasks_screen.dart';
@@ -48,14 +47,6 @@ final routerProvider = Provider<GoRouter>((ref) {
               GoRoute(
                 path: '/shopping',
                 builder: (context, state) => const ShoppingScreen(),
-              ),
-            ],
-          ),
-          StatefulShellBranch(
-            routes: [
-              GoRoute(
-                path: '/family',
-                builder: (context, state) => const FamilyScreen(),
               ),
             ],
           ),

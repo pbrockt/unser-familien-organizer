@@ -11,6 +11,7 @@ import '../../shared/widgets/blob_background.dart';
 import '../calendar/calendar_event.dart';
 import '../calendar/event_editor_sheet.dart';
 import '../calendar/event_providers.dart';
+import '../family/family_screen.dart';
 import '../members/member_settings.dart';
 import '../settings/settings_screen.dart';
 import '../tasks/task_item.dart';
@@ -678,14 +679,16 @@ class _ConnectCard extends StatelessWidget {
                     color: scheme.onSurface)),
             const SizedBox(height: 6),
             Text(
-              'Verbinde im Tab „Familie" deine Nextcloud, damit hier eure '
-              'Termine und Listen erscheinen.',
+              'Verbinde deine Nextcloud, damit hier eure Termine und Listen '
+              'erscheinen.',
               textAlign: TextAlign.center,
               style: TextStyle(color: scheme.onSurfaceVariant),
             ),
             const SizedBox(height: 16),
             FilledButton.icon(
-              onPressed: () => context.go('/family'),
+              onPressed: () => Navigator.of(context).push(
+                MaterialPageRoute(builder: (_) => const FamilyScreen()),
+              ),
               icon: const Icon(Icons.cloud_outlined),
               label: const Text('Verbinden'),
             ),
