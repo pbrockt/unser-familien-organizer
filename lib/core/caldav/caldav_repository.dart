@@ -114,7 +114,7 @@ class CalDavRepository {
       await _cache.upsertObject(
         _key(account),
         _collectionOf(objectHref),
-        CalDavObject(href: objectHref, etag: etag ?? '', icalData: icalData),
+        CalDavObject(href: objectHref, etag: etag, icalData: icalData),
       );
       return etag;
     } catch (e) {
