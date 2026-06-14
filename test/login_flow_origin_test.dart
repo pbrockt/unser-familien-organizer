@@ -44,6 +44,14 @@ void main() {
       expect(result, 'http://cloud.example.com/poll');
     });
 
+    test('schreibt reine Server-Wurzel (json[server]) ohne Pfad um', () {
+      final result = rewriteToBaseOrigin(
+        'https://nextcloud.intern.lan',
+        'https://cloud.example.com',
+      );
+      expect(result, 'https://cloud.example.com');
+    });
+
     test('gibt Original zurück, wenn Basis keinen Host hat', () {
       final result = rewriteToBaseOrigin('https://intern.lan/poll', 'kaputt');
       expect(result, 'https://intern.lan/poll');

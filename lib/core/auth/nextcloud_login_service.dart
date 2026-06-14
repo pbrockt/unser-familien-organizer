@@ -40,11 +40,17 @@ class LoginFlowInit {
     required this.loginUrl,
     required this.pollToken,
     required this.pollEndpoint,
+    required this.baseUrl,
   });
 
   final String loginUrl;
   final String pollToken;
   final String pollEndpoint;
+
+  /// Die vom Nutzer eingegebene, erreichbare Server-Basis. Wird genutzt, um die
+  /// nach dem Login vom Server gemeldete Adresse (`json['server']`) ebenfalls
+  /// auf den erreichbaren Host umzuschreiben.
+  final String baseUrl;
 }
 
 /// Implementiert den Nextcloud **Login Flow v2**: Der Nutzer meldet sich im
@@ -92,12 +98,13 @@ class NextcloudLoginService {
         loginUrl: rewriteToBaseOrigin(json['login'] as String, baseUrl),
         pollToken: poll['token'] as String,
         pollEndpoint: rewriteToBaseOrigin(poll['endpoint'] as String, baseUrl),
+        baseUrl: baseUrl,
       );
     } on FormatException {
       throw const CalDavException(
           'Unerwartete Antwort – ist das eine Nextcloud-Adresse?');
     } on SocketException catch (e) {
-      throw _networkException(e);
+      throw _networkException(e, host: Uri.tryParse(baseUrl)?.host);
     } on HandshakeException {
       throw _tlsException();
     } finally {
@@ -107,15 +114,16 @@ class NextcloudLoginService {
 
   /// Übersetzt einen `SocketException` in eine verständliche Meldung – wie der
   /// CalDAV-Client (DNS-Lookup vs. allgemeiner Verbindungsfehler).
-  CalDavException _networkException(SocketException e) {
+  CalDavException _networkException(SocketException e, {String? host}) {
     final isLookup = e.message.toLowerCase().contains('lookup');
+    final where = (host == null || host.isEmpty) ? '' : ' („$host")';
     return CalDavException(
       isLookup
-          ? 'Server-Adresse nicht gefunden. Prüfe die Adresse und ob dein '
-              'Gerät den Server erreichen kann. Bei einem Heimserver hinter '
-              'Reverse-Proxy: in Nextcloud "overwrite.cli.url" bzw. die '
+          ? 'Server-Adresse nicht gefunden$where. Prüfe die Adresse und ob '
+              'dein Gerät den Server erreichen kann. Bei einem Heimserver '
+              'hinter Reverse-Proxy: in Nextcloud "overwrite.cli.url" bzw. die '
               'Trusted-Domains auf die öffentliche Adresse setzen.'
-          : 'Keine Verbindung zum Server: ${e.message}',
+          : 'Keine Verbindung zum Server$where: ${e.message}',
     );
   }
 
@@ -147,14 +155,18 @@ class NextcloudLoginService {
             body: {'token': init.pollToken},
           );
         } on SocketException catch (e) {
-          throw _networkException(e);
+          throw _networkException(e,
+              host: Uri.tryParse(init.pollEndpoint)?.host);
         } on HandshakeException {
           throw _tlsException();
         }
         if (resp.statusCode == 200) {
           final json = jsonDecode(resp.body) as Map<String, dynamic>;
+          // Auch die vom Server gemeldete Adresse auf die erreichbare Basis
+          // umschreiben – sonst nutzt die spätere Synchronisation wieder den
+          // intern aufgelösten Host (siehe [rewriteToBaseOrigin]).
           return NextcloudAccount(
-            baseUrl: json['server'] as String,
+            baseUrl: rewriteToBaseOrigin(json['server'] as String, init.baseUrl),
             username: json['loginName'] as String,
             appPassword: json['appPassword'] as String,
             allowInsecureCert: allowInsecure,
