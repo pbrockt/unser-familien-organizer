@@ -127,10 +127,11 @@ jobs:
       - name: Install Inno Setup
         run: choco install innosetup -y --no-progress
       - name: Build Windows installer (Setup.exe)
+        # SourceDir bleibt der Skript-Default (..\..\build\...), da Inno relative
+        # [Files]-Pfade relativ zur .iss-Datei aufloest.
         run: |
           & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" `
             "/DMyAppVersion=${{ github.ref_name }}" `
-            "/DSourceDir=build\windows\x64\runner\Release" `
             installer\windows\setup.iss
       - name: Upload to release
         env:
