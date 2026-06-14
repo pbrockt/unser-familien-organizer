@@ -1,10 +1,37 @@
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/io_client.dart';
 
+import '../caldav/caldav_exception.dart';
 import 'nextcloud_account.dart';
+
+/// Ersetzt Schema + Host (+ Port) der vom Server gelieferten URL durch die der
+/// vom Nutzer eingegebenen Server-Basis. Pfad und Query bleiben erhalten.
+///
+/// Hintergrund: Nextcloud baut die `login`/`poll`-URLs im Login Flow v2 aus
+/// seiner eigenen Config (`overwrite.cli.url` / Trusted Domains / Reverse-Proxy).
+/// Steht dort ein nur intern auflösbarer Name, würde die App gegen einen Host
+/// pollen, den das Gerät nicht erreicht (DNS-Fehler „errno 7"). Da beide URLs
+/// im Flow v2 garantiert auf demselben Server liegen, ist das Umschreiben auf
+/// die tatsächlich erreichbare Adresse sicher.
+@visibleForTesting
+String rewriteToBaseOrigin(String returnedUrl, String base) {
+  final returned = Uri.tryParse(returnedUrl);
+  final baseUri = Uri.tryParse(base);
+  if (returned == null || baseUri == null || !baseUri.hasAuthority) {
+    return returnedUrl;
+  }
+  // Expliziten Port setzen: ohne ihn würde Uri.replace den Port der
+  // Server-URL beibehalten. Bei Standard-Port lässt toString() ihn weg.
+  final port =
+      baseUri.hasPort ? baseUri.port : (baseUri.scheme == 'http' ? 80 : 443);
+  return returned
+      .replace(scheme: baseUri.scheme, host: baseUri.host, port: port)
+      .toString();
+}
 
 /// Ergebnis des Login-Flow-Starts: die Browser-URL zum Anmelden und die
 /// Poll-Daten, über die die App auf den Abschluss wartet.
@@ -54,23 +81,49 @@ class NextcloudLoginService {
         },
       );
       if (resp.statusCode != 200) {
-        throw HttpException('Server antwortete mit ${resp.statusCode}. '
+        throw CalDavException('Server antwortete mit ${resp.statusCode}. '
             'Ist die Adresse korrekt?');
       }
       final json = jsonDecode(resp.body) as Map<String, dynamic>;
       final poll = json['poll'] as Map<String, dynamic>;
+      // Vom Server gelieferte URLs auf die erreichbare Basis umschreiben
+      // (siehe [rewriteToBaseOrigin]).
       return LoginFlowInit(
-        loginUrl: json['login'] as String,
+        loginUrl: rewriteToBaseOrigin(json['login'] as String, baseUrl),
         pollToken: poll['token'] as String,
-        pollEndpoint: poll['endpoint'] as String,
+        pollEndpoint: rewriteToBaseOrigin(poll['endpoint'] as String, baseUrl),
       );
     } on FormatException {
-      throw const HttpException(
+      throw const CalDavException(
           'Unerwartete Antwort – ist das eine Nextcloud-Adresse?');
+    } on SocketException catch (e) {
+      throw _networkException(e);
+    } on HandshakeException {
+      throw _tlsException();
     } finally {
       client.close();
     }
   }
+
+  /// Übersetzt einen `SocketException` in eine verständliche Meldung – wie der
+  /// CalDAV-Client (DNS-Lookup vs. allgemeiner Verbindungsfehler).
+  CalDavException _networkException(SocketException e) {
+    final isLookup = e.message.toLowerCase().contains('lookup');
+    return CalDavException(
+      isLookup
+          ? 'Server-Adresse nicht gefunden. Prüfe die Adresse und ob dein '
+              'Gerät den Server erreichen kann. Bei einem Heimserver hinter '
+              'Reverse-Proxy: in Nextcloud "overwrite.cli.url" bzw. die '
+              'Trusted-Domains auf die öffentliche Adresse setzen.'
+          : 'Keine Verbindung zum Server: ${e.message}',
+    );
+  }
+
+  CalDavException _tlsException() => const CalDavException(
+        'TLS-Zertifikat nicht vertrauenswürdig. Bei einem Heimserver mit '
+        'selbst-signiertem Zertifikat die Option "Unsicheres Zertifikat '
+        'erlauben" aktivieren.',
+      );
 
   /// Pollt bis zur erfolgreichen Anmeldung. Gibt das Konto zurück, oder `null`
   /// bei Abbruch/Timeout.
@@ -87,10 +140,17 @@ class NextcloudLoginService {
       while (!isCancelled() && DateTime.now().isBefore(deadline)) {
         await Future<void>.delayed(interval);
         if (isCancelled()) return null;
-        final resp = await client.post(
-          Uri.parse(init.pollEndpoint),
-          body: {'token': init.pollToken},
-        );
+        final http.Response resp;
+        try {
+          resp = await client.post(
+            Uri.parse(init.pollEndpoint),
+            body: {'token': init.pollToken},
+          );
+        } on SocketException catch (e) {
+          throw _networkException(e);
+        } on HandshakeException {
+          throw _tlsException();
+        }
         if (resp.statusCode == 200) {
           final json = jsonDecode(resp.body) as Map<String, dynamic>;
           return NextcloudAccount(

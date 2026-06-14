@@ -111,6 +111,14 @@ class _ConnectionScreenState extends ConsumerState<ConnectionScreen> {
           }
         });
       }
+    } on CalDavException catch (e) {
+      if (mounted) {
+        setState(() {
+          _waitingForLogin = false;
+          _busy = false;
+          _error = e.message;
+        });
+      }
     } catch (e) {
       if (mounted) {
         setState(() {
