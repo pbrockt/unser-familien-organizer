@@ -23,7 +23,7 @@ class _FakeAccountStorage extends AccountStorage {
 void main() {
   setUpAll(() => initializeDateFormatting('de_DE', null));
 
-  testWidgets('App startet und zeigt die vier Navigations-Tabs',
+  testWidgets('App startet und zeigt die Navigation',
       (WidgetTester tester) async {
     await tester.pumpWidget(
       ProviderScope(
@@ -37,6 +37,9 @@ void main() {
 
     expect(find.byType(NavigationBar), findsOneWidget);
     expect(find.text('Aufgaben'), findsOneWidget);
-    expect(find.text('Familie'), findsOneWidget);
+    expect(find.text('Einkauf'), findsOneWidget);
+    expect(find.text('Neu'), findsOneWidget);
+    // 'Familie' ist kein Tab mehr (jetzt unter Einstellungen).
+    expect(find.text('Familie'), findsNothing);
   });
 }
