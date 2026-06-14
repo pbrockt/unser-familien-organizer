@@ -8,6 +8,7 @@ import '../../shared/utils/hex_color.dart';
 import '../members/members_screen.dart';
 import '../settings/settings_screen.dart';
 import 'connection_screen.dart';
+import 'share_calendar_sheet.dart';
 
 /// Familien-Bereich: Nextcloud-Verbindung verwalten und die entdeckten
 /// Kalender/Listen anzeigen.
@@ -213,6 +214,11 @@ class _CollectionTile extends StatelessWidget {
         ),
         title: Text(collection.displayName),
         subtitle: Text(types.isEmpty ? 'Collection' : types.join(' · ')),
+        trailing: IconButton(
+          icon: const Icon(Icons.group_add_outlined),
+          tooltip: 'Freigeben',
+          onPressed: () => showShareSheet(context, collection),
+        ),
       ),
     );
   }

@@ -127,4 +127,15 @@ class CalendarEvent {
   /// Läuft der Termin am gegebenen Tag (für mehrtägige Termine)?
   bool occursOn(DateTime day) =>
       !day.isBefore(startDay) && !day.isAfter(endDayInclusive);
+
+  /// Ist der Termin bereits vorbei (zum Ausblenden in Listen)?
+  /// Zeitgebunden: Ende (oder Start, falls kein Ende) liegt vor [now].
+  /// Ganztägig/mehrtägig: der letzte Tag liegt vor dem heutigen Tag.
+  bool hasPassed(DateTime now) {
+    if (allDay || isMultiDay) {
+      final today = DateTime(now.year, now.month, now.day);
+      return endDayInclusive.isBefore(today);
+    }
+    return (end ?? start).isBefore(now);
+  }
 }

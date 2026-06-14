@@ -1,4 +1,5 @@
 import '../auth/nextcloud_account.dart';
+import 'caldav_sharing.dart';
 
 /// Eine CalDAV-Collection (Kalender oder Aufgaben-/Einkaufsliste).
 class CalDavCollection {
@@ -88,4 +89,34 @@ abstract class CalDavClient {
     NextcloudAccount account,
     String collectionHref,
   );
+
+  // ---- Freigabe (CalDAV-Sharing) ----
+
+  /// Sucht Nextcloud-Benutzer (Principals) per Name/E-Mail. Eine vollständige
+  /// Liste aller Benutzer ist für Nicht-Admins nicht möglich.
+  Future<List<Principal>> searchPrincipals(
+    NextcloudAccount account,
+    String query,
+  );
+
+  /// Listet die aktuellen Freigaben einer Collection.
+  Future<List<CollectionShare>> listShares(
+    NextcloudAccount account,
+    String collectionHref,
+  );
+
+  /// Gibt eine Collection für einen Principal frei (oder ändert die Rechte).
+  Future<void> setShare(
+    NextcloudAccount account,
+    String collectionHref, {
+    required String shareHref,
+    required bool readWrite,
+  });
+
+  /// Entfernt eine Freigabe.
+  Future<void> removeShare(
+    NextcloudAccount account,
+    String collectionHref, {
+    required String shareHref,
+  });
 }

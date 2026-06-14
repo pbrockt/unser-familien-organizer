@@ -112,7 +112,9 @@ class HomeScreen extends ConsumerWidget {
         return !e.endDayInclusive.isBefore(today) &&
             !e.startDay.isAfter(tomorrow);
       }
-      return e.start.isAfter(now) && e.start.isBefore(endExclusive);
+      // Bereits beendete Termine ausblenden; laufende und kommende (bis morgen)
+      // anzeigen.
+      return !e.hasPassed(now) && e.start.isBefore(endExclusive);
     }).toList()
       ..sort((a, b) => a.start.compareTo(b.start));
     return list.take(12).toList();

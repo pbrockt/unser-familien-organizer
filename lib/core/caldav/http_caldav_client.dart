@@ -8,6 +8,7 @@ import 'package:xml/xml.dart';
 import '../auth/nextcloud_account.dart';
 import 'caldav_client.dart';
 import 'caldav_exception.dart';
+import 'caldav_sharing.dart';
 
 /// CalDAV-Client gegen Nextcloud über HTTP (RFC 4791).
 ///
@@ -178,6 +179,182 @@ class HttpCalDavClient implements CalDavClient {
       client.close();
     }
   }
+
+  // ---- Freigabe (CalDAV-Sharing) ----
+
+  @override
+  Future<List<Principal>> searchPrincipals(
+      NextcloudAccount account, String query) async {
+    final q = query.trim();
+    if (q.isEmpty) return const [];
+    final client = _clientFor(account);
+    try {
+      final request = http.Request(
+          'REPORT', _resolve(account, '/remote.php/dav/principals/users/'))
+        ..headers.addAll({
+          ..._authHeaders(account),
+          'Depth': '0',
+          'Content-Type': 'application/xml; charset=utf-8',
+        })
+        ..body = '''
+<?xml version="1.0" encoding="utf-8" ?>
+<d:principal-property-search xmlns:d="DAV:">
+  <d:property-search>
+    <d:prop><d:displayname/></d:prop>
+    <d:match>${_xml(q)}</d:match>
+  </d:property-search>
+  <d:prop><d:displayname/></d:prop>
+</d:principal-property-search>''';
+      final streamed = await client.send(request);
+      final response = await http.Response.fromStream(streamed);
+      if (response.statusCode != 207 && response.statusCode != 200) {
+        throw CalDavException.fromStatus(response.statusCode);
+      }
+      return _parsePrincipals(response.body, account);
+    } on SocketException catch (e) {
+      throw CalDavException('Keine Verbindung zum Server: ${e.message}');
+    } finally {
+      client.close();
+    }
+  }
+
+  @override
+  Future<List<CollectionShare>> listShares(
+      NextcloudAccount account, String collectionHref) async {
+    final client = _clientFor(account);
+    try {
+      final request = http.Request('PROPFIND', _resolve(account, collectionHref))
+        ..headers.addAll({
+          ..._authHeaders(account),
+          'Depth': '0',
+          'Content-Type': 'application/xml; charset=utf-8',
+        })
+        ..body = '''
+<?xml version="1.0" encoding="utf-8" ?>
+<d:propfind xmlns:d="DAV:" xmlns:oc="http://owncloud.org/ns">
+  <d:prop><oc:invite/></d:prop>
+</d:propfind>''';
+      final streamed = await client.send(request);
+      final response = await http.Response.fromStream(streamed);
+      if (response.statusCode != 207 && response.statusCode != 200) {
+        throw CalDavException.fromStatus(response.statusCode);
+      }
+      return _parseShares(response.body);
+    } finally {
+      client.close();
+    }
+  }
+
+  @override
+  Future<void> setShare(
+    NextcloudAccount account,
+    String collectionHref, {
+    required String shareHref,
+    required bool readWrite,
+  }) {
+    final body = '''
+<?xml version="1.0" encoding="utf-8" ?>
+<CS:share xmlns:D="DAV:" xmlns:CS="http://calendarserver.org/ns/">
+  <CS:set>
+    <D:href>${_xml(shareHref)}</D:href>
+    ${readWrite ? '<CS:read-write/>' : '<CS:read/>'}
+  </CS:set>
+</CS:share>''';
+    return _postSharing(account, collectionHref, body);
+  }
+
+  @override
+  Future<void> removeShare(
+    NextcloudAccount account,
+    String collectionHref, {
+    required String shareHref,
+  }) {
+    final body = '''
+<?xml version="1.0" encoding="utf-8" ?>
+<CS:share xmlns:D="DAV:" xmlns:CS="http://calendarserver.org/ns/">
+  <CS:remove>
+    <D:href>${_xml(shareHref)}</D:href>
+  </CS:remove>
+</CS:share>''';
+    return _postSharing(account, collectionHref, body);
+  }
+
+  Future<void> _postSharing(
+      NextcloudAccount account, String collectionHref, String body) async {
+    final client = _clientFor(account);
+    try {
+      final request = http.Request('POST', _resolve(account, collectionHref))
+        ..headers.addAll({
+          ..._authHeaders(account),
+          'Content-Type': 'application/davsharing+xml; charset=utf-8',
+        })
+        ..body = body;
+      final streamed = await client.send(request);
+      final response = await http.Response.fromStream(streamed);
+      if (response.statusCode != 200 &&
+          response.statusCode != 204 &&
+          response.statusCode != 207) {
+        throw CalDavException.fromStatus(response.statusCode);
+      }
+    } finally {
+      client.close();
+    }
+  }
+
+  /// Baut aus einem Principal-href (`…/remote.php/dav/principals/users/bob/`)
+  /// den sabre-Freigabe-href `principal:principals/users/bob`.
+  String _principalShareHref(String href) {
+    var p = href.trim();
+    if (p.startsWith('principal:')) return p;
+    const marker = '/remote.php/dav/';
+    final idx = p.indexOf(marker);
+    if (idx != -1) p = p.substring(idx + marker.length);
+    p = p.replaceAll(RegExp(r'/+$'), '');
+    return 'principal:$p';
+  }
+
+  List<Principal> _parsePrincipals(String body, NextcloudAccount account) {
+    final doc = XmlDocument.parse(body);
+    final me = account.username.toLowerCase();
+    final seen = <String>{};
+    final result = <Principal>[];
+    for (final resp in _allLocal(doc.rootElement, 'response')) {
+      final href = _firstLocal(resp, 'href')?.innerText.trim();
+      if (href == null || !href.contains('/principals/users/')) continue;
+      final shareHref = _principalShareHref(href);
+      final uid = shareHref.split('/').last.toLowerCase();
+      if (uid == me || !seen.add(shareHref)) continue;
+      final name = _firstLocal(resp, 'displayname')?.innerText.trim();
+      result.add(Principal(
+        shareHref: shareHref,
+        displayName: (name == null || name.isEmpty) ? uid : name,
+      ));
+    }
+    return result;
+  }
+
+  List<CollectionShare> _parseShares(String body) {
+    final doc = XmlDocument.parse(body);
+    final result = <CollectionShare>[];
+    for (final user in _allLocal(doc.rootElement, 'user')) {
+      final href = _firstLocal(user, 'href')?.innerText.trim();
+      if (href == null) continue;
+      final name = _firstLocal(user, 'common-name')?.innerText.trim();
+      result.add(CollectionShare(
+        shareHref: href,
+        displayName: (name == null || name.isEmpty) ? _hrefName(href) : name,
+        readWrite: _allLocal(user, 'read-write').isNotEmpty,
+      ));
+    }
+    return result;
+  }
+
+  /// Escaped Text für XML-Bodies.
+  String _xml(String s) => s
+      .replaceAll('&', '&amp;')
+      .replaceAll('<', '&lt;')
+      .replaceAll('>', '&gt;')
+      .replaceAll('"', '&quot;');
 
   // ---- XML-Parsing (namespace-agnostisch über lokale Tag-Namen) ----
 

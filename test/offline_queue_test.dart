@@ -5,6 +5,7 @@ import 'package:family_planner/core/auth/nextcloud_account.dart';
 import 'package:family_planner/core/cache/caldav_cache.dart';
 import 'package:family_planner/core/caldav/caldav_client.dart';
 import 'package:family_planner/core/caldav/caldav_repository.dart';
+import 'package:family_planner/core/caldav/caldav_sharing.dart';
 
 /// In-Memory-Cache ohne SQLite (überschreibt die genutzten Methoden).
 class _FakeCache extends CalDavCache {
@@ -78,6 +79,22 @@ class _FakeClient implements CalDavClient {
 
   @override
   Future<String?> fetchCTag(NextcloudAccount a, String href) async => null;
+
+  @override
+  Future<List<Principal>> searchPrincipals(NextcloudAccount a, String q)
+      async => const [];
+
+  @override
+  Future<List<CollectionShare>> listShares(NextcloudAccount a, String h)
+      async => const [];
+
+  @override
+  Future<void> setShare(NextcloudAccount a, String h,
+      {required String shareHref, required bool readWrite}) async {}
+
+  @override
+  Future<void> removeShare(NextcloudAccount a, String h,
+      {required String shareHref}) async {}
 }
 
 void main() {

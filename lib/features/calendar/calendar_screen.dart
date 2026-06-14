@@ -6,11 +6,16 @@ import 'package:table_calendar/table_calendar.dart';
 import '../../core/auth/account_providers.dart';
 import '../members/member_settings.dart';
 import 'calendar_event.dart';
+import 'day_timeline.dart';
 import 'event_editor_sheet.dart';
 import 'event_providers.dart';
 
+/// Anzeigemodus des Kalenders.
+enum _CalView { month, day }
+
 /// Kalender-Bereich (VEVENT per CalDAV): Monatsansicht mit Event-Markern
-/// und einer Tagesliste der Termine des gewählten Tages.
+/// und einer Tagesliste der Termine des gewählten Tages, plus Tagesansicht
+/// mit Stundenraster.
 class CalendarScreen extends ConsumerStatefulWidget {
   const CalendarScreen({super.key});
 
@@ -22,6 +27,26 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
   DateTime _focusedDay = DateTime.now();
   DateTime _selectedDay = DateTime.now();
   CalendarFormat _format = CalendarFormat.month;
+  _CalView _view = _CalView.month;
+
+  static final DateTime _epoch = DateTime(2020, 1, 1);
+  late final PageController _dayPager;
+
+  int _pageOf(DateTime d) =>
+      DateTime(d.year, d.month, d.day).difference(_epoch).inDays;
+  DateTime _dateOf(int page) => _epoch.add(Duration(days: page));
+
+  @override
+  void initState() {
+    super.initState();
+    _dayPager = PageController(initialPage: _pageOf(DateTime.now()));
+  }
+
+  @override
+  void dispose() {
+    _dayPager.dispose();
+    super.dispose();
+  }
 
   DateTime _dayKey(DateTime d) => DateTime(d.year, d.month, d.day);
 
@@ -49,6 +74,75 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
                     .setHidden(m.href, !sel),
               ),
             ),
+        ],
+      ),
+    );
+  }
+
+  Widget _viewToggle() {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(12, 8, 12, 4),
+      child: SegmentedButton<_CalView>(
+        showSelectedIcon: false,
+        segments: const [
+          ButtonSegment(
+            value: _CalView.month,
+            label: Text('Monat'),
+            icon: Icon(Icons.calendar_month),
+          ),
+          ButtonSegment(
+            value: _CalView.day,
+            label: Text('Tag'),
+            icon: Icon(Icons.view_day),
+          ),
+        ],
+        selected: {_view},
+        onSelectionChanged: (s) {
+          setState(() => _view = s.first);
+          if (_view == _CalView.day) {
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              if (_dayPager.hasClients) {
+                _dayPager.jumpToPage(_pageOf(_selectedDay));
+              }
+            });
+          }
+        },
+      ),
+    );
+  }
+
+  Widget _dayHeader() {
+    final label = DateFormat('EEEE, d. MMMM', 'de_DE').format(_selectedDay);
+    final isToday = isSameDay(_selectedDay, DateTime.now());
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+      child: Row(
+        children: [
+          IconButton(
+            icon: const Icon(Icons.chevron_left),
+            tooltip: 'Vorheriger Tag',
+            onPressed: () => _dayPager.previousPage(
+                duration: const Duration(milliseconds: 250),
+                curve: Curves.easeOut),
+          ),
+          Expanded(
+            child: Text(label,
+                textAlign: TextAlign.center,
+                style: Theme.of(context).textTheme.titleMedium),
+          ),
+          IconButton(
+            icon: const Icon(Icons.chevron_right),
+            tooltip: 'Nächster Tag',
+            onPressed: () => _dayPager.nextPage(
+                duration: const Duration(milliseconds: 250),
+                curve: Curves.easeOut),
+          ),
+          TextButton(
+            onPressed: isToday
+                ? null
+                : () => _dayPager.jumpToPage(_pageOf(DateTime.now())),
+            child: const Text('Heute'),
+          ),
         ],
       ),
     );
@@ -88,8 +182,50 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
         orElse: () => const Center(child: CircularProgressIndicator()),
         data: (account) {
           if (account == null) return const _ConnectPrompt();
+          // Tagesliste (Monatsmodus): am heutigen Tag bereits beendete Termine
+          // ausblenden; vergangene Tage bleiben vollständig sichtbar.
+          final listEvents = isSameDay(_selectedDay, DateTime.now())
+              ? selectedEvents
+                  .where((e) => !e.hasPassed(DateTime.now()))
+                  .toList()
+              : selectedEvents;
           return Column(
             children: [
+              _viewToggle(),
+              if (_view == _CalView.day) ...[
+                _dayHeader(),
+                Expanded(
+                  child: eventsAsync.when(
+                    loading: () =>
+                        const Center(child: CircularProgressIndicator()),
+                    error: (e, _) => _ErrorView(
+                      message: '$e',
+                      onRetry: () =>
+                          ref.invalidate(eventsControllerProvider),
+                    ),
+                    data: (_) => PageView.builder(
+                      controller: _dayPager,
+                      onPageChanged: (i) => setState(() {
+                        _selectedDay = _dateOf(i);
+                        _focusedDay = _selectedDay;
+                      }),
+                      itemBuilder: (context, index) {
+                        final date = _dateOf(index);
+                        final dayEvents = eventsByDay[_dayKey(date)] ??
+                            const <CalendarEvent>[];
+                        return DayTimeline(
+                          day: date,
+                          events: dayEvents,
+                          onTapEvent: (e) =>
+                              showEventEditor(context, existing: e),
+                          onCreateAt: (start) => showEventEditor(context,
+                              initialStart: start),
+                        );
+                      },
+                    ),
+                  ),
+                ),
+              ] else ...[
               TableCalendar<CalendarEvent>(
                 firstDay: DateTime.utc(2020, 1, 1),
                 lastDay: DateTime.utc(2035, 12, 31),
@@ -160,10 +296,11 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
                   ),
                   data: (_) => _DayEventList(
                     day: _selectedDay,
-                    events: selectedEvents,
+                    events: listEvents,
                   ),
                 ),
               ),
+              ],
             ],
           );
         },

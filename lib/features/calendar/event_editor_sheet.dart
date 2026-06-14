@@ -15,6 +15,7 @@ Future<void> showEventEditor(
   BuildContext context, {
   CalendarEvent? existing,
   DateTime? initialDay,
+  DateTime? initialStart,
 }) {
   return showModalBottomSheet<void>(
     context: context,
@@ -24,15 +25,23 @@ Future<void> showEventEditor(
       padding: EdgeInsets.only(
         bottom: MediaQuery.of(context).viewInsets.bottom,
       ),
-      child: _EventEditorSheet(existing: existing, initialDay: initialDay),
+      child: _EventEditorSheet(
+        existing: existing,
+        initialDay: initialDay,
+        initialStart: initialStart,
+      ),
     ),
   );
 }
 
 class _EventEditorSheet extends ConsumerStatefulWidget {
-  const _EventEditorSheet({this.existing, this.initialDay});
+  const _EventEditorSheet({this.existing, this.initialDay, this.initialStart});
   final CalendarEvent? existing;
   final DateTime? initialDay;
+
+  /// Vorbelegte Startzeit (Datum + Uhrzeit), z.B. beim Tippen auf eine Stunde
+  /// in der Tagesansicht. Hat Vorrang vor [initialDay].
+  final DateTime? initialStart;
 
   @override
   ConsumerState<_EventEditorSheet> createState() => _EventEditorSheetState();
@@ -71,6 +80,13 @@ class _EventEditorSheetState extends ConsumerState<_EventEditorSheet> {
       _endDate = DateTime(shownEnd.year, shownEnd.month, shownEnd.day);
       _endTime = TimeOfDay.fromDateTime(end);
       _calendarHref = e.calendarHref;
+    } else if (widget.initialStart != null) {
+      // Vorbelegte Startzeit (z.B. Tippen auf eine Stunde in der Tagesansicht).
+      final start = widget.initialStart!;
+      _startDate = DateTime(start.year, start.month, start.day);
+      _startTime = TimeOfDay(hour: start.hour, minute: start.minute);
+      _endDate = _startDate;
+      _endTime = TimeOfDay(hour: (start.hour + 1) % 24, minute: start.minute);
     } else {
       final base = widget.initialDay ?? DateTime.now();
       final start = DateTime(base.year, base.month, base.day,
