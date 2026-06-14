@@ -34,6 +34,10 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
   static final DateTime _epoch = DateTime.utc(2020, 1, 1);
   late PageController _dayPager;
 
+  /// Uhrzeit, auf die die Tagesleiste beim Sprung scrollen soll (Startzeit des
+  /// angetippten Termins). Nur für den Zieltag relevant.
+  DateTime? _focusTime;
+
   int _pageOf(DateTime d) =>
       DateTime.utc(d.year, d.month, d.day).difference(_epoch).inDays;
   DateTime _dateOf(int page) => _epoch.add(Duration(days: page));
@@ -53,13 +57,14 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
   /// Wechselt in die Tagesansicht und zeigt [date]. Erzeugt dafür einen frischen
   /// PageController mit der Zielseite – damit garantiert der richtige Tag steht
   /// (auch nach vorherigem Blättern oder beim erneuten Öffnen).
-  void _enterDay(DateTime date) {
+  void _enterDay(DateTime date, {DateTime? focusTime}) {
     final old = _dayPager;
     _dayPager = PageController(initialPage: _pageOf(date));
     setState(() {
       _view = _CalView.day;
       _selectedDay = date;
       _focusedDay = date;
+      _focusTime = focusTime;
     });
     WidgetsBinding.instance.addPostFrameCallback((_) => old.dispose());
   }
@@ -173,7 +178,7 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (!mounted) return;
         ref.read(calendarJumpProvider.notifier).set(null);
-        _enterDay(jump);
+        _enterDay(jump, focusTime: jump);
       });
     }
 
@@ -227,6 +232,10 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
                           ref.invalidate(eventsControllerProvider),
                     ),
                     data: (_) => PageView.builder(
+                      // Key an den Controller binden: bei _enterDay wird ein
+                      // frischer Controller erzeugt -> PageView baut neu auf und
+                      // zeigt garantiert die Zielseite.
+                      key: ValueKey(_dayPager),
                       controller: _dayPager,
                       onPageChanged: (i) => setState(() {
                         _selectedDay = _dateOf(i);
@@ -236,9 +245,14 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
                         final date = _dateOf(index);
                         final dayEvents = eventsByDay[_dayKey(date)] ??
                             const <CalendarEvent>[];
+                        final focus = (_focusTime != null &&
+                                isSameDay(date, _focusTime!))
+                            ? _focusTime
+                            : null;
                         return DayTimeline(
                           day: date,
                           events: dayEvents,
+                          focusTime: focus,
                           onTapEvent: (e) =>
                               showEventEditor(context, existing: e),
                           onCreateAt: (start) => showEventEditor(context,

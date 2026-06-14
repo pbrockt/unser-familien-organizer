@@ -106,12 +106,17 @@ class DayTimeline extends StatefulWidget {
     required this.events,
     required this.onTapEvent,
     required this.onCreateAt,
+    this.focusTime,
   });
 
   final DateTime day;
   final List<CalendarEvent> events;
   final void Function(CalendarEvent event) onTapEvent;
   final void Function(DateTime start) onCreateAt;
+
+  /// Optionale Uhrzeit, auf die beim Öffnen gescrollt werden soll (z.B. die
+  /// Startzeit eines angetippten Termins). Sonst: aktuelle Stunde (heute) / 8 Uhr.
+  final DateTime? focusTime;
 
   @override
   State<DayTimeline> createState() => _DayTimelineState();
@@ -133,7 +138,7 @@ class _DayTimelineState extends State<DayTimeline> {
   @override
   void initState() {
     super.initState();
-    final focusHour = _isToday ? DateTime.now().hour : 8;
+    final focusHour = widget.focusTime?.hour ?? (_isToday ? DateTime.now().hour : 8);
     _scroll = ScrollController(
       initialScrollOffset: ((focusHour - 1).clamp(0, 23)) * _hourHeight,
     );
