@@ -12,31 +12,55 @@ import '../calendar/calendar_event.dart';
 /// Lokale Anpassung eines Kalenders/einer Person: eigener Name, eigene Farbe,
 /// Sichtbarkeit. Gilt nur auf diesem Gerät (kein Eingriff in Nextcloud).
 class MemberSetting {
-  const MemberSetting({this.name, this.colorHex, this.hidden = false});
+  const MemberSetting({
+    this.name,
+    this.colorHex,
+    this.hidden = false,
+    this.showOnHome = true,
+    this.countdown = false,
+  });
 
   final String? name;
   final String? colorHex;
   final bool hidden;
 
+  /// Auf der Startseite unter „Anstehende Termine" anzeigen (Standard: ja).
+  final bool showOnHome;
+
+  /// Termine dieses Kalenders als Countdown auf der Startseite zeigen
+  /// („Noch X Tage bis …"). Standard: nein.
+  final bool countdown;
+
   MemberSetting copyWith({
     String? name,
     String? colorHex,
     bool? hidden,
+    bool? showOnHome,
+    bool? countdown,
     bool clearColor = false,
   }) =>
       MemberSetting(
         name: name ?? this.name,
         colorHex: clearColor ? null : (colorHex ?? this.colorHex),
         hidden: hidden ?? this.hidden,
+        showOnHome: showOnHome ?? this.showOnHome,
+        countdown: countdown ?? this.countdown,
       );
 
-  Map<String, dynamic> toJson() =>
-      {'name': name, 'color': colorHex, 'hidden': hidden};
+  Map<String, dynamic> toJson() => {
+        'name': name,
+        'color': colorHex,
+        'hidden': hidden,
+        'showOnHome': showOnHome,
+        'countdown': countdown,
+      };
 
   factory MemberSetting.fromJson(Map<String, dynamic> j) => MemberSetting(
         name: j['name'] as String?,
         colorHex: j['color'] as String?,
         hidden: (j['hidden'] as bool?) ?? false,
+        showOnHome: (j['showOnHome'] as bool?) ?? true,
+        countdown: (j['countdown'] as bool?) ?? false,
       );
 }
 
@@ -87,6 +111,12 @@ class MemberSettingsController
 
   Future<void> setHidden(String href, bool hidden) =>
       _update(href, _of(href).copyWith(hidden: hidden));
+
+  Future<void> setShowOnHome(String href, bool value) =>
+      _update(href, _of(href).copyWith(showOnHome: value));
+
+  Future<void> setCountdown(String href, bool value) =>
+      _update(href, _of(href).copyWith(countdown: value));
 }
 
 /// Ein anzeigbares „Mitglied" = ein Kalender/eine Liste mit effektivem
@@ -119,6 +149,29 @@ List<CalendarEvent> filterVisibleEvents(
     final override = parseHexColor(s.colorHex);
     out.add(override != null ? e.copyWith(color: override) : e);
   }
+  return out;
+}
+
+/// Termine, die auf der Startseite („Anstehende Termine") erscheinen sollen.
+List<CalendarEvent> filterHomeEvents(
+  List<CalendarEvent> events,
+  Map<String, MemberSetting> settings,
+) =>
+    events
+        .where((e) => settings[e.calendarHref]?.showOnHome ?? true)
+        .toList();
+
+/// Künftige Termine aus Countdown-Kalendern (heute oder später), nach Datum.
+List<CalendarEvent> countdownEvents(
+  List<CalendarEvent> events,
+  Map<String, MemberSetting> settings,
+  DateTime today,
+) {
+  final out = events.where((e) {
+    final s = settings[e.calendarHref];
+    return s != null && s.countdown && !e.startDay.isBefore(today);
+  }).toList()
+    ..sort((a, b) => a.startDay.compareTo(b.startDay));
   return out;
 }
 

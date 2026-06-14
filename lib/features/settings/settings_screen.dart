@@ -4,6 +4,7 @@ import 'package:package_info_plus/package_info_plus.dart';
 
 import '../../core/background/background_sync.dart';
 import '../../core/platform/platform_support.dart';
+import '../members/member_settings.dart';
 import 'about_update_sheet.dart';
 import 'notification_providers.dart';
 import 'theme_provider.dart';
@@ -61,6 +62,9 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   Widget build(BuildContext context) {
     final settingsAsync = ref.watch(notificationSettingsProvider);
     final themeMode = ref.watch(themeModeProvider).value ?? ThemeMode.system;
+    final calendars =
+        ref.watch(membersProvider).where((m) => m.supportsEvents).toList();
+    final calSettings = ref.watch(memberSettingsProvider).value ?? const {};
 
     return Scaffold(
       appBar: AppBar(title: const Text('Einstellungen')),
@@ -163,6 +167,51 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               },
             ),
             const Divider(),
+            ],
+            if (calendars.isNotEmpty) ...[
+              _sectionHeader(context, 'Startseite'),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 0, 16, 4),
+                child: Text(
+                  'Welche Kalender auf der Startseite als „Anstehende Termine" '
+                  'und als Countdown („Noch X Tage bis …") erscheinen.',
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: Theme.of(context).colorScheme.onSurfaceVariant),
+                ),
+              ),
+              for (final m in calendars) ...[
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 10, 16, 0),
+                  child: Row(
+                    children: [
+                      CircleAvatar(backgroundColor: m.color, radius: 7),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Text(m.name,
+                            style: const TextStyle(
+                                fontWeight: FontWeight.w700)),
+                      ),
+                    ],
+                  ),
+                ),
+                SwitchListTile(
+                  dense: true,
+                  title: const Text('Anstehende Termine'),
+                  value: calSettings[m.href]?.showOnHome ?? true,
+                  onChanged: (v) => ref
+                      .read(memberSettingsProvider.notifier)
+                      .setShowOnHome(m.href, v),
+                ),
+                SwitchListTile(
+                  dense: true,
+                  title: const Text('Countdown („Noch X Tage")'),
+                  value: calSettings[m.href]?.countdown ?? false,
+                  onChanged: (v) => ref
+                      .read(memberSettingsProvider.notifier)
+                      .setCountdown(m.href, v),
+                ),
+              ],
+              const Divider(),
             ],
             _sectionHeader(context, 'App'),
             ListTile(

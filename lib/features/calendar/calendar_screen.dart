@@ -98,11 +98,18 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
         ],
         selected: {_view},
         onSelectionChanged: (s) {
-          setState(() => _view = s.first);
+          setState(() {
+            _view = s.first;
+            // Beim Wechsel auf die Tagesansicht immer den heutigen Tag zeigen.
+            if (_view == _CalView.day) {
+              _selectedDay = DateTime.now();
+              _focusedDay = _selectedDay;
+            }
+          });
           if (_view == _CalView.day) {
             WidgetsBinding.instance.addPostFrameCallback((_) {
               if (_dayPager.hasClients) {
-                _dayPager.jumpToPage(_pageOf(_selectedDay));
+                _dayPager.jumpToPage(_pageOf(DateTime.now()));
               }
             });
           }

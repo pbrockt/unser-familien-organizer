@@ -10,6 +10,7 @@ import '../../shared/widgets/blob_background.dart';
 import '../calendar/calendar_event.dart';
 import '../calendar/event_editor_sheet.dart';
 import '../calendar/event_providers.dart';
+import '../members/member_settings.dart';
 import '../settings/settings_screen.dart';
 import '../tasks/task_item.dart';
 import '../tasks/task_providers.dart';
@@ -34,12 +35,14 @@ class HomeScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final account = ref.watch(accountProvider).value;
     final events = ref.watch(visibleEventsProvider);
+    final memberSettings = ref.watch(memberSettingsProvider).value ?? const {};
     final taskLists = ref.watch(tasksControllerProvider).value ?? const [];
     final pendingSync = ref.watch(pendingSyncCountProvider).value ?? 0;
 
     final now = DateTime.now();
     final today = DateTime(now.year, now.month, now.day);
-    final upcoming = _upcoming(events, now, today);
+    final upcoming = _upcoming(filterHomeEvents(events, memberSettings), now, today);
+    final countdowns = countdownEvents(events, memberSettings, today);
 
     return Scaffold(
       body: Stack(
@@ -73,7 +76,7 @@ class HomeScreen extends ConsumerWidget {
                       const _EmptyHint('Keine Termine heute oder morgen 🎉')
                     else
                       SizedBox(
-                        height: 168,
+                        height: 150,
                         child: ListView.builder(
                           scrollDirection: Axis.horizontal,
                           padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -87,6 +90,15 @@ class HomeScreen extends ConsumerWidget {
                           ),
                         ),
                       ),
+                    if (countdowns.isNotEmpty) ...[
+                      const _SectionLabel('Countdown'),
+                      ...countdowns.take(15).map((e) => _CountdownCard(
+                            event: e,
+                            today: today,
+                            onTap: () =>
+                                showEventEditor(context, existing: e),
+                          )),
+                    ],
                     const _SectionLabel('Listen'),
                     if (taskLists.isEmpty)
                       const _EmptyHint('Noch keine Listen vorhanden')
@@ -268,13 +280,6 @@ class _EventCard extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.end,
-                children: [
-                  _DayPill(label: _dayLabel()),
-                ],
-              ),
-              const SizedBox(height: 10),
               Text(event.summary,
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
@@ -283,31 +288,48 @@ class _EventCard extends StatelessWidget {
                       fontWeight: FontWeight.w700,
                       height: 1.15,
                       color: scheme.onSurface)),
-              const SizedBox(height: 2),
-              if (soon != null)
+              if (soon != null) ...[
+                const SizedBox(height: 4),
                 Text(soon,
                     style: const TextStyle(
                         fontSize: 13,
                         fontWeight: FontWeight.w700,
-                        color: AppTheme.orange))
-              else if (event.location != null && event.location!.isNotEmpty)
+                        color: AppTheme.orange)),
+              ] else if (event.location != null &&
+                  event.location!.isNotEmpty) ...[
+                const SizedBox(height: 4),
                 Text('📍 ${event.location}',
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: TextStyle(
                         fontSize: 13, color: scheme.onSurfaceVariant)),
+              ],
               const Spacer(),
               Row(
                 crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
                   Expanded(
-                    child: event.allDay
-                        ? Text('Ganztägig',
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        // Tages-Hinweis (Heute/Morgen/Datum) klein über der Zeit.
+                        Text(_dayLabel(),
                             style: TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.w800,
-                                color: scheme.onSurface))
-                        : Row(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w700,
+                                color: highlighted
+                                    ? AppTheme.orange
+                                    : scheme.onSurfaceVariant)),
+                        const SizedBox(height: 1),
+                        if (event.allDay)
+                          Text('Ganztägig',
+                              style: TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w800,
+                                  color: scheme.onSurface))
+                        else
+                          Row(
                             crossAxisAlignment: CrossAxisAlignment.end,
                             children: [
                               Text(
@@ -331,6 +353,8 @@ class _EventCard extends StatelessWidget {
                                 ),
                             ],
                           ),
+                      ],
+                    ),
                   ),
                   const SizedBox(width: 8),
                   _Avatar(name: event.calendarName, color: color, radius: 14),
@@ -407,25 +431,92 @@ class _ListCard extends StatelessWidget {
 
 // ---------- Bausteine ----------
 
-class _DayPill extends StatelessWidget {
-  const _DayPill({required this.label});
-  final String label;
+class _CountdownCard extends StatelessWidget {
+  const _CountdownCard({
+    required this.event,
+    required this.today,
+    required this.onTap,
+  });
+  final CalendarEvent event;
+  final DateTime today;
+  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    final isToday = label == 'Heute';
-    final bg = isToday
-        ? AppTheme.orange.withValues(alpha: 0.16)
-        : scheme.surfaceContainerHighest;
-    final fg = isToday ? AppTheme.orange : scheme.onSurfaceVariant;
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 5),
-      decoration:
-          BoxDecoration(color: bg, borderRadius: BorderRadius.circular(20)),
-      child: Text(label,
-          style:
-              TextStyle(fontSize: 12, fontWeight: FontWeight.w800, color: fg)),
+    final color = event.color ?? AppTheme.orange;
+    final days = event.startDay.difference(today).inDays;
+    final dateStr = DateFormat('EEE, d. MMM', 'de_DE').format(event.start);
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 5, 16, 5),
+      child: GestureDetector(
+        onTap: onTap,
+        child: Container(
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: Theme.of(context).cardColor,
+            borderRadius: BorderRadius.circular(20),
+            boxShadow: _softShadow(context),
+          ),
+          child: Row(
+            children: [
+              Container(
+                width: 48,
+                height: 48,
+                decoration: BoxDecoration(
+                  color: color.withValues(alpha: 0.18),
+                  borderRadius: BorderRadius.circular(13),
+                ),
+                child: Center(
+                  child: days <= 1
+                      ? Text(days == 0 ? 'Heute' : 'Morgen',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w800,
+                              color: color))
+                      : Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Text('$days',
+                                style: TextStyle(
+                                    fontSize: 18,
+                                    height: 1,
+                                    fontWeight: FontWeight.w800,
+                                    color: color)),
+                            Text('Tage',
+                                style: TextStyle(fontSize: 9, color: color)),
+                          ],
+                        ),
+                ),
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(event.summary,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w700,
+                            color: scheme.onSurface)),
+                    const SizedBox(height: 2),
+                    Text(
+                        days <= 1
+                            ? dateStr
+                            : 'Noch $days Tage · $dateStr',
+                        style: TextStyle(
+                            fontSize: 13, color: scheme.onSurfaceVariant)),
+                  ],
+                ),
+              ),
+              Icon(Icons.chevron_right, color: scheme.onSurfaceVariant),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }

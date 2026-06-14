@@ -1,27 +1,54 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
-/// Grundgerüst mit persistenter Bottom-Navigation. Hält die vier
-/// Hauptbereiche (Kalender, Aufgaben, Einkauf, Familie) als Tabs.
-class AppShell extends StatelessWidget {
+/// Grundgerüst mit persistenter Bottom-Navigation. Hält die fünf
+/// Hauptbereiche (Start, Kalender, Aufgaben, Einkauf, Familie) als Tabs.
+///
+/// Der Android-Zurück-Knopf navigiert durch die zuvor besuchten Tabs, statt
+/// die App sofort zu schließen (eigene Tab-Historie).
+class AppShell extends StatefulWidget {
   const AppShell({super.key, required this.navigationShell});
 
   final StatefulNavigationShell navigationShell;
 
+  @override
+  State<AppShell> createState() => _AppShellState();
+}
+
+class _AppShellState extends State<AppShell> {
+  final List<int> _history = [];
+
+  @override
+  void initState() {
+    super.initState();
+    _history.add(widget.navigationShell.currentIndex);
+  }
+
   void _goBranch(int index) {
-    navigationShell.goBranch(
-      index,
-      // Erneuter Tap auf den aktiven Tab springt zurück zum Branch-Anfang.
-      initialLocation: index == navigationShell.currentIndex,
-    );
+    final reselect = index == widget.navigationShell.currentIndex;
+    if (!reselect) setState(() => _history.add(index));
+    widget.navigationShell.goBranch(index, initialLocation: reselect);
+  }
+
+  void _handleBack() {
+    if (_history.length <= 1) return;
+    _history.removeLast();
+    final prev = _history.last;
+    setState(() {});
+    widget.navigationShell.goBranch(prev, initialLocation: false);
   }
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      body: navigationShell,
+    return PopScope(
+      canPop: _history.length <= 1,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop) _handleBack();
+      },
+      child: Scaffold(
+      body: widget.navigationShell,
       bottomNavigationBar: NavigationBar(
-        selectedIndex: navigationShell.currentIndex,
+        selectedIndex: widget.navigationShell.currentIndex,
         onDestinationSelected: _goBranch,
         destinations: const [
           NavigationDestination(
@@ -50,6 +77,7 @@ class AppShell extends StatelessWidget {
             label: 'Familie',
           ),
         ],
+      ),
       ),
     );
   }
