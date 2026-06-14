@@ -9,6 +9,7 @@ import '../../shared/widgets/conflict_dialog.dart';
 import '../../shared/widgets/countdown_confirm_dialog.dart';
 import 'calendar_event.dart';
 import 'event_providers.dart';
+import 'event_templates.dart';
 
 /// Öffnet den Termin-Editor zum Anlegen ([existing] == null) oder Bearbeiten.
 Future<void> showEventEditor(
@@ -51,6 +52,10 @@ class _EventEditorSheetState extends ConsumerState<_EventEditorSheet> {
   late final TextEditingController _summaryCtrl;
   late final TextEditingController _locationCtrl;
   late final TextEditingController _descCtrl;
+  final FocusNode _summaryFocus = FocusNode();
+
+  /// Beim Speichern als Vorlage merken.
+  bool _saveAsTemplate = false;
 
   bool _allDay = false;
   late DateTime _startDate;
@@ -103,7 +108,24 @@ class _EventEditorSheetState extends ConsumerState<_EventEditorSheet> {
     _summaryCtrl.dispose();
     _locationCtrl.dispose();
     _descCtrl.dispose();
+    _summaryFocus.dispose();
     super.dispose();
+  }
+
+  /// Übernimmt Felder aus einer gewählten Vorlage (Titel ist bereits gesetzt).
+  void _applyTemplate(EventTemplate t) {
+    setState(() {
+      _locationCtrl.text = t.location ?? '';
+      _descCtrl.text = t.description ?? '';
+      _allDay = t.allDay;
+      if (!t.allDay && t.durationMinutes != null) {
+        final start = _combine(_startDate, _startTime);
+        final end = start.add(Duration(minutes: t.durationMinutes!));
+        _endDate = DateTime(end.year, end.month, end.day);
+        _endTime = TimeOfDay(hour: end.hour, minute: end.minute);
+      }
+    });
+    _summaryFocus.unfocus();
   }
 
   DateTime _combine(DateTime d, TimeOfDay t) =>
@@ -269,6 +291,18 @@ class _EventEditorSheetState extends ConsumerState<_EventEditorSheet> {
     final ok = await write(false);
     if (!mounted) return;
     if (ok) {
+      if (_saveAsTemplate &&
+          (ref.read(templatesEnabledProvider).value ?? true)) {
+        await ref.read(eventTemplatesProvider.notifier).save(EventTemplate(
+              summary: summary,
+              location: location.isEmpty ? null : location,
+              description: desc.isEmpty ? null : desc,
+              allDay: _allDay,
+              durationMinutes:
+                  _allDay ? null : times.end.difference(times.start).inMinutes,
+            ));
+      }
+      if (!mounted) return;
       Navigator.of(context).pop();
     } else {
       setState(() => _busy = false);
@@ -376,6 +410,10 @@ class _EventEditorSheetState extends ConsumerState<_EventEditorSheet> {
         .toList();
     _calendarHref ??= calendars.isNotEmpty ? calendars.first.href : null;
 
+    final templatesEnabled = ref.watch(templatesEnabledProvider).value ?? true;
+    final templates =
+        ref.watch(eventTemplatesProvider).value ?? const <EventTemplate>[];
+
     return SafeArea(
       child: SingleChildScrollView(
         padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
@@ -386,16 +424,72 @@ class _EventEditorSheetState extends ConsumerState<_EventEditorSheet> {
             Text(_isEdit ? 'Termin bearbeiten' : 'Neuer Termin',
                 style: theme.textTheme.titleLarge),
             const SizedBox(height: 16),
-            TextField(
-              controller: _summaryCtrl,
-              autofocus: !_isEdit,
-              textCapitalization: TextCapitalization.sentences,
-              decoration: const InputDecoration(
-                labelText: 'Titel',
-                prefixIcon: Icon(Icons.event),
-                border: OutlineInputBorder(),
+            RawAutocomplete<EventTemplate>(
+              textEditingController: _summaryCtrl,
+              focusNode: _summaryFocus,
+              optionsBuilder: (v) {
+                if (!templatesEnabled || v.text.trim().isEmpty) {
+                  return const Iterable<EventTemplate>.empty();
+                }
+                final q = v.text.toLowerCase();
+                return templates.where((t) =>
+                    t.summary.toLowerCase().contains(q) &&
+                    t.summary.toLowerCase() != q);
+              },
+              displayStringForOption: (t) => t.summary,
+              onSelected: _applyTemplate,
+              fieldViewBuilder: (context, controller, focusNode, onSubmit) =>
+                  TextField(
+                controller: controller,
+                focusNode: focusNode,
+                autofocus: !_isEdit,
+                textCapitalization: TextCapitalization.sentences,
+                onSubmitted: (_) => onSubmit(),
+                decoration: const InputDecoration(
+                  labelText: 'Titel',
+                  prefixIcon: Icon(Icons.event),
+                  border: OutlineInputBorder(),
+                ),
+              ),
+              optionsViewBuilder: (context, onSelected, options) => Align(
+                alignment: Alignment.topLeft,
+                child: Material(
+                  elevation: 4,
+                  borderRadius: BorderRadius.circular(12),
+                  child: ConstrainedBox(
+                    constraints:
+                        const BoxConstraints(maxHeight: 220, maxWidth: 420),
+                    child: ListView.builder(
+                      shrinkWrap: true,
+                      padding: EdgeInsets.zero,
+                      itemCount: options.length,
+                      itemBuilder: (context, i) {
+                        final t = options.elementAt(i);
+                        return ListTile(
+                          dense: true,
+                          leading: const Icon(Icons.bookmark_outline),
+                          title: Text(t.summary),
+                          subtitle:
+                              (t.location != null && t.location!.isNotEmpty)
+                                  ? Text(t.location!)
+                                  : null,
+                          onTap: () => onSelected(t),
+                        );
+                      },
+                    ),
+                  ),
+                ),
               ),
             ),
+            if (templatesEnabled)
+              CheckboxListTile(
+                contentPadding: EdgeInsets.zero,
+                controlAffinity: ListTileControlAffinity.leading,
+                value: _saveAsTemplate,
+                onChanged: (v) => setState(() => _saveAsTemplate = v ?? false),
+                title: const Text('Als Vorlage speichern'),
+                secondary: const Icon(Icons.bookmark_add_outlined),
+              ),
             const SizedBox(height: 12),
             SwitchListTile(
               contentPadding: EdgeInsets.zero,

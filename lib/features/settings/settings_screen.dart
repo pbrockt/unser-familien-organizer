@@ -5,6 +5,7 @@ import 'package:package_info_plus/package_info_plus.dart';
 import '../../core/background/background_sync.dart';
 import '../../core/platform/platform_support.dart';
 import '../../shared/theme/app_theme.dart';
+import '../calendar/event_templates.dart';
 import '../members/member_settings.dart';
 import 'about_update_sheet.dart';
 import 'notification_providers.dart';
@@ -67,6 +68,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         ref.watch(membersProvider).where((m) => m.supportsEvents).toList();
     final calSettings = ref.watch(memberSettingsProvider).value ?? const {};
     final accent = ref.watch(accentColorProvider).value ?? AppTheme.orange;
+    final templatesEnabled = ref.watch(templatesEnabledProvider).value ?? true;
 
     return Scaffold(
       appBar: AppBar(title: const Text('Einstellungen')),
@@ -249,6 +251,18 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               ),
               const Divider(),
             ],
+            _sectionHeader(context, 'Vorlagen'),
+            SwitchListTile(
+              secondary: const Icon(Icons.bookmark_outline),
+              title: const Text('Termin-Vorlagen'),
+              subtitle: const Text(
+                  'Beim Tippen Vorschläge zeigen und Termine als Vorlage '
+                  'speichern können'),
+              value: templatesEnabled,
+              onChanged: (v) =>
+                  ref.read(templatesEnabledProvider.notifier).set(v),
+            ),
+            const Divider(),
             _sectionHeader(context, 'App'),
             ListTile(
               leading: const Icon(Icons.system_update),
