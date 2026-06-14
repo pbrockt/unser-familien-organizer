@@ -75,7 +75,7 @@ jobs:
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: FamilyPlanner-release
+          name: UnserFamilienOrganizer-release
           path: build/app/outputs/flutter-apk/app-release.apk
           retention-days: 90
 
@@ -85,7 +85,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          APK="FamilyPlanner-${{ github.ref_name }}.apk"
+          APK="UnserFamilienOrganizer-${{ github.ref_name }}.apk"
           cp build/app/outputs/flutter-apk/app-release.apk "$APK"
           if gh release view "${{ github.ref_name }}" >/dev/null 2>&1; then
             gh release upload "${{ github.ref_name }}" "$APK" --clobber
@@ -123,7 +123,7 @@ jobs:
           CL: /D_SILENCE_EXPERIMENTAL_COROUTINE_DEPRECATION_WARNINGS
         run: flutter build windows --release
       - name: Package ZIP (portabel)
-        run: Compress-Archive -Path build/windows/x64/runner/Release/* -DestinationPath "FamilyPlanner-windows-${{ github.ref_name }}.zip"
+        run: Compress-Archive -Path build/windows/x64/runner/Release/* -DestinationPath "UnserFamilienOrganizer-windows-${{ github.ref_name }}.zip"
       - name: Install Inno Setup
         run: choco install innosetup -y --no-progress
       - name: Build Windows installer (Setup.exe)
@@ -137,7 +137,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release upload "${{ github.ref_name }}" "FamilyPlanner-windows-${{ github.ref_name }}.zip" --clobber
+          gh release upload "${{ github.ref_name }}" "UnserFamilienOrganizer-windows-${{ github.ref_name }}.zip" --clobber
           gh release upload "${{ github.ref_name }}" "installer\windows\installer_output\UnserFamilienOrganizer-Setup-${{ github.ref_name }}.exe" --clobber
 
   # Linux-Desktop (Bundle als tar.gz) – nur bei Tags.
@@ -172,10 +172,10 @@ jobs:
           cp design/icons/icon.png build/linux/x64/release/bundle/unser-familien-organizer.png
           chmod +x build/linux/x64/release/bundle/install.sh build/linux/x64/release/bundle/uninstall.sh
       - name: Package tar.gz (mit install.sh)
-        run: tar -czf "FamilyPlanner-linux-${{ github.ref_name }}.tar.gz" -C build/linux/x64/release/bundle .
+        run: tar -czf "UnserFamilienOrganizer-linux-${{ github.ref_name }}.tar.gz" -C build/linux/x64/release/bundle .
       - name: Upload to release
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release upload "${{ github.ref_name }}" "FamilyPlanner-linux-${{ github.ref_name }}.tar.gz" --clobber
+          gh release upload "${{ github.ref_name }}" "UnserFamilienOrganizer-linux-${{ github.ref_name }}.tar.gz" --clobber
           gh release upload "${{ github.ref_name }}" "UnserFamilienOrganizer-${{ github.ref_name }}-amd64.deb" --clobber

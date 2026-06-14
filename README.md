@@ -45,7 +45,7 @@ lib/
 ## Build
 
 Das Release-APK wird von **GitHub Actions** gebaut (Tab *Actions* → *Build APK*
-→ Artifact `FamilyPlanner-release`). Lokal:
+→ Artifact `UnserFamilienOrganizer-release`). Lokal:
 
 ```bash
 flutter pub get

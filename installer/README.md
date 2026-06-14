@@ -7,7 +7,7 @@ Diese Skripte erzeugen echte Installer für Desktop. Sie laufen automatisch in d
 - **`UnserFamilienOrganizer-Setup-<version>.exe`** – Installer (Inno Setup).
   Doppelklick → installiert nach `Programme\UnserFamilienOrganizer`, legt Startmenü-
   (optional Desktop-)Verknüpfung an, inkl. Deinstallation über „Apps & Features".
-- `FamilyPlanner-windows-<version>.zip` – weiterhin als portable Variante (ohne Installation).
+- `UnserFamilienOrganizer-windows-<version>.zip` – weiterhin als portable Variante (ohne Installation).
 
 Quelle: [`windows/setup.iss`](windows/setup.iss).
 
@@ -24,7 +24,7 @@ Zwei Wege:
 2. **Universelles Skript (jede Distribution):** das `…-linux-<version>.tar.gz` entpacken und im
    Ordner ausführen:
    ```sh
-   tar -xzf FamilyPlanner-linux-<version>.tar.gz -C unser-familien-organizer
+   tar -xzf UnserFamilienOrganizer-linux-<version>.tar.gz -C unser-familien-organizer
    cd unser-familien-organizer
    sudo ./install.sh
    ```

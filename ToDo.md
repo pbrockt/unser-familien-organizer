@@ -1,4 +1,4 @@
-# 📋 FamilyPlanner — ToDo / Roadmap
+# 📋 Unser Familien-Organizer — ToDo / Roadmap
 
 Selbst-gehosteter Familienplaner (Kalender + Aufgaben + Einkaufsliste).
 Alle Daten leben in **Nextcloud** via **CalDAV**. Kein eigener Server, kein Abo.
@@ -38,7 +38,7 @@ Stand: Juni 2026 · App: Flutter (Android, später Web)
 - [x] `flutter analyze` sauber, Smoke-Test grün
 - [x] GitHub Actions: Release-APK-Build + Signierung (wie Tagebuch-App)
 - [x] Erster grüner CI-Lauf — APK gebaut & als Artifact hochgeladen (~21 MB)
-- [ ] APK aufs Handy laden & installieren (Actions → Artifact `FamilyPlanner-release`)
+- [ ] APK aufs Handy laden & installieren (Actions → Artifact `UnserFamilienOrganizer-release`)
 
 ## ⚠️ Phase 2 — CalDAV Core (KRITISCHER PFAD)
 > Alles hängt davon ab. Erst danach starten die UI-Phasen.

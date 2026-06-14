@@ -13,7 +13,7 @@
 #define MyAppName "Unser Familien-Organizer"
 #define MyAppPublisher "PBrockt"
 #define MyAppExeName "family_planner.exe"
-#define MyAppURL "https://github.com/pbrockt/FamilyPlanner"
+#define MyAppURL "https://github.com/pbrockt/unser-familien-organizer"
 
 [Setup]
 ; Eindeutige AppId – fuer saubere Updates/Deinstallation nicht aendern.

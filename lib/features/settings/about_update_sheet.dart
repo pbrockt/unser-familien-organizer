@@ -4,7 +4,7 @@ import 'package:url_launcher/url_launcher.dart';
 
 /// Releases-Seite des Projekts – hier liegt jeweils das neueste APK.
 const String kReleasesUrl =
-    'https://github.com/pbrockt/FamilyPlanner/releases';
+    'https://github.com/pbrockt/unser-familien-organizer/releases';
 
 /// Zeigt ein Bottom-Sheet mit aktueller App-Version und einem Button, der
 /// die GitHub-Releases-Seite öffnet (dort kann das neueste APK geladen
@@ -28,7 +28,7 @@ class _AboutUpdateSheet extends StatelessWidget {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Konnte den Browser nicht öffnen. Adresse: '
-              'github.com/pbrockt/FamilyPlanner/releases'),
+              'github.com/pbrockt/unser-familien-organizer/releases'),
         ),
       );
     }

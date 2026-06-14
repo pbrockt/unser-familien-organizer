@@ -7,7 +7,7 @@ class IcalBuilder {
   const IcalBuilder();
 
   static const _uuid = Uuid();
-  static const _productId = '-//FamilyPlanner//DE';
+  static const _productId = '-//Unser Familien-Organizer//DE';
 
   /// Neue, eindeutige UID (auch als Dateiname `<uid>.ics` verwendbar).
   String newUid() => _uuid.v4();
