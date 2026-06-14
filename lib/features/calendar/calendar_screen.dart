@@ -29,11 +29,13 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
   CalendarFormat _format = CalendarFormat.month;
   _CalView _view = _CalView.month;
 
-  static final DateTime _epoch = DateTime(2020, 1, 1);
+  // In UTC rechnen, damit Sommer-/Winterzeit-Wechsel die Tag-Indizes nicht um
+  // einen Tag verschieben (sonst zeigt die Seite den Vortag).
+  static final DateTime _epoch = DateTime.utc(2020, 1, 1);
   late PageController _dayPager;
 
   int _pageOf(DateTime d) =>
-      DateTime(d.year, d.month, d.day).difference(_epoch).inDays;
+      DateTime.utc(d.year, d.month, d.day).difference(_epoch).inDays;
   DateTime _dateOf(int page) => _epoch.add(Duration(days: page));
 
   @override
