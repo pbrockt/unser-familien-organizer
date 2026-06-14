@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -63,7 +65,7 @@ class HomeScreen extends ConsumerWidget {
                 padding: const EdgeInsets.only(bottom: 28),
                 children: [
                   _TopBar(account: account),
-                  _Greeting(account: account, now: now),
+                  _Greeting(account: account),
                   if (pendingSync > 0)
                     _SyncBanner(
                       count: pendingSync,
@@ -172,13 +174,35 @@ class _TopBar extends StatelessWidget {
   }
 }
 
-class _Greeting extends StatelessWidget {
-  const _Greeting({required this.account, required this.now});
+class _Greeting extends StatefulWidget {
+  const _Greeting({required this.account});
   final NextcloudAccount? account;
-  final DateTime now;
+
+  @override
+  State<_Greeting> createState() => _GreetingState();
+}
+
+class _GreetingState extends State<_Greeting> {
+  Timer? _timer;
+  DateTime _now = DateTime.now();
+
+  @override
+  void initState() {
+    super.initState();
+    // Uhrzeit jede halbe Minute aktualisieren.
+    _timer = Timer.periodic(const Duration(seconds: 30), (_) {
+      if (mounted) setState(() => _now = DateTime.now());
+    });
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    super.dispose();
+  }
 
   String _greeting() {
-    final h = now.hour;
+    final h = _now.hour;
     if (h < 11) return 'Guten Morgen';
     if (h < 17) return 'Hallo';
     return 'Guten Abend';
@@ -187,10 +211,13 @@ class _Greeting extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    final name = account?.username;
+    final name = widget.account?.username;
     final who = (name == null || name.isEmpty)
         ? ''
         : ', ${name[0].toUpperCase()}${name.substring(1)}';
+    final dateLine =
+        '${DateFormat('EEEE, d. MMMM', 'de_DE').format(_now)} · '
+        '${DateFormat('HH:mm').format(_now)} Uhr';
     return Padding(
       padding: const EdgeInsets.fromLTRB(20, 14, 20, 4),
       child: Column(
@@ -202,7 +229,7 @@ class _Greeting extends StatelessWidget {
                   fontWeight: FontWeight.w800,
                   color: scheme.onSurface)),
           const SizedBox(height: 2),
-          Text('Hier ist euer Familien-Überblick',
+          Text(dateLine,
               style: TextStyle(fontSize: 15, color: scheme.onSurfaceVariant)),
         ],
       ),

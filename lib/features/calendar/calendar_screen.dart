@@ -5,6 +5,7 @@ import 'package:table_calendar/table_calendar.dart';
 
 import '../../core/auth/account_providers.dart';
 import '../members/member_settings.dart';
+import '../weather/weather_service.dart';
 import 'calendar_event.dart';
 import 'day_timeline.dart';
 import 'event_actions.dart';
@@ -101,6 +102,29 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
     );
   }
 
+  /// Kleines Wetter-Badge (Icon + Max/Min) für einen Tag, falls eine Vorhersage
+  /// vorliegt – sonst leer.
+  Widget _weatherBadge(DateTime day) {
+    final data = ref.watch(weatherProvider).value;
+    if (data == null || data.isEmpty) return const SizedBox.shrink();
+    final key = DateFormat('yyyy-MM-dd').format(day);
+    final w = data[key];
+    if (w == null) return const SizedBox.shrink();
+    final scheme = Theme.of(context).colorScheme;
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(weatherIcon(w.code), size: 18, color: scheme.primary),
+        const SizedBox(width: 4),
+        Text('${w.tempMax.round()}° / ${w.tempMin.round()}°',
+            style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+                color: scheme.onSurfaceVariant)),
+      ],
+    );
+  }
+
   Widget _viewToggle() {
     return Padding(
       padding: const EdgeInsets.fromLTRB(12, 8, 12, 4),
@@ -145,9 +169,15 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
                 curve: Curves.easeOut),
           ),
           Expanded(
-            child: Text(label,
-                textAlign: TextAlign.center,
-                style: Theme.of(context).textTheme.titleMedium),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(label,
+                    textAlign: TextAlign.center,
+                    style: Theme.of(context).textTheme.titleMedium),
+                _weatherBadge(_selectedDay),
+              ],
+            ),
           ),
           IconButton(
             icon: const Icon(Icons.chevron_right),
@@ -335,6 +365,7 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
                   data: (_) => _DayEventList(
                     day: _selectedDay,
                     events: listEvents,
+                    weather: _weatherBadge(_selectedDay),
                     onEventLongPress: (e) => showEventActions(context, ref, e),
                   ),
                 ),
@@ -353,10 +384,12 @@ class _DayEventList extends StatelessWidget {
     required this.day,
     required this.events,
     required this.onEventLongPress,
+    this.weather = const SizedBox.shrink(),
   });
   final DateTime day;
   final List<CalendarEvent> events;
   final void Function(CalendarEvent event) onEventLongPress;
+  final Widget weather;
 
   @override
   Widget build(BuildContext context) {
@@ -366,8 +399,15 @@ class _DayEventList extends StatelessWidget {
         children: [
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
-            child: Text(header,
-                style: Theme.of(context).textTheme.titleSmall),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Text(header,
+                      style: Theme.of(context).textTheme.titleSmall),
+                ),
+                weather,
+              ],
+            ),
           ),
           const Padding(
             padding: EdgeInsets.all(32),

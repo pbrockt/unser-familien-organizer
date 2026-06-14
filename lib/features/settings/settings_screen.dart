@@ -7,6 +7,7 @@ import '../../core/platform/platform_support.dart';
 import '../../shared/theme/app_theme.dart';
 import '../calendar/event_templates.dart';
 import '../members/member_settings.dart';
+import '../weather/weather_service.dart';
 import 'about_update_sheet.dart';
 import 'notification_providers.dart';
 import 'theme_provider.dart';
@@ -69,6 +70,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     final calSettings = ref.watch(memberSettingsProvider).value ?? const {};
     final accent = ref.watch(accentColorProvider).value ?? AppTheme.orange;
     final templatesEnabled = ref.watch(templatesEnabledProvider).value ?? true;
+    final weatherPlz = ref.watch(weatherPlzProvider).value ?? '';
 
     return Scaffold(
       appBar: AppBar(title: const Text('Einstellungen')),
@@ -263,6 +265,17 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                   ref.read(templatesEnabledProvider.notifier).set(v),
             ),
             const Divider(),
+            _sectionHeader(context, 'Wetter'),
+            ListTile(
+              leading: const Icon(Icons.wb_sunny_outlined),
+              title: const Text('Wetter im Kalender'),
+              subtitle: Text(weatherPlz.isEmpty
+                  ? 'Aus – Postleitzahl eingeben zum Aktivieren'
+                  : 'PLZ $weatherPlz'),
+              trailing: const Icon(Icons.chevron_right),
+              onTap: () => _editPlz(weatherPlz),
+            ),
+            const Divider(),
             _sectionHeader(context, 'App'),
             ListTile(
               leading: const Icon(Icons.system_update),
@@ -404,6 +417,45 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         await notifier.setCountdown(m.href, enabled[m.href] ?? false);
         await notifier.setCountdownAll(m.href, allMode[m.href] ?? false);
       }
+    }
+  }
+
+  /// Dialog zum Eingeben/Löschen der Wetter-PLZ.
+  Future<void> _editPlz(String current) async {
+    final ctrl = TextEditingController(text: current);
+    final result = await showDialog<String>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Wetter-Postleitzahl'),
+        content: TextField(
+          controller: ctrl,
+          keyboardType: TextInputType.number,
+          autofocus: true,
+          decoration: const InputDecoration(
+            labelText: 'PLZ (Deutschland)',
+            hintText: 'z.B. 26835',
+            border: OutlineInputBorder(),
+          ),
+          onSubmitted: (v) => Navigator.pop(ctx, v.trim()),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, ''),
+            child: const Text('Wetter aus'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Abbrechen'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, ctrl.text.trim()),
+            child: const Text('Speichern'),
+          ),
+        ],
+      ),
+    );
+    if (result != null) {
+      await ref.read(weatherPlzProvider.notifier).set(result);
     }
   }
 
