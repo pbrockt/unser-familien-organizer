@@ -453,11 +453,11 @@ class _CountdownCard extends StatelessWidget {
     final days = event.startDay.difference(today).inDays;
     final dateStr = DateFormat('EEE, d. MMM', 'de_DE').format(event.start);
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 5, 16, 5),
+      padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
       child: GestureDetector(
         onTap: onTap,
         child: Container(
-          padding: const EdgeInsets.all(12),
+          padding: const EdgeInsets.all(14),
           decoration: BoxDecoration(
             color: Theme.of(context).cardColor,
             borderRadius: BorderRadius.circular(20),
