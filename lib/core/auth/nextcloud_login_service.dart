@@ -119,10 +119,12 @@ class NextcloudLoginService {
     final where = (host == null || host.isEmpty) ? '' : ' („$host")';
     return CalDavException(
       isLookup
-          ? 'Server-Adresse nicht gefunden$where. Prüfe die Adresse und ob '
-              'dein Gerät den Server erreichen kann. Bei einem Heimserver '
-              'hinter Reverse-Proxy: in Nextcloud "overwrite.cli.url" bzw. die '
-              'Trusted-Domains auf die öffentliche Adresse setzen.'
+          ? 'Server-Adresse nicht gefunden$where. Dein Gerät konnte diesen '
+              'Namen nicht auflösen, obwohl Browser/PC es können – meist liegt '
+              'das am "Privaten DNS" des Handys: Einstellungen → Verbindungen → '
+              '"Privates DNS" auf "Automatisch" oder "Aus" stellen und erneut '
+              'versuchen. (Bei Heimserver hinter Reverse-Proxy zusätzlich '
+              'Nextcloud "overwrite.cli.url"/Trusted-Domains prüfen.)'
           : 'Keine Verbindung zum Server$where: ${e.message}',
     );
   }
@@ -144,6 +146,13 @@ class NextcloudLoginService {
   }) async {
     final client = _client(allowInsecure);
     final deadline = DateTime.now().add(timeout);
+    // Direkt nach der Rückkehr aus dem Browser ist der Netzwerk-Stack der App
+    // manchmal kurz nicht bereit (DNS-Lookup schlägt fehl, obwohl Browser/PC
+    // den Host auflösen können). Deshalb bei Netzwerkfehlern nicht sofort
+    // abbrechen, sondern weiter pollen – erst nach mehreren Fehlern in Folge
+    // melden.
+    var consecutiveNetErrors = 0;
+    const maxConsecutiveNetErrors = 10;
     try {
       while (!isCancelled() && DateTime.now().isBefore(deadline)) {
         await Future<void>.delayed(interval);
@@ -155,11 +164,15 @@ class NextcloudLoginService {
             body: {'token': init.pollToken},
           );
         } on SocketException catch (e) {
-          throw _networkException(e,
-              host: Uri.tryParse(init.pollEndpoint)?.host);
+          if (++consecutiveNetErrors >= maxConsecutiveNetErrors) {
+            throw _networkException(e,
+                host: Uri.tryParse(init.pollEndpoint)?.host);
+          }
+          continue;
         } on HandshakeException {
           throw _tlsException();
         }
+        consecutiveNetErrors = 0;
         if (resp.statusCode == 200) {
           final json = jsonDecode(resp.body) as Map<String, dynamic>;
           // Auch die vom Server gemeldete Adresse auf die erreichbare Basis

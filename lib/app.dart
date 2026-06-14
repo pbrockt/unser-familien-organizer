@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'core/router/app_router.dart';
 import 'features/settings/reminder_sync.dart';
 import 'features/settings/theme_provider.dart';
+import 'features/update/update_prompt.dart';
 import 'shared/theme/app_theme.dart';
 
 /// Wurzel-Widget. Bindet Router und Theme ein.
@@ -31,7 +32,9 @@ class FamilyPlannerApp extends ConsumerWidget {
         GlobalCupertinoLocalizations.delegate,
       ],
       routerConfig: router,
-      builder: (context, child) => ReminderSync(child: child ?? const SizedBox()),
+      builder: (context, child) => UpdateChecker(
+        child: ReminderSync(child: child ?? const SizedBox()),
+      ),
     );
   }
 }

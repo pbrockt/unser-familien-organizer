@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
+
+import '../update/update_prompt.dart';
 
 /// Releases-Seite des Projekts – hier liegt jeweils das neueste APK.
 const String kReleasesUrl =
@@ -18,7 +21,7 @@ Future<void> showAboutUpdateSheet(BuildContext context) {
   );
 }
 
-class _AboutUpdateSheet extends StatelessWidget {
+class _AboutUpdateSheet extends ConsumerWidget {
   const _AboutUpdateSheet();
 
   Future<void> _openReleases(BuildContext context) async {
@@ -35,7 +38,7 @@ class _AboutUpdateSheet extends StatelessWidget {
   }
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
     return SafeArea(
       child: Padding(
@@ -79,22 +82,28 @@ class _AboutUpdateSheet extends StatelessWidget {
             ),
             const SizedBox(height: 12),
             Text(
-              'Die neueste Version liegt auf GitHub unter „Releases". '
-              'Öffne die Seite, lade das aktuellste APK herunter und '
-              'installiere es über die alte Version drüber – deine '
-              'Verbindung bleibt erhalten.',
+              'Die App sucht beim Start automatisch nach Updates. Du kannst '
+              'auch jetzt prüfen – das neueste APK wird dann direkt in der App '
+              'heruntergeladen und installiert. Deine Verbindung bleibt '
+              'erhalten.',
               style: theme.textTheme.bodyMedium?.copyWith(
                 color: theme.colorScheme.onSurfaceVariant,
               ),
             ),
             const SizedBox(height: 20),
             FilledButton.icon(
-              onPressed: () => _openReleases(context),
-              icon: const Icon(Icons.open_in_new),
-              label: const Text('Releases öffnen & APK laden'),
+              onPressed: () => runUpdateCheck(context, ref, silentIfNone: false),
+              icon: const Icon(Icons.system_update),
+              label: const Text('Nach Updates suchen & installieren'),
               style: FilledButton.styleFrom(
                 padding: const EdgeInsets.symmetric(vertical: 14),
               ),
+            ),
+            const SizedBox(height: 8),
+            TextButton.icon(
+              onPressed: () => _openReleases(context),
+              icon: const Icon(Icons.open_in_new),
+              label: const Text('Releases-Seite öffnen'),
             ),
           ],
         ),
