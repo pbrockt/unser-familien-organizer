@@ -241,14 +241,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                       child: OutlinedButton.icon(
                         icon: const Icon(Icons.hourglass_bottom),
                         label: const Text('Countdown'),
-                        onPressed: () => _pickCalendars(
-                          title: 'Countdown',
-                          initial: (h) =>
-                              calSettings[h]?.countdown ?? false,
-                          apply: (h, v) => ref
-                              .read(memberSettingsProvider.notifier)
-                              .setCountdown(h, v),
-                        ),
+                        onPressed: _pickCountdownCalendars,
                       ),
                     ),
                   ],
@@ -329,6 +322,73 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     if (ok == true) {
       for (final m in calendars) {
         await apply(m.href, selected[m.href] ?? false);
+      }
+    }
+  }
+
+  /// Countdown-Popup: pro Kalender an/aus + „alle Termine" oder „nur nächster".
+  Future<void> _pickCountdownCalendars() async {
+    final calendars =
+        ref.read(membersProvider).where((m) => m.supportsEvents).toList();
+    final cur = ref.read(memberSettingsProvider).value ?? const {};
+    final enabled = {
+      for (final m in calendars) m.href: cur[m.href]?.countdown ?? false
+    };
+    final allMode = {
+      for (final m in calendars) m.href: cur[m.href]?.countdownAll ?? false
+    };
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setS) => AlertDialog(
+          title: const Text('Countdown'),
+          content: SizedBox(
+            width: double.maxFinite,
+            child: ListView(
+              shrinkWrap: true,
+              children: [
+                for (final m in calendars) ...[
+                  CheckboxListTile(
+                    value: enabled[m.href] ?? false,
+                    onChanged: (v) =>
+                        setS(() => enabled[m.href] = v ?? false),
+                    secondary:
+                        CircleAvatar(backgroundColor: m.color, radius: 8),
+                    title: Text(m.name),
+                  ),
+                  if (enabled[m.href] ?? false)
+                    Padding(
+                      padding: const EdgeInsets.only(left: 16, right: 8),
+                      child: SwitchListTile(
+                        dense: true,
+                        title: const Text('Alle Termine anzeigen'),
+                        subtitle: const Text('Aus = nur der nächste'),
+                        value: allMode[m.href] ?? false,
+                        onChanged: (v) => setS(() => allMode[m.href] = v),
+                      ),
+                    ),
+                ],
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('Abbrechen'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(ctx, true),
+              child: const Text('Speichern'),
+            ),
+          ],
+        ),
+      ),
+    );
+    if (ok == true) {
+      final notifier = ref.read(memberSettingsProvider.notifier);
+      for (final m in calendars) {
+        await notifier.setCountdown(m.href, enabled[m.href] ?? false);
+        await notifier.setCountdownAll(m.href, allMode[m.href] ?? false);
       }
     }
   }

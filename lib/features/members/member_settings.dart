@@ -18,6 +18,7 @@ class MemberSetting {
     this.hidden = false,
     this.showOnHome = true,
     this.countdown = false,
+    this.countdownAll = false,
   });
 
   final String? name;
@@ -31,12 +32,17 @@ class MemberSetting {
   /// („Noch X Tage bis …"). Standard: nein.
   final bool countdown;
 
+  /// Beim Countdown alle anstehenden Termine zeigen (true) oder nur den
+  /// nächsten (false, Standard).
+  final bool countdownAll;
+
   MemberSetting copyWith({
     String? name,
     String? colorHex,
     bool? hidden,
     bool? showOnHome,
     bool? countdown,
+    bool? countdownAll,
     bool clearColor = false,
   }) =>
       MemberSetting(
@@ -45,6 +51,7 @@ class MemberSetting {
         hidden: hidden ?? this.hidden,
         showOnHome: showOnHome ?? this.showOnHome,
         countdown: countdown ?? this.countdown,
+        countdownAll: countdownAll ?? this.countdownAll,
       );
 
   Map<String, dynamic> toJson() => {
@@ -53,6 +60,7 @@ class MemberSetting {
         'hidden': hidden,
         'showOnHome': showOnHome,
         'countdown': countdown,
+        'countdownAll': countdownAll,
       };
 
   factory MemberSetting.fromJson(Map<String, dynamic> j) => MemberSetting(
@@ -61,6 +69,7 @@ class MemberSetting {
         hidden: (j['hidden'] as bool?) ?? false,
         showOnHome: (j['showOnHome'] as bool?) ?? true,
         countdown: (j['countdown'] as bool?) ?? false,
+        countdownAll: (j['countdownAll'] as bool?) ?? false,
       );
 }
 
@@ -117,6 +126,9 @@ class MemberSettingsController
 
   Future<void> setCountdown(String href, bool value) =>
       _update(href, _of(href).copyWith(countdown: value));
+
+  Future<void> setCountdownAll(String href, bool value) =>
+      _update(href, _of(href).copyWith(countdownAll: value));
 }
 
 /// Ein anzeigbares „Mitglied" = ein Kalender/eine Liste mit effektivem
@@ -168,17 +180,24 @@ List<CalendarEvent> countdownEvents(
   Map<String, MemberSetting> settings,
   DateTime today,
 ) {
-  final candidates = events.where((e) {
+  // Anstehende Countdown-Termine je Kalender sammeln.
+  final byCal = <String, List<CalendarEvent>>{};
+  for (final e in events) {
     final s = settings[e.calendarHref];
-    return s != null && s.countdown && !e.startDay.isBefore(today);
-  }).toList()
-    ..sort((a, b) => a.startDay.compareTo(b.startDay));
-  // Je Kalender nur den frühesten (= nächsten) Termin behalten.
-  final seen = <String>{};
-  final out = <CalendarEvent>[];
-  for (final e in candidates) {
-    if (seen.add(e.calendarHref)) out.add(e);
+    if (s == null || !s.countdown || e.startDay.isBefore(today)) continue;
+    byCal.putIfAbsent(e.calendarHref, () => []).add(e);
   }
+  final out = <CalendarEvent>[];
+  byCal.forEach((href, list) {
+    list.sort((a, b) => a.startDay.compareTo(b.startDay));
+    // Pro Kalender: alle Termine oder nur den nächsten.
+    if (settings[href]?.countdownAll ?? false) {
+      out.addAll(list);
+    } else {
+      out.add(list.first);
+    }
+  });
+  out.sort((a, b) => a.startDay.compareTo(b.startDay));
   return out;
 }
 
