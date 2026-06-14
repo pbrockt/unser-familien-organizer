@@ -287,10 +287,11 @@ class HttpCalDavClient implements CalDavClient {
     try {
       final request = http.Request('POST', _resolve(account, collectionHref))
         ..headers.addAll(_authHeaders(account))
-        // WICHTIG: Schlüssel klein schreiben. Sonst überschreibt der body-Setter
-        // des http-Pakets den Content-Type still mit text/plain – Nextclouds
-        // Sharing-Plugin verlangt aber application/davsharing+xml (sonst 501).
-        ..headers['content-type'] = 'application/davsharing+xml; charset=utf-8'
+        // WICHTIG: Schlüssel klein schreiben, sonst überschreibt der body-Setter
+        // des http-Pakets den Content-Type still mit text/plain. Nextclouds
+        // Sharing-Plugin (apps/dav .../Sharing/Plugin.php) akzeptiert nur
+        // "application/xml" oder "text/xml" – andere Werte → 501.
+        ..headers['content-type'] = 'application/xml; charset=utf-8'
         ..body = body;
       final streamed = await client.send(request);
       final response = await http.Response.fromStream(streamed);
