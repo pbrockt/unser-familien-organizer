@@ -8,6 +8,10 @@ import '../members/member_settings.dart';
 import 'calendar_event.dart';
 import 'events_builder.dart';
 
+/// Ziel-Datum, zu dem die Kalender-Tagesansicht springen soll (z.B. beim Tippen
+/// auf einen Termin/Countdown auf der Startseite). `null` = kein Sprung offen.
+final calendarJumpProvider = StateProvider<DateTime?>((ref) => null);
+
 /// Lädt alle Termine aus den Kalender-Collections der Nextcloud und verwaltet
 /// Anlegen/Bearbeiten/Löschen.
 ///

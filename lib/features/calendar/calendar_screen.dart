@@ -30,7 +30,7 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
   _CalView _view = _CalView.month;
 
   static final DateTime _epoch = DateTime(2020, 1, 1);
-  late final PageController _dayPager;
+  late PageController _dayPager;
 
   int _pageOf(DateTime d) =>
       DateTime(d.year, d.month, d.day).difference(_epoch).inDays;
@@ -46,6 +46,20 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
   void dispose() {
     _dayPager.dispose();
     super.dispose();
+  }
+
+  /// Wechselt in die Tagesansicht und zeigt [date]. Erzeugt dafür einen frischen
+  /// PageController mit der Zielseite – damit garantiert der richtige Tag steht
+  /// (auch nach vorherigem Blättern oder beim erneuten Öffnen).
+  void _enterDay(DateTime date) {
+    final old = _dayPager;
+    _dayPager = PageController(initialPage: _pageOf(date));
+    setState(() {
+      _view = _CalView.day;
+      _selectedDay = date;
+      _focusedDay = date;
+    });
+    WidgetsBinding.instance.addPostFrameCallback((_) => old.dispose());
   }
 
   DateTime _dayKey(DateTime d) => DateTime(d.year, d.month, d.day);
@@ -98,20 +112,10 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
         ],
         selected: {_view},
         onSelectionChanged: (s) {
-          setState(() {
-            _view = s.first;
-            // Beim Wechsel auf die Tagesansicht immer den heutigen Tag zeigen.
-            if (_view == _CalView.day) {
-              _selectedDay = DateTime.now();
-              _focusedDay = _selectedDay;
-            }
-          });
-          if (_view == _CalView.day) {
-            WidgetsBinding.instance.addPostFrameCallback((_) {
-              if (_dayPager.hasClients) {
-                _dayPager.jumpToPage(_pageOf(DateTime.now()));
-              }
-            });
+          if (s.first == _CalView.day) {
+            _enterDay(DateTime.now()); // Tagesansicht startet immer bei heute.
+          } else {
+            setState(() => _view = s.first);
           }
         },
       ),
@@ -160,6 +164,16 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
     final accountAsync = ref.watch(accountProvider);
     final eventsAsync = ref.watch(eventsControllerProvider);
     final eventsByDay = ref.watch(eventsByDayProvider);
+
+    // Sprung-Anforderung von der Startseite (Termin/Countdown angetippt).
+    final jump = ref.watch(calendarJumpProvider);
+    if (jump != null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        ref.read(calendarJumpProvider.notifier).state = null;
+        _enterDay(jump);
+      });
+    }
 
     List<CalendarEvent> loader(DateTime day) =>
         eventsByDay[_dayKey(day)] ?? const [];

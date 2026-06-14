@@ -18,28 +18,29 @@ class AppShell extends StatefulWidget {
 class _AppShellState extends State<AppShell> {
   final List<int> _history = [];
 
-  @override
-  void initState() {
-    super.initState();
-    _history.add(widget.navigationShell.currentIndex);
-  }
-
   void _goBranch(int index) {
-    final reselect = index == widget.navigationShell.currentIndex;
-    if (!reselect) setState(() => _history.add(index));
-    widget.navigationShell.goBranch(index, initialLocation: reselect);
+    widget.navigationShell.goBranch(
+      index,
+      initialLocation: index == widget.navigationShell.currentIndex,
+    );
   }
 
   void _handleBack() {
     if (_history.length <= 1) return;
     _history.removeLast();
     final prev = _history.last;
-    setState(() {});
     widget.navigationShell.goBranch(prev, initialLocation: false);
+    setState(() {});
   }
 
   @override
   Widget build(BuildContext context) {
+    // Jeden Tab-Wechsel (auch via context.go von der Startseite) in der
+    // Historie mitführen, damit „Zurück" Schritt für Schritt zurückgeht.
+    final idx = widget.navigationShell.currentIndex;
+    if (_history.isEmpty || _history.last != idx) {
+      _history.add(idx);
+    }
     return PopScope(
       canPop: _history.length <= 1,
       onPopInvokedWithResult: (didPop, _) {

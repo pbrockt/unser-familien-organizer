@@ -43,6 +43,12 @@ class HomeScreen extends ConsumerWidget {
     final upcoming = _upcoming(filterHomeEvents(events, memberSettings), now, today);
     final countdowns = countdownEvents(events, memberSettings, today);
 
+    // Tippen auf einen Termin/Countdown → in die Kalender-Tagesansicht springen.
+    void openInCalendar(CalendarEvent e) {
+      ref.read(calendarJumpProvider.notifier).state = e.start;
+      context.go('/calendar');
+    }
+
     return Scaffold(
       body: Stack(
         children: [
@@ -84,7 +90,8 @@ class HomeScreen extends ConsumerWidget {
                             event: upcoming[i],
                             now: now,
                             highlighted: i == 0,
-                            onTap: () =>
+                            onTap: () => openInCalendar(upcoming[i]),
+                            onLongPress: () =>
                                 showEventEditor(context, existing: upcoming[i]),
                           ),
                         ),
@@ -93,7 +100,7 @@ class HomeScreen extends ConsumerWidget {
                     ...countdowns.map((e) => _CountdownCard(
                           event: e,
                           today: today,
-                          onTap: () => showEventEditor(context, existing: e),
+                          onTap: () => openInCalendar(e),
                         )),
                     ...taskLists.map((l) => _ListCard(list: l)),
                     if (countdowns.isEmpty && taskLists.isEmpty)
@@ -227,11 +234,13 @@ class _EventCard extends StatelessWidget {
     required this.now,
     required this.highlighted,
     required this.onTap,
+    this.onLongPress,
   });
   final CalendarEvent event;
   final DateTime now;
   final bool highlighted;
   final VoidCallback onTap;
+  final VoidCallback? onLongPress;
 
   String _dayLabel() {
     final day = DateTime(event.start.year, event.start.month, event.start.day);
@@ -261,6 +270,7 @@ class _EventCard extends StatelessWidget {
       padding: const EdgeInsets.only(right: 12, top: 2, bottom: 6),
       child: GestureDetector(
         onTap: onTap,
+        onLongPress: onLongPress,
         child: Container(
           width: 230,
           padding: const EdgeInsets.all(16),
