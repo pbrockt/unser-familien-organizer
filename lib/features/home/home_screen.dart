@@ -45,7 +45,7 @@ class HomeScreen extends ConsumerWidget {
 
     // Tippen auf einen Termin/Countdown → in die Kalender-Tagesansicht springen.
     void openInCalendar(CalendarEvent e) {
-      ref.read(calendarJumpProvider.notifier).state = e.start;
+      ref.read(calendarJumpProvider.notifier).set(e.start);
       context.go('/calendar');
     }
 

@@ -170,7 +170,7 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
     if (jump != null) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (!mounted) return;
-        ref.read(calendarJumpProvider.notifier).state = null;
+        ref.read(calendarJumpProvider.notifier).set(null);
         _enterDay(jump);
       });
     }
