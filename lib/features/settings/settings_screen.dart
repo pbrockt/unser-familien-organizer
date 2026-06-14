@@ -4,6 +4,7 @@ import 'package:package_info_plus/package_info_plus.dart';
 
 import '../../core/background/background_sync.dart';
 import '../../core/platform/platform_support.dart';
+import '../../shared/theme/app_theme.dart';
 import '../members/member_settings.dart';
 import 'about_update_sheet.dart';
 import 'notification_providers.dart';
@@ -65,6 +66,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     final calendars =
         ref.watch(membersProvider).where((m) => m.supportsEvents).toList();
     final calSettings = ref.watch(memberSettingsProvider).value ?? const {};
+    final accent = ref.watch(accentColorProvider).value ?? AppTheme.orange;
 
     return Scaffold(
       appBar: AppBar(title: const Text('Einstellungen')),
@@ -94,6 +96,44 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                 selected: {themeMode},
                 onSelectionChanged: (s) =>
                     ref.read(themeModeProvider.notifier).set(s.first),
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 4, 16, 4),
+              child: Text('Akzentfarbe',
+                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      color: Theme.of(context).colorScheme.onSurfaceVariant)),
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+              child: Wrap(
+                spacing: 12,
+                runSpacing: 12,
+                children: [
+                  for (final c in AppTheme.accentChoices)
+                    GestureDetector(
+                      onTap: () =>
+                          ref.read(accentColorProvider.notifier).set(c),
+                      child: Container(
+                        width: 36,
+                        height: 36,
+                        decoration: BoxDecoration(
+                          color: c,
+                          shape: BoxShape.circle,
+                          border: Border.all(
+                            color: c.toARGB32() == accent.toARGB32()
+                                ? Theme.of(context).colorScheme.onSurface
+                                : Colors.transparent,
+                            width: 3,
+                          ),
+                        ),
+                        child: c.toARGB32() == accent.toARGB32()
+                            ? const Icon(Icons.check,
+                                size: 18, color: Colors.white)
+                            : null,
+                      ),
+                    ),
+                ],
               ),
             ),
             const Divider(),

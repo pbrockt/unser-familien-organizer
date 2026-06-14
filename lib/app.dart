@@ -16,11 +16,12 @@ class FamilyPlannerApp extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final router = ref.watch(routerProvider);
     final themeMode = ref.watch(themeModeProvider).value ?? ThemeMode.system;
+    final accent = ref.watch(accentColorProvider).value ?? AppTheme.orange;
     return MaterialApp.router(
       title: 'Unser Familien-Organizer',
       debugShowCheckedModeBanner: false,
-      theme: AppTheme.light(),
-      darkTheme: AppTheme.dark(),
+      theme: AppTheme.light(seed: accent),
+      darkTheme: AppTheme.dark(seed: accent),
       themeMode: themeMode,
       // Deutsche Lokalisierung: Datums-/Zeit-Picker auf Deutsch,
       // Wochenstart Montag.

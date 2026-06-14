@@ -5,7 +5,6 @@ import 'package:intl/intl.dart';
 
 import '../../core/auth/account_providers.dart';
 import '../../core/auth/nextcloud_account.dart';
-import '../../shared/theme/app_theme.dart';
 import '../../shared/widgets/blob_background.dart';
 import '../calendar/calendar_event.dart';
 import '../calendar/event_editor_sheet.dart';
@@ -147,7 +146,7 @@ class _TopBar extends StatelessWidget {
       padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
       child: Row(
         children: [
-          _Avatar(name: name ?? '?', color: AppTheme.orange, radius: 22),
+          _Avatar(name: name ?? '?', color: scheme.primary, radius: 22),
           const Spacer(),
           Material(
             color: Theme.of(context).cardColor,
@@ -260,7 +259,7 @@ class _EventCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    final color = event.color ?? AppTheme.orange;
+    final color = event.color ?? scheme.primary;
     final soon = _soon();
     return Padding(
       padding: const EdgeInsets.only(right: 12, top: 2, bottom: 6),
@@ -274,7 +273,7 @@ class _EventCard extends StatelessWidget {
             borderRadius: BorderRadius.circular(22),
             boxShadow: _softShadow(context),
             border: highlighted
-                ? Border.all(color: AppTheme.orange, width: 1.6)
+                ? Border.all(color: scheme.primary, width: 1.6)
                 : null,
           ),
           child: Column(
@@ -291,10 +290,10 @@ class _EventCard extends StatelessWidget {
               if (soon != null) ...[
                 const SizedBox(height: 4),
                 Text(soon,
-                    style: const TextStyle(
+                    style: TextStyle(
                         fontSize: 13,
                         fontWeight: FontWeight.w700,
-                        color: AppTheme.orange)),
+                        color: scheme.primary)),
               ] else if (event.location != null &&
                   event.location!.isNotEmpty) ...[
                 const SizedBox(height: 4),
@@ -319,7 +318,7 @@ class _EventCard extends StatelessWidget {
                                 fontSize: 12,
                                 fontWeight: FontWeight.w700,
                                 color: highlighted
-                                    ? AppTheme.orange
+                                    ? scheme.primary
                                     : scheme.onSurfaceVariant)),
                         const SizedBox(height: 1),
                         if (event.allDay)
@@ -384,7 +383,7 @@ class _ListCard extends StatelessWidget {
     final scheme = Theme.of(context).colorScheme;
     final total = list.items.length;
     final done = list.items.where((t) => t.completed).length;
-    final color = list.color ?? AppTheme.orange;
+    final color = list.color ?? scheme.primary;
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
       child: GestureDetector(
@@ -444,7 +443,7 @@ class _CountdownCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    final color = event.color ?? AppTheme.orange;
+    final color = event.color ?? scheme.primary;
     final days = event.startDay.difference(today).inDays;
     final dateStr = DateFormat('EEE, d. MMM', 'de_DE').format(event.start);
     return Padding(
@@ -528,7 +527,7 @@ class _IconChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final c = color ?? AppTheme.orange;
+    final c = color ?? Theme.of(context).colorScheme.primary;
     return Container(
       width: 42,
       height: 42,

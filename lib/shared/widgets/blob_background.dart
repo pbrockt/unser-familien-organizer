@@ -61,7 +61,10 @@ class BlobBackground extends StatelessWidget {
                       top: -50,
                       left: -40,
                       size: 230,
-                      color: AppTheme.orange.withValues(alpha: 0.06)),
+                      color: Theme.of(context)
+                          .colorScheme
+                          .primary
+                          .withValues(alpha: 0.06)),
                   _circle(
                       top: 150,
                       right: -60,

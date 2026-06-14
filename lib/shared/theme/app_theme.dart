@@ -20,17 +20,31 @@ class AppTheme {
   /// Akzentfarbe (für Code, der noch `seed` referenziert).
   static const Color seed = orange;
 
-  static ThemeData light() {
-    final base = ColorScheme.fromSeed(seedColor: orange);
+  /// Pastell-Akzentfarben zur Auswahl (Einstellungen). Erste = Standard.
+  static const List<Color> accentChoices = [
+    orange, // warmes Orange (Standard)
+    sage, // Salbeigrün
+    sky, // Himmelblau
+    terracotta, // Terracotta
+    Color(0xFFB59BD0), // Lavendel
+    Color(0xFFE8A0B6), // Rosé
+    Color(0xFF7FB6A8), // Petrol
+    Color(0xFFD9B362), // Senf
+  ];
+
+  /// Lesbare Vordergrundfarbe (schwarz/weiß) für eine Akzentfläche.
+  static Color _onColor(Color c) =>
+      ThemeData.estimateBrightnessForColor(c) == Brightness.dark
+          ? Colors.white
+          : Colors.black;
+
+  static ThemeData light({Color seed = orange}) {
+    // Container-/Sekundärtöne aus dem Seed ableiten → der Akzent ist überall
+    // einheitlich (auch der Menü-Indikator), in weichem Pastell.
+    final base = ColorScheme.fromSeed(seedColor: seed);
     final scheme = base.copyWith(
-      primary: orange,
-      onPrimary: Colors.white,
-      primaryContainer: peach,
-      onPrimaryContainer: brown,
-      secondary: sage,
-      tertiary: terracotta,
-      tertiaryContainer: const Color(0xFFF6E2D2),
-      onTertiaryContainer: brown,
+      primary: seed,
+      onPrimary: _onColor(seed),
       surface: cream,
       onSurface: brown,
       onSurfaceVariant: brownSoft,
@@ -40,16 +54,14 @@ class AppTheme {
     return _build(scheme, isLight: true, scaffold: cream, card: Colors.white);
   }
 
-  static ThemeData dark() {
+  static ThemeData dark({Color seed = orange}) {
     const bg = Color(0xFF241F1B);
     const card = Color(0xFF2E2823);
-    final base = ColorScheme.fromSeed(
-        seedColor: orange, brightness: Brightness.dark);
+    final base =
+        ColorScheme.fromSeed(seedColor: seed, brightness: Brightness.dark);
     final scheme = base.copyWith(
-      primary: orange,
-      onPrimary: Colors.black,
-      primaryContainer: const Color(0xFF4A3A2A),
-      onPrimaryContainer: peach,
+      primary: seed,
+      onPrimary: _onColor(seed),
       surface: bg,
       onSurface: const Color(0xFFEDE6DC),
       onSurfaceVariant: const Color(0xFFB6A99B),
@@ -92,7 +104,7 @@ class AppTheme {
         height: 68,
         surfaceTintColor: Colors.transparent,
         labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
-        indicatorColor: AppTheme.peach,
+        indicatorColor: scheme.primaryContainer,
         labelTextStyle: WidgetStateProperty.all(
           TextStyle(
               fontSize: 12,
@@ -102,7 +114,9 @@ class AppTheme {
         iconTheme: WidgetStateProperty.resolveWith((states) {
           final selected = states.contains(WidgetState.selected);
           return IconThemeData(
-              color: selected ? brown : scheme.onSurfaceVariant);
+              color: selected
+                  ? scheme.onPrimaryContainer
+                  : scheme.onSurfaceVariant);
         }),
       ),
       filledButtonTheme: FilledButtonThemeData(
