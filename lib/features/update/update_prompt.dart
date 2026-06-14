@@ -118,7 +118,7 @@ Future<void> _downloadWithProgress(
       title: const Text('Wird heruntergeladen…'),
       content: ValueListenableBuilder<double>(
         valueListenable: progress,
-        builder: (_, value, __) => Column(
+        builder: (_, value, _) => Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
