@@ -90,6 +90,13 @@ class _FakeClient implements CalDavClient {
       required bool events,
       required bool todos,
       String? color}) async {}
+
+  @override
+  Future<void> renameCalendar(NextcloudAccount a, String hr, String name)
+      async {}
+
+  @override
+  Future<void> deleteCalendar(NextcloudAccount a, String hr) async {}
 }
 
 void main() {

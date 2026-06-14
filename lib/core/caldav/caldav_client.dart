@@ -99,6 +99,19 @@ abstract class CalDavClient {
     String? color,
   });
 
+  /// Benennt eine Collection um (PROPPATCH displayname).
+  Future<void> renameCalendar(
+    NextcloudAccount account,
+    String collectionHref,
+    String displayName,
+  );
+
+  /// Löscht eine Collection samt Inhalt (DELETE).
+  Future<void> deleteCalendar(
+    NextcloudAccount account,
+    String collectionHref,
+  );
+
   // ---- Freigabe (CalDAV-Sharing) ----
 
   /// Sucht Nextcloud-Benutzer (Principals) per Name/E-Mail. Eine vollständige

@@ -225,6 +225,50 @@ class HttpCalDavClient implements CalDavClient {
     }
   }
 
+  @override
+  Future<void> renameCalendar(
+      NextcloudAccount account, String collectionHref, String displayName) async {
+    final client = _clientFor(account);
+    try {
+      final request = http.Request('PROPPATCH', _resolve(account, collectionHref))
+        ..headers.addAll(_authHeaders(account))
+        ..headers['content-type'] = 'application/xml; charset=utf-8'
+        ..body = '''
+<?xml version="1.0" encoding="utf-8" ?>
+<d:propertyupdate xmlns:d="DAV:">
+  <d:set>
+    <d:prop><d:displayname>${_xml(displayName)}</d:displayname></d:prop>
+  </d:set>
+</d:propertyupdate>''';
+      final streamed = await client.send(request);
+      final response = await http.Response.fromStream(streamed);
+      if (response.statusCode != 207 && response.statusCode != 200) {
+        throw CalDavException.fromStatus(response.statusCode);
+      }
+    } finally {
+      client.close();
+    }
+  }
+
+  @override
+  Future<void> deleteCalendar(
+      NextcloudAccount account, String collectionHref) async {
+    final client = _clientFor(account);
+    try {
+      final response = await client.delete(
+        _resolve(account, collectionHref),
+        headers: _authHeaders(account),
+      );
+      if (response.statusCode != 200 &&
+          response.statusCode != 204 &&
+          response.statusCode != 404) {
+        throw CalDavException.fromStatus(response.statusCode);
+      }
+    } finally {
+      client.close();
+    }
+  }
+
   // ---- Freigabe (CalDAV-Sharing) ----
 
   @override

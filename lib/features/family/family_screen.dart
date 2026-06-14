@@ -5,6 +5,7 @@ import '../../core/auth/account_providers.dart';
 import '../../core/auth/nextcloud_account.dart';
 import '../../core/caldav/caldav_client.dart';
 import '../../shared/utils/hex_color.dart';
+import '../../shared/widgets/countdown_confirm_dialog.dart';
 import '../members/members_screen.dart';
 import '../settings/settings_screen.dart';
 import 'connection_screen.dart';
@@ -219,31 +220,140 @@ class _Connected extends ConsumerWidget {
   }
 }
 
-class _CollectionTile extends StatelessWidget {
+class _CollectionTile extends ConsumerWidget {
   const _CollectionTile({required this.collection});
   final CalDavCollection collection;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final types = <String>[
       if (collection.supportsEvents) 'Termine',
       if (collection.supportsTodos) 'Aufgaben',
     ];
     final color = parseHexColor(collection.color);
     return Card(
-      child: ListTile(
-        leading: CircleAvatar(
-          backgroundColor: color ?? Theme.of(context).colorScheme.primary,
-          radius: 12,
-        ),
-        title: Text(collection.displayName),
-        subtitle: Text(types.isEmpty ? 'Collection' : types.join(' · ')),
-        trailing: IconButton(
-          icon: const Icon(Icons.group_add_outlined),
-          tooltip: 'Freigeben',
-          onPressed: () => showShareSheet(context, collection),
+      child: GestureDetector(
+        onLongPressStart: (d) => _showMenu(context, ref, d.globalPosition),
+        child: ListTile(
+          leading: CircleAvatar(
+            backgroundColor: color ?? Theme.of(context).colorScheme.primary,
+            radius: 12,
+          ),
+          title: Text(collection.displayName),
+          subtitle: Text(types.isEmpty ? 'Collection' : types.join(' · ')),
+          trailing: IconButton(
+            icon: const Icon(Icons.group_add_outlined),
+            tooltip: 'Freigeben',
+            onPressed: () => showShareSheet(context, collection),
+          ),
         ),
       ),
     );
+  }
+
+  Future<void> _showMenu(
+      BuildContext context, WidgetRef ref, Offset position) async {
+    final overlay =
+        Overlay.of(context).context.findRenderObject() as RenderBox;
+    final selected = await showMenu<String>(
+      context: context,
+      position: RelativeRect.fromRect(
+        position & const Size(40, 40),
+        Offset.zero & overlay.size,
+      ),
+      items: const [
+        PopupMenuItem(
+          value: 'rename',
+          child: ListTile(
+            leading: Icon(Icons.edit_outlined),
+            title: Text('Umbenennen'),
+            contentPadding: EdgeInsets.zero,
+          ),
+        ),
+        PopupMenuItem(
+          value: 'delete',
+          child: ListTile(
+            leading: Icon(Icons.delete_outline),
+            title: Text('Löschen'),
+            contentPadding: EdgeInsets.zero,
+          ),
+        ),
+      ],
+    );
+    if (!context.mounted) return;
+    if (selected == 'rename') {
+      await _rename(context, ref);
+    } else if (selected == 'delete') {
+      await _delete(context, ref);
+    }
+  }
+
+  Future<void> _rename(BuildContext context, WidgetRef ref) async {
+    final ctrl = TextEditingController(text: collection.displayName);
+    final newName = await showDialog<String>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Umbenennen'),
+        content: TextField(
+          controller: ctrl,
+          autofocus: true,
+          decoration: const InputDecoration(
+            labelText: 'Name',
+            border: OutlineInputBorder(),
+          ),
+          onSubmitted: (v) => Navigator.pop(ctx, v.trim()),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Abbrechen'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, ctrl.text.trim()),
+            child: const Text('Speichern'),
+          ),
+        ],
+      ),
+    );
+    if (newName == null || newName.isEmpty || newName == collection.displayName) {
+      return;
+    }
+    final account = ref.read(accountProvider).value;
+    if (account == null) return;
+    try {
+      await ref
+          .read(caldavClientProvider)
+          .renameCalendar(account, collection.href, newName);
+      ref.invalidate(collectionsProvider);
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text('Umbenennen fehlgeschlagen: $e')));
+      }
+    }
+  }
+
+  Future<void> _delete(BuildContext context, WidgetRef ref) async {
+    final ok = await showCountdownDeleteDialog(
+      context,
+      title: '„${collection.displayName}" löschen?',
+      message: 'Der Kalender/die Liste wird mit allen Einträgen aus der '
+          'Nextcloud gelöscht. Das kann nicht rückgängig gemacht werden.',
+      seconds: 5,
+    );
+    if (!ok) return;
+    final account = ref.read(accountProvider).value;
+    if (account == null) return;
+    try {
+      await ref
+          .read(caldavClientProvider)
+          .deleteCalendar(account, collection.href);
+      ref.invalidate(collectionsProvider);
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text('Löschen fehlgeschlagen: $e')));
+      }
+    }
   }
 }
