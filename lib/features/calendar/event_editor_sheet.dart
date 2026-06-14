@@ -114,10 +114,15 @@ class _EventEditorSheetState extends ConsumerState<_EventEditorSheet> {
 
   /// Übernimmt Felder aus einer gewählten Vorlage (Titel ist bereits gesetzt).
   void _applyTemplate(EventTemplate t) {
+    // Kalender nur übernehmen, wenn er (noch) existiert – sonst Dropdown-Assertion.
+    final cals = ref.read(collectionsProvider).value ?? const [];
+    final href = t.calendarHref;
+    final calOk = href != null && cals.any((c) => c.href == href);
     setState(() {
       _locationCtrl.text = t.location ?? '';
       _descCtrl.text = t.description ?? '';
       _allDay = t.allDay;
+      if (calOk) _calendarHref = href;
       if (!t.allDay && t.durationMinutes != null) {
         final start = _combine(_startDate, _startTime);
         final end = start.add(Duration(minutes: t.durationMinutes!));
@@ -293,6 +298,9 @@ class _EventEditorSheetState extends ConsumerState<_EventEditorSheet> {
     if (ok) {
       if (_saveAsTemplate &&
           (ref.read(templatesEnabledProvider).value ?? true)) {
+        final existed = (ref.read(eventTemplatesProvider).value ??
+                const <EventTemplate>[])
+            .any((t) => t.summary.toLowerCase() == summary.toLowerCase());
         await ref.read(eventTemplatesProvider.notifier).save(EventTemplate(
               summary: summary,
               location: location.isEmpty ? null : location,
@@ -300,7 +308,14 @@ class _EventEditorSheetState extends ConsumerState<_EventEditorSheet> {
               allDay: _allDay,
               durationMinutes:
                   _allDay ? null : times.end.difference(times.start).inMinutes,
+              calendarHref: calHref,
             ));
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+            content:
+                Text(existed ? 'Vorlage aktualisiert' : 'Vorlage gespeichert'),
+          ));
+        }
       }
       if (!mounted) return;
       Navigator.of(context).pop();

@@ -12,6 +12,7 @@ class EventTemplate {
     this.description,
     this.allDay = false,
     this.durationMinutes,
+    this.calendarHref,
   });
 
   final String summary;
@@ -22,12 +23,16 @@ class EventTemplate {
   /// Dauer in Minuten (zeitgebundene Termine) – setzt beim Übernehmen das Ende.
   final int? durationMinutes;
 
+  /// Kalender, in dem der Termin angelegt werden soll.
+  final String? calendarHref;
+
   Map<String, dynamic> toJson() => {
         'summary': summary,
         'location': location,
         'description': description,
         'allDay': allDay,
         'durationMinutes': durationMinutes,
+        'calendarHref': calendarHref,
       };
 
   factory EventTemplate.fromJson(Map<String, dynamic> j) => EventTemplate(
@@ -36,6 +41,7 @@ class EventTemplate {
         description: j['description'] as String?,
         allDay: (j['allDay'] as bool?) ?? false,
         durationMinutes: (j['durationMinutes'] as num?)?.toInt(),
+        calendarHref: j['calendarHref'] as String?,
       );
 }
 
