@@ -73,4 +73,4 @@ Kritischer Pfad: **Phase 2 – CalDAV Core**.
 
 ## Lizenz
 
-[MIT](LICENSE) © 2026 Phillipp Brosch
+[MIT](LICENSE) © 2026 pbrockt
