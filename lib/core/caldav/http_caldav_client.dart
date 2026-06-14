@@ -252,9 +252,17 @@ class HttpCalDavClient implements CalDavClient {
     required String shareHref,
     required bool readWrite,
   }) {
-    final access = readWrite ? '<d:read-write/>' : '<d:read/>';
-    return _postSharing(
-        account, collectionHref, _shareResourceBody(shareHref, access));
+    // Nextcloud-Format: <oc:set> mit href; <oc:read-write/> nur bei Schreibrecht
+    // (Fehlen = nur lesen).
+    final rw = readWrite ? '\n    <oc:read-write/>' : '';
+    final body = '''
+<?xml version="1.0" encoding="utf-8"?>
+<oc:share xmlns:d="DAV:" xmlns:oc="http://owncloud.org/ns">
+  <oc:set>
+    <d:href>${_xml(shareHref)}</d:href>$rw
+  </oc:set>
+</oc:share>''';
+    return _postSharing(account, collectionHref, body);
   }
 
   @override
@@ -263,20 +271,15 @@ class HttpCalDavClient implements CalDavClient {
     String collectionHref, {
     required String shareHref,
   }) {
-    return _postSharing(account, collectionHref,
-        _shareResourceBody(shareHref, '<d:no-access/>'));
-  }
-
-  /// Body im modernen sabre/dav-Sharing-Format ({DAV:}share-resource).
-  /// Nextcloud unterstützt das alte Apple-Format (CS:share) nicht (→ 501).
-  String _shareResourceBody(String shareHref, String accessXml) => '''
-<?xml version="1.0" encoding="utf-8" ?>
-<d:share-resource xmlns:d="DAV:">
-  <d:sharee>
+    final body = '''
+<?xml version="1.0" encoding="utf-8"?>
+<oc:share xmlns:d="DAV:" xmlns:oc="http://owncloud.org/ns">
+  <oc:remove>
     <d:href>${_xml(shareHref)}</d:href>
-    <d:share-access>$accessXml</d:share-access>
-  </d:sharee>
-</d:share-resource>''';
+  </oc:remove>
+</oc:share>''';
+    return _postSharing(account, collectionHref, body);
+  }
 
   Future<void> _postSharing(
       NextcloudAccount account, String collectionHref, String body) async {
