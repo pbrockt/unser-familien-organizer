@@ -7,6 +7,7 @@ import '../../core/auth/account_providers.dart';
 import '../members/member_settings.dart';
 import 'calendar_event.dart';
 import 'day_timeline.dart';
+import 'event_actions.dart';
 import 'event_editor_sheet.dart';
 import 'event_providers.dart';
 
@@ -253,8 +254,8 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
                           day: date,
                           events: dayEvents,
                           focusTime: focus,
-                          onTapEvent: (e) =>
-                              showEventEditor(context, existing: e),
+                          onEventLongPress: (e) =>
+                              showEventActions(context, ref, e),
                           onCreateAt: (start) => showEventEditor(context,
                               initialStart: start),
                         );
@@ -334,6 +335,7 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
                   data: (_) => _DayEventList(
                     day: _selectedDay,
                     events: listEvents,
+                    onEventLongPress: (e) => showEventActions(context, ref, e),
                   ),
                 ),
               ),
@@ -347,9 +349,14 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
 }
 
 class _DayEventList extends StatelessWidget {
-  const _DayEventList({required this.day, required this.events});
+  const _DayEventList({
+    required this.day,
+    required this.events,
+    required this.onEventLongPress,
+  });
   final DateTime day;
   final List<CalendarEvent> events;
+  final void Function(CalendarEvent event) onEventLongPress;
 
   @override
   Widget build(BuildContext context) {
@@ -379,15 +386,17 @@ class _DayEventList extends StatelessWidget {
                 style: Theme.of(context).textTheme.titleSmall),
           );
         }
-        return _EventTile(event: events[index - 1]);
+        final e = events[index - 1];
+        return _EventTile(event: e, onLongPress: () => onEventLongPress(e));
       },
     );
   }
 }
 
 class _EventTile extends StatelessWidget {
-  const _EventTile({required this.event});
+  const _EventTile({required this.event, required this.onLongPress});
   final CalendarEvent event;
+  final VoidCallback onLongPress;
 
   @override
   Widget build(BuildContext context) {
@@ -399,7 +408,7 @@ class _EventTile extends StatelessWidget {
     return Card(
       margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
       child: InkWell(
-        onTap: () => showEventEditor(context, existing: event),
+        onLongPress: onLongPress,
         borderRadius: BorderRadius.circular(20),
         child: Padding(
           padding: const EdgeInsets.fromLTRB(12, 12, 14, 12),

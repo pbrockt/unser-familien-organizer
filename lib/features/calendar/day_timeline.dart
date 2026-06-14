@@ -104,14 +104,16 @@ class DayTimeline extends StatefulWidget {
     super.key,
     required this.day,
     required this.events,
-    required this.onTapEvent,
+    required this.onEventLongPress,
     required this.onCreateAt,
     this.focusTime,
   });
 
   final DateTime day;
   final List<CalendarEvent> events;
-  final void Function(CalendarEvent event) onTapEvent;
+
+  /// Langes Drücken auf einen Termin (öffnet das Aktionen-Menü).
+  final void Function(CalendarEvent event) onEventLongPress;
   final void Function(DateTime start) onCreateAt;
 
   /// Optionale Uhrzeit, auf die beim Öffnen gescrollt werden soll (z.B. die
@@ -212,12 +214,14 @@ class _DayTimelineState extends State<DayTimeline> {
         runSpacing: 6,
         children: [
           for (final e in events)
-            ActionChip(
-              avatar: CircleAvatar(
-                  backgroundColor: e.color ?? theme.colorScheme.primary,
-                  radius: 6),
-              label: Text(e.summary, overflow: TextOverflow.ellipsis),
-              onPressed: () => widget.onTapEvent(e),
+            GestureDetector(
+              onLongPress: () => widget.onEventLongPress(e),
+              child: Chip(
+                avatar: CircleAvatar(
+                    backgroundColor: e.color ?? theme.colorScheme.primary,
+                    radius: 6),
+                label: Text(e.summary, overflow: TextOverflow.ellipsis),
+              ),
             ),
         ],
       ),
@@ -273,7 +277,7 @@ class _DayTimelineState extends State<DayTimeline> {
         borderRadius: BorderRadius.circular(8),
         clipBehavior: Clip.antiAlias,
         child: InkWell(
-          onTap: () => widget.onTapEvent(p.event),
+          onLongPress: () => widget.onEventLongPress(p.event),
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
             child: Column(

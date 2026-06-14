@@ -11,6 +11,7 @@ class EventTemplate {
     this.location,
     this.description,
     this.allDay = false,
+    this.startMinuteOfDay,
     this.durationMinutes,
     this.calendarHref,
   });
@@ -19,6 +20,9 @@ class EventTemplate {
   final String? location;
   final String? description;
   final bool allDay;
+
+  /// Startuhrzeit als Minuten ab Mitternacht (zeitgebundene Termine).
+  final int? startMinuteOfDay;
 
   /// Dauer in Minuten (zeitgebundene Termine) – setzt beim Übernehmen das Ende.
   final int? durationMinutes;
@@ -31,6 +35,7 @@ class EventTemplate {
         'location': location,
         'description': description,
         'allDay': allDay,
+        'startMinuteOfDay': startMinuteOfDay,
         'durationMinutes': durationMinutes,
         'calendarHref': calendarHref,
       };
@@ -40,6 +45,7 @@ class EventTemplate {
         location: j['location'] as String?,
         description: j['description'] as String?,
         allDay: (j['allDay'] as bool?) ?? false,
+        startMinuteOfDay: (j['startMinuteOfDay'] as num?)?.toInt(),
         durationMinutes: (j['durationMinutes'] as num?)?.toInt(),
         calendarHref: j['calendarHref'] as String?,
       );

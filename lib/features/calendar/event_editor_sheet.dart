@@ -123,11 +123,19 @@ class _EventEditorSheetState extends ConsumerState<_EventEditorSheet> {
       _descCtrl.text = t.description ?? '';
       _allDay = t.allDay;
       if (calOk) _calendarHref = href;
-      if (!t.allDay && t.durationMinutes != null) {
-        final start = _combine(_startDate, _startTime);
-        final end = start.add(Duration(minutes: t.durationMinutes!));
-        _endDate = DateTime(end.year, end.month, end.day);
-        _endTime = TimeOfDay(hour: end.hour, minute: end.minute);
+      if (!t.allDay) {
+        // Startuhrzeit aus der Vorlage übernehmen (Datum bleibt der gewählte Tag).
+        if (t.startMinuteOfDay != null) {
+          _startTime = TimeOfDay(
+              hour: t.startMinuteOfDay! ~/ 60,
+              minute: t.startMinuteOfDay! % 60);
+        }
+        if (t.durationMinutes != null) {
+          final start = _combine(_startDate, _startTime);
+          final end = start.add(Duration(minutes: t.durationMinutes!));
+          _endDate = DateTime(end.year, end.month, end.day);
+          _endTime = TimeOfDay(hour: end.hour, minute: end.minute);
+        }
       }
     });
     _summaryFocus.unfocus();
@@ -306,6 +314,9 @@ class _EventEditorSheetState extends ConsumerState<_EventEditorSheet> {
               location: location.isEmpty ? null : location,
               description: desc.isEmpty ? null : desc,
               allDay: _allDay,
+              startMinuteOfDay: _allDay
+                  ? null
+                  : times.start.hour * 60 + times.start.minute,
               durationMinutes:
                   _allDay ? null : times.end.difference(times.start).inMinutes,
               calendarHref: calHref,
