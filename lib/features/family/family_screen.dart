@@ -8,6 +8,7 @@ import '../../shared/utils/hex_color.dart';
 import '../members/members_screen.dart';
 import '../settings/settings_screen.dart';
 import 'connection_screen.dart';
+import 'new_calendar_sheet.dart';
 import 'share_calendar_sheet.dart';
 
 /// Familien-Bereich: Nextcloud-Verbindung verwalten und die entdeckten
@@ -132,8 +133,19 @@ class _Connected extends ConsumerWidget {
             ),
           ),
           const SizedBox(height: 16),
-          Text('Kalender & Listen',
-              style: Theme.of(context).textTheme.titleMedium),
+          Row(
+            children: [
+              Expanded(
+                child: Text('Kalender & Listen',
+                    style: Theme.of(context).textTheme.titleMedium),
+              ),
+              TextButton.icon(
+                onPressed: () => _createCollection(context, ref),
+                icon: const Icon(Icons.add),
+                label: const Text('Neu'),
+              ),
+            ],
+          ),
           const SizedBox(height: 8),
           collectionsAsync.when(
             loading: () => const Padding(
@@ -167,6 +179,18 @@ class _Connected extends ConsumerWidget {
         ],
       ),
     );
+  }
+
+  Future<void> _createCollection(BuildContext context, WidgetRef ref) async {
+    final created = await showNewCalendarSheet(context);
+    if (created == true) {
+      ref.invalidate(collectionsProvider);
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Angelegt ✓')),
+        );
+      }
+    }
   }
 
   Future<void> _confirmDisconnect(BuildContext context, WidgetRef ref) async {

@@ -90,6 +90,15 @@ abstract class CalDavClient {
     String collectionHref,
   );
 
+  /// Legt eine neue Kalender-/Aufgaben-Collection an (MKCALENDAR).
+  Future<void> createCalendar(
+    NextcloudAccount account, {
+    required String displayName,
+    required bool events,
+    required bool todos,
+    String? color,
+  });
+
   // ---- Freigabe (CalDAV-Sharing) ----
 
   /// Sucht Nextcloud-Benutzer (Principals) per Name/E-Mail. Eine vollständige

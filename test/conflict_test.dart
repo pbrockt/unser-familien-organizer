@@ -83,6 +83,13 @@ class _FakeClient implements CalDavClient {
   @override
   Future<void> removeShare(NextcloudAccount a, String hr,
       {required String shareHref}) async {}
+
+  @override
+  Future<void> createCalendar(NextcloudAccount a,
+      {required String displayName,
+      required bool events,
+      required bool todos,
+      String? color}) async {}
 }
 
 void main() {

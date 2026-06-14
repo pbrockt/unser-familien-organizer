@@ -3,6 +3,7 @@ import 'dart:io';
 
 import 'package:http/http.dart' as http;
 import 'package:http/io_client.dart';
+import 'package:uuid/uuid.dart';
 import 'package:xml/xml.dart';
 
 import '../auth/nextcloud_account.dart';
@@ -173,6 +174,50 @@ class HttpCalDavClient implements CalDavClient {
       if (response.statusCode != 200 &&
           response.statusCode != 204 &&
           response.statusCode != 404) {
+        throw CalDavException.fromStatus(response.statusCode);
+      }
+    } finally {
+      client.close();
+    }
+  }
+
+  @override
+  Future<void> createCalendar(
+    NextcloudAccount account, {
+    required String displayName,
+    required bool events,
+    required bool todos,
+    String? color,
+  }) async {
+    final client = _clientFor(account);
+    try {
+      // Eindeutiger URL-Slug; der Anzeigename steht in displayname.
+      final href = '${account.calendarHome}${const Uuid().v4()}/';
+      final comps = [
+        if (events) '<c:comp name="VEVENT"/>',
+        if (todos) '<c:comp name="VTODO"/>',
+      ].join();
+      final colorXml = (color == null || color.isEmpty)
+          ? ''
+          : '\n      <ic:calendar-color>${_xml(color)}</ic:calendar-color>';
+      final body = '''
+<?xml version="1.0" encoding="utf-8" ?>
+<c:mkcalendar xmlns:d="DAV:" xmlns:c="urn:ietf:params:xml:ns:caldav"
+              xmlns:ic="http://apple.com/ns/ical/">
+  <d:set>
+    <d:prop>
+      <d:displayname>${_xml(displayName)}</d:displayname>$colorXml
+      <c:supported-calendar-component-set>$comps</c:supported-calendar-component-set>
+    </d:prop>
+  </d:set>
+</c:mkcalendar>''';
+      final request = http.Request('MKCALENDAR', _resolve(account, href))
+        ..headers.addAll(_authHeaders(account))
+        ..headers['content-type'] = 'application/xml; charset=utf-8'
+        ..body = body;
+      final streamed = await client.send(request);
+      final response = await http.Response.fromStream(streamed);
+      if (response.statusCode != 201) {
         throw CalDavException.fromStatus(response.statusCode);
       }
     } finally {
