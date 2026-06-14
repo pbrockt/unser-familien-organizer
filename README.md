@@ -8,6 +8,18 @@ werden per **CalDAV** synchronisiert.
 
 > Kein fremder Server. Kein Abo. Kein fremdes Konto.
 
+## Download
+
+Fertige Builds gibt es unter **[Releases](https://github.com/pbrockt/unser-familien-organizer/releases)**:
+
+| Plattform | Datei |
+|---|---|
+| 📱 Android | `UnserFamilienOrganizer-<version>.apk` |
+| 🪟 Windows | `UnserFamilienOrganizer-Setup-<version>.exe` (Installer) · `…-windows-<version>.zip` (portabel) |
+| 🐧 Linux | `UnserFamilienOrganizer-<version>-amd64.deb` · `…-linux-<version>.tar.gz` (mit `install.sh`) |
+
+Installationshinweise zu Desktop: siehe [installer/README.md](installer/README.md).
+
 ## Konzept
 
 | Bereich | Speicherung in Nextcloud |
@@ -58,3 +70,7 @@ flutter build apk --release   # benötigt viel RAM
 
 Siehe [ToDo.md](ToDo.md) — der Phasenplan von Setup bis Release.
 Kritischer Pfad: **Phase 2 – CalDAV Core**.
+
+## Lizenz
+
+[MIT](LICENSE) © 2026 Phillipp Brosch

@@ -8,7 +8,7 @@ const String kReleasesUrl =
 
 /// Zeigt ein Bottom-Sheet mit aktueller App-Version und einem Button, der
 /// die GitHub-Releases-Seite öffnet (dort kann das neueste APK geladen
-/// werden – das Repo ist privat, daher Download im eingeloggten Browser).
+/// werden – das Repo ist öffentlich, der Download funktioniert direkt).
 Future<void> showAboutUpdateSheet(BuildContext context) {
   return showModalBottomSheet<void>(
     context: context,

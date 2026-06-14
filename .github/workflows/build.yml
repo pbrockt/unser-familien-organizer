@@ -40,19 +40,25 @@ jobs:
 
       - name: Generate keystore if not cached
         if: steps.keystore-cache.outputs.cache-hit != 'true'
+        env:
+          STORE_PASSWORD: ${{ secrets.KEYSTORE_STORE_PASSWORD }}
+          KEY_PASSWORD: ${{ secrets.KEYSTORE_KEY_PASSWORD }}
         run: |
           keytool -genkeypair -v \
             -keystore android/app/familyplanner.keystore \
             -alias familyplannerkey \
             -keyalg RSA -keysize 2048 -validity 36500 \
-            -storepass familyplanner2026 -keypass familyplanner2026 \
+            -storepass "$STORE_PASSWORD" -keypass "$KEY_PASSWORD" \
             -dname "CN=FamilyPlanner,O=PBrockt,C=DE" -noprompt
 
       - name: Create key.properties
+        env:
+          STORE_PASSWORD: ${{ secrets.KEYSTORE_STORE_PASSWORD }}
+          KEY_PASSWORD: ${{ secrets.KEYSTORE_KEY_PASSWORD }}
         run: |
           cat > android/key.properties <<EOF
-          storePassword=familyplanner2026
-          keyPassword=familyplanner2026
+          storePassword=$STORE_PASSWORD
+          keyPassword=$KEY_PASSWORD
           keyAlias=familyplannerkey
           storeFile=familyplanner.keystore
           EOF
