@@ -161,17 +161,24 @@ List<CalendarEvent> filterHomeEvents(
         .where((e) => settings[e.calendarHref]?.showOnHome ?? true)
         .toList();
 
-/// Künftige Termine aus Countdown-Kalendern (heute oder später), nach Datum.
+/// Pro Countdown-Kalender nur der **nächste** anstehende Termin (heute oder
+/// später), nach Datum sortiert.
 List<CalendarEvent> countdownEvents(
   List<CalendarEvent> events,
   Map<String, MemberSetting> settings,
   DateTime today,
 ) {
-  final out = events.where((e) {
+  final candidates = events.where((e) {
     final s = settings[e.calendarHref];
     return s != null && s.countdown && !e.startDay.isBefore(today);
   }).toList()
     ..sort((a, b) => a.startDay.compareTo(b.startDay));
+  // Je Kalender nur den frühesten (= nächsten) Termin behalten.
+  final seen = <String>{};
+  final out = <CalendarEvent>[];
+  for (final e in candidates) {
+    if (seen.add(e.calendarHref)) out.add(e);
+  }
   return out;
 }
 

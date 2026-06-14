@@ -89,20 +89,15 @@ class HomeScreen extends ConsumerWidget {
                           ),
                         ),
                       ),
-                    if (countdowns.isNotEmpty) ...[
-                      const _SectionLabel('Countdown'),
-                      ...countdowns.take(15).map((e) => _CountdownCard(
-                            event: e,
-                            today: today,
-                            onTap: () =>
-                                showEventEditor(context, existing: e),
-                          )),
-                    ],
                     const _SectionLabel('Überblick'),
-                    if (taskLists.isEmpty)
-                      const _EmptyHint('Noch keine Listen vorhanden')
-                    else
-                      ...taskLists.map((l) => _ListCard(list: l)),
+                    ...countdowns.map((e) => _CountdownCard(
+                          event: e,
+                          today: today,
+                          onTap: () => showEventEditor(context, existing: e),
+                        )),
+                    ...taskLists.map((l) => _ListCard(list: l)),
+                    if (countdowns.isEmpty && taskLists.isEmpty)
+                      const _EmptyHint('Noch keine Listen vorhanden'),
                   ],
                 ],
               ),
@@ -242,8 +237,9 @@ class _EventCard extends StatelessWidget {
     final day = DateTime(event.start.year, event.start.month, event.start.day);
     final today = DateTime(now.year, now.month, now.day);
     final diff = day.difference(today).inDays;
-    if (diff == 0) return 'Heute';
-    if (diff == 1) return 'Morgen';
+    final date = DateFormat('d. MMM', 'de_DE').format(event.start);
+    if (diff == 0) return 'Heute, $date';
+    if (diff == 1) return 'Morgen, $date';
     return DateFormat('EEE, d. MMM', 'de_DE').format(event.start);
   }
 

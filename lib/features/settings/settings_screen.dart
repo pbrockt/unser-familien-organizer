@@ -211,46 +211,49 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             if (calendars.isNotEmpty) ...[
               _sectionHeader(context, 'Startseite'),
               Padding(
-                padding: const EdgeInsets.fromLTRB(16, 0, 16, 4),
+                padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
                 child: Text(
-                  'Welche Kalender auf der Startseite als „Anstehende Termine" '
-                  'und als Countdown („Noch X Tage bis …") erscheinen.',
+                  'Wähle, welche Kalender auf der Startseite erscheinen.',
                   style: Theme.of(context).textTheme.bodySmall?.copyWith(
                       color: Theme.of(context).colorScheme.onSurfaceVariant),
                 ),
               ),
-              for (final m in calendars) ...[
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 10, 16, 0),
-                  child: Row(
-                    children: [
-                      CircleAvatar(backgroundColor: m.color, radius: 7),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: Text(m.name,
-                            style: const TextStyle(
-                                fontWeight: FontWeight.w700)),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        icon: const Icon(Icons.event_note_outlined),
+                        label: const Text('Anstehende Termine'),
+                        onPressed: () => _pickCalendars(
+                          title: 'Anstehende Termine',
+                          initial: (h) =>
+                              calSettings[h]?.showOnHome ?? true,
+                          apply: (h, v) => ref
+                              .read(memberSettingsProvider.notifier)
+                              .setShowOnHome(h, v),
+                        ),
                       ),
-                    ],
-                  ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        icon: const Icon(Icons.hourglass_bottom),
+                        label: const Text('Countdown'),
+                        onPressed: () => _pickCalendars(
+                          title: 'Countdown',
+                          initial: (h) =>
+                              calSettings[h]?.countdown ?? false,
+                          apply: (h, v) => ref
+                              .read(memberSettingsProvider.notifier)
+                              .setCountdown(h, v),
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
-                SwitchListTile(
-                  dense: true,
-                  title: const Text('Anstehende Termine'),
-                  value: calSettings[m.href]?.showOnHome ?? true,
-                  onChanged: (v) => ref
-                      .read(memberSettingsProvider.notifier)
-                      .setShowOnHome(m.href, v),
-                ),
-                SwitchListTile(
-                  dense: true,
-                  title: const Text('Countdown („Noch X Tage")'),
-                  value: calSettings[m.href]?.countdown ?? false,
-                  onChanged: (v) => ref
-                      .read(memberSettingsProvider.notifier)
-                      .setCountdown(m.href, v),
-                ),
-              ],
+              ),
               const Divider(),
             ],
             _sectionHeader(context, 'App'),
@@ -277,6 +280,57 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         ),
       ),
     );
+  }
+
+  /// Mehrfachauswahl-Popup: welche Kalender ein Flag bekommen.
+  Future<void> _pickCalendars({
+    required String title,
+    required bool Function(String href) initial,
+    required Future<void> Function(String href, bool value) apply,
+  }) async {
+    final calendars =
+        ref.read(membersProvider).where((m) => m.supportsEvents).toList();
+    final selected = {for (final m in calendars) m.href: initial(m.href)};
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setS) => AlertDialog(
+          title: Text(title),
+          content: SizedBox(
+            width: double.maxFinite,
+            child: ListView(
+              shrinkWrap: true,
+              children: [
+                for (final m in calendars)
+                  CheckboxListTile(
+                    value: selected[m.href] ?? false,
+                    onChanged: (v) =>
+                        setS(() => selected[m.href] = v ?? false),
+                    secondary:
+                        CircleAvatar(backgroundColor: m.color, radius: 8),
+                    title: Text(m.name),
+                  ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('Abbrechen'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(ctx, true),
+              child: const Text('Speichern'),
+            ),
+          ],
+        ),
+      ),
+    );
+    if (ok == true) {
+      for (final m in calendars) {
+        await apply(m.href, selected[m.href] ?? false);
+      }
+    }
   }
 
   Widget _sectionHeader(BuildContext context, String text) => Padding(
