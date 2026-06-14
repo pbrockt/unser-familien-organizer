@@ -252,15 +252,9 @@ class HttpCalDavClient implements CalDavClient {
     required String shareHref,
     required bool readWrite,
   }) {
-    final body = '''
-<?xml version="1.0" encoding="utf-8" ?>
-<CS:share xmlns:D="DAV:" xmlns:CS="http://calendarserver.org/ns/">
-  <CS:set>
-    <D:href>${_xml(shareHref)}</D:href>
-    ${readWrite ? '<CS:read-write/>' : '<CS:read/>'}
-  </CS:set>
-</CS:share>''';
-    return _postSharing(account, collectionHref, body);
+    final access = readWrite ? '<d:read-write/>' : '<d:read/>';
+    return _postSharing(
+        account, collectionHref, _shareResourceBody(shareHref, access));
   }
 
   @override
@@ -269,15 +263,20 @@ class HttpCalDavClient implements CalDavClient {
     String collectionHref, {
     required String shareHref,
   }) {
-    final body = '''
-<?xml version="1.0" encoding="utf-8" ?>
-<CS:share xmlns:D="DAV:" xmlns:CS="http://calendarserver.org/ns/">
-  <CS:remove>
-    <D:href>${_xml(shareHref)}</D:href>
-  </CS:remove>
-</CS:share>''';
-    return _postSharing(account, collectionHref, body);
+    return _postSharing(account, collectionHref,
+        _shareResourceBody(shareHref, '<d:no-access/>'));
   }
+
+  /// Body im modernen sabre/dav-Sharing-Format ({DAV:}share-resource).
+  /// Nextcloud unterstützt das alte Apple-Format (CS:share) nicht (→ 501).
+  String _shareResourceBody(String shareHref, String accessXml) => '''
+<?xml version="1.0" encoding="utf-8" ?>
+<d:share-resource xmlns:d="DAV:">
+  <d:sharee>
+    <d:href>${_xml(shareHref)}</d:href>
+    <d:share-access>$accessXml</d:share-access>
+  </d:sharee>
+</d:share-resource>''';
 
   Future<void> _postSharing(
       NextcloudAccount account, String collectionHref, String body) async {
