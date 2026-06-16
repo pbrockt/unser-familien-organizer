@@ -5,6 +5,7 @@ import 'package:intl/intl.dart';
 import '../../core/auth/account_providers.dart';
 import 'task_editor_sheet.dart';
 import 'task_item.dart';
+import 'task_order.dart';
 import 'task_providers.dart';
 
 /// Aufgaben-Bereich (VTODO per CalDAV): Aufgabenlisten mit Abhaken.
@@ -38,8 +39,7 @@ class TasksScreen extends ConsumerWidget {
               onRetry: () => ref.invalidate(tasksControllerProvider),
             ),
             data: (lists) {
-              final hasAny = lists.any((l) => l.items.isNotEmpty);
-              if (lists.isEmpty || !hasAny) return const _EmptyTasks();
+              if (lists.isEmpty) return const _EmptyTasks();
               return RefreshIndicator(
                 onRefresh: () async {
                   ref.invalidate(tasksControllerProvider);
@@ -61,26 +61,45 @@ class _TaskListsView extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    // Nur Listen mit Inhalt; bei mehreren Listen Überschriften zeigen.
-    final visible = lists.where((l) => l.items.isNotEmpty).toList();
-    final showHeaders = visible.length > 1;
+    // Alle Kategorien immer zeigen; Überschriften bei mehreren Listen.
+    final showHeaders = lists.length > 1;
+    final order = ref.watch(taskOrderProvider).value ?? const {};
+    final scheme = Theme.of(context).colorScheme;
 
     return ListView(
       padding: const EdgeInsets.only(bottom: 24),
       children: [
-        for (final list in visible) ...[
+        for (final list in lists) ...[
           if (showHeaders) _ListHeader(list: list),
-          for (final item in list.items)
-            _TaskTile(
-              item: item,
-              onToggle: () => _toggle(context, ref, item),
-              onEdit: () =>
-                  showTaskEditor(context, lists: lists, existing: item),
+          if (list.items.isEmpty)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 2, 16, 10),
+              child: Text('Keine Aufgaben',
+                  style: TextStyle(color: scheme.onSurfaceVariant)),
+            )
+          else
+            _ReorderableTasks(
+              list: list,
+              items: applyTaskOrder(list.items, order[list.href]),
+              allLists: lists,
             ),
         ],
       ],
     );
   }
+
+}
+
+/// Aufgaben einer Liste mit Drag&Drop-Sortierung (gerätelokal gespeichert).
+class _ReorderableTasks extends ConsumerWidget {
+  const _ReorderableTasks({
+    required this.list,
+    required this.items,
+    required this.allLists,
+  });
+  final TaskList list;
+  final List<TaskItem> items;
+  final List<TaskList> allLists;
 
   Future<void> _toggle(
       BuildContext context, WidgetRef ref, TaskItem item) async {
@@ -93,6 +112,33 @@ class _TaskListsView extends ConsumerWidget {
         );
       }
     }
+  }
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    return ReorderableListView(
+      shrinkWrap: true,
+      primary: false,
+      physics: const NeverScrollableScrollPhysics(),
+      buildDefaultDragHandles: true,
+      onReorder: (oldIndex, newIndex) {
+        final ids = items.map((t) => t.uid).toList();
+        if (newIndex > oldIndex) newIndex -= 1;
+        final id = ids.removeAt(oldIndex);
+        ids.insert(newIndex, id);
+        ref.read(taskOrderProvider.notifier).setOrder(list.href, ids);
+      },
+      children: [
+        for (final item in items)
+          _TaskTile(
+            key: ValueKey('${list.href}|${item.uid}'),
+            item: item,
+            onToggle: () => _toggle(context, ref, item),
+            onEdit: () =>
+                showTaskEditor(context, lists: allLists, existing: item),
+          ),
+      ],
+    );
   }
 }
 
@@ -127,6 +173,7 @@ class _ListHeader extends StatelessWidget {
 
 class _TaskTile extends StatelessWidget {
   const _TaskTile({
+    super.key,
     required this.item,
     required this.onToggle,
     required this.onEdit,
