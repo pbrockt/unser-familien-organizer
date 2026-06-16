@@ -121,9 +121,9 @@ class _ReorderableTasks extends ConsumerWidget {
       primary: false,
       physics: const NeverScrollableScrollPhysics(),
       buildDefaultDragHandles: true,
-      onReorder: (oldIndex, newIndex) {
+      onReorderItem: (oldIndex, newIndex) {
+        // onReorderItem liefert newIndex bereits passend (nach Entfernen).
         final ids = items.map((t) => t.uid).toList();
-        if (newIndex > oldIndex) newIndex -= 1;
         final id = ids.removeAt(oldIndex);
         ids.insert(newIndex, id);
         ref.read(taskOrderProvider.notifier).setOrder(list.href, ids);
