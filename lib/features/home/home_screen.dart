@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -146,12 +147,11 @@ class _TopBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    final name = account?.username;
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
       child: Row(
         children: [
-          _Avatar(name: name ?? '?', color: scheme.primary, radius: 22),
+          _NextcloudAvatar(account: account, radius: 22),
           const Spacer(),
           Material(
             color: Theme.of(context).cardColor,
@@ -231,7 +231,10 @@ class _GreetingState extends State<_Greeting> {
                   color: scheme.onSurface)),
           const SizedBox(height: 2),
           Text(dateLine,
-              style: TextStyle(fontSize: 15, color: scheme.onSurfaceVariant)),
+              style: TextStyle(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w600,
+                  color: scheme.primary)),
         ],
       ),
     );
@@ -600,6 +603,39 @@ class _Avatar extends StatelessWidget {
               color: Colors.white,
               fontSize: radius * 0.7,
               fontWeight: FontWeight.w700)),
+    );
+  }
+}
+
+/// Profilbild aus der Nextcloud (echtes Bild oder generierte Initialen).
+/// Fällt auf lokale Initialen ([_Avatar]) zurück, wenn kein Konto/Bild da ist.
+class _NextcloudAvatar extends StatelessWidget {
+  const _NextcloudAvatar({required this.account, this.radius = 22});
+  final NextcloudAccount? account;
+  final double radius;
+
+  @override
+  Widget build(BuildContext context) {
+    final a = account;
+    final fallback = _Avatar(
+      name: a?.username ?? '?',
+      color: Theme.of(context).colorScheme.primary,
+      radius: radius,
+    );
+    if (a == null) return fallback;
+    final url = '${a.baseUrl}/index.php/avatar/${a.username}/128';
+    final auth = 'Basic ${base64Encode(utf8.encode(a.credentials))}';
+    return ClipOval(
+      child: Image.network(
+        url,
+        width: radius * 2,
+        height: radius * 2,
+        fit: BoxFit.cover,
+        headers: {'Authorization': auth},
+        errorBuilder: (_, _, _) => fallback,
+        loadingBuilder: (_, child, progress) =>
+            progress == null ? child : fallback,
+      ),
     );
   }
 }

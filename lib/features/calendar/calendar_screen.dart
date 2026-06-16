@@ -229,14 +229,6 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
           ),
         ],
       ),
-      floatingActionButton: accountAsync.value != null
-          ? FloatingActionButton(
-              onPressed: () =>
-                  showEventEditor(context, initialDay: _selectedDay),
-              tooltip: 'Neuer Termin',
-              child: const Icon(Icons.add),
-            )
-          : null,
       body: accountAsync.maybeWhen(
         orElse: () => const Center(child: CircularProgressIndicator()),
         data: (account) {

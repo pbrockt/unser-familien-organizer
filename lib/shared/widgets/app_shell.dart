@@ -112,29 +112,38 @@ class _AppShellState extends ConsumerState<AppShell> {
         bottomNavigationBar: NavigationBar(
           selectedIndex: widget.navigationShell.currentIndex,
           onDestinationSelected: _onDestination,
-          destinations: const [
-            NavigationDestination(
+          destinations: [
+            const NavigationDestination(
               icon: Icon(Icons.home_outlined),
               selectedIcon: Icon(Icons.home),
               label: 'Start',
             ),
-            NavigationDestination(
+            const NavigationDestination(
               icon: Icon(Icons.calendar_month_outlined),
               selectedIcon: Icon(Icons.calendar_month),
               label: 'Kalender',
             ),
-            NavigationDestination(
+            const NavigationDestination(
               icon: Icon(Icons.check_circle_outline),
               selectedIcon: Icon(Icons.check_circle),
               label: 'Aufgaben',
             ),
-            NavigationDestination(
+            const NavigationDestination(
               icon: Icon(Icons.shopping_cart_outlined),
               selectedIcon: Icon(Icons.shopping_cart),
               label: 'Einkauf',
             ),
             NavigationDestination(
-              icon: Icon(Icons.add_circle, size: 30),
+              icon: Container(
+                width: 38,
+                height: 38,
+                decoration: BoxDecoration(
+                  color: Theme.of(context).colorScheme.primary,
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(Icons.add,
+                    color: Theme.of(context).colorScheme.onPrimary),
+              ),
               label: 'Neu',
             ),
           ],

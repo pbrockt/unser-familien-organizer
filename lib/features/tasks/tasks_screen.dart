@@ -16,9 +16,6 @@ class TasksScreen extends ConsumerWidget {
     final accountAsync = ref.watch(accountProvider);
     final tasksAsync = ref.watch(tasksControllerProvider);
 
-    final lists = tasksAsync.value ?? const <TaskList>[];
-    final canAdd = accountAsync.value != null && lists.isNotEmpty;
-
     return Scaffold(
       appBar: AppBar(
         title: const Text('Aufgaben'),
@@ -30,13 +27,6 @@ class TasksScreen extends ConsumerWidget {
           ),
         ],
       ),
-      floatingActionButton: canAdd
-          ? FloatingActionButton(
-              onPressed: () => showTaskEditor(context, lists: lists),
-              tooltip: 'Neue Aufgabe',
-              child: const Icon(Icons.add),
-            )
-          : null,
       body: accountAsync.maybeWhen(
         orElse: () => const Center(child: CircularProgressIndicator()),
         data: (account) {
