@@ -10,23 +10,52 @@ import 'notification_providers.dart';
 import 'reminder_planner.dart';
 
 /// Hört auf Termine, Aufgaben und Einstellungen und plant lokale Erinnerungen
-/// (für anstehende Termine und fällige Aufgaben). Wird um die App gelegt.
-class ReminderSync extends ConsumerWidget {
+/// (für anstehende Termine und fällige Aufgaben). Aktualisiert außerdem die
+/// Home-Screen-Widgets – beim Start, bei Datenänderungen und immer dann, wenn
+/// die App wieder in den Vordergrund kommt. Wird um die App gelegt.
+class ReminderSync extends ConsumerStatefulWidget {
   const ReminderSync({super.key, required this.child});
 
   final Widget child;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    ref.listen(eventsControllerProvider, (_, _) => _reschedule(ref));
-    ref.listen(tasksControllerProvider, (_, _) => _reschedule(ref));
-    ref.listen(notificationSettingsProvider, (_, _) => _reschedule(ref));
-    ref.listen(memberSettingsProvider, (_, _) => _reschedule(ref));
-    ref.listen(weatherProvider, (_, _) => _reschedule(ref));
-    return child;
+  ConsumerState<ReminderSync> createState() => _ReminderSyncState();
+}
+
+class _ReminderSyncState extends ConsumerState<ReminderSync>
+    with WidgetsBindingObserver {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    // Direkt nach dem ersten Frame die Widgets befüllen, damit sie nach einem
+    // App-Update nicht auf dem System-Platzhalter hängen bleiben.
+    WidgetsBinding.instance.addPostFrameCallback((_) => _reschedule());
   }
 
-  Future<void> _reschedule(WidgetRef ref) async {
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    // Bei Rückkehr in die App die Widgets erneut aktualisieren.
+    if (state == AppLifecycleState.resumed) _reschedule();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    ref.listen(eventsControllerProvider, (_, _) => _reschedule());
+    ref.listen(tasksControllerProvider, (_, _) => _reschedule());
+    ref.listen(notificationSettingsProvider, (_, _) => _reschedule());
+    ref.listen(memberSettingsProvider, (_, _) => _reschedule());
+    ref.listen(weatherProvider, (_, _) => _reschedule());
+    return widget.child;
+  }
+
+  Future<void> _reschedule() async {
     final events = ref.read(visibleEventsProvider);
     final lists = ref.read(tasksControllerProvider).value ?? const [];
     final memberSettings = ref.read(memberSettingsProvider).value ?? const {};
@@ -50,10 +79,7 @@ class ReminderSync extends ConsumerWidget {
     }
     if (!await service.areNotificationsEnabled()) return;
 
-    final reminders = planReminders(
-      events: events,
-      taskLists: lists,
-    );
+    final reminders = planReminders(events: events, taskLists: lists);
     await service.schedule(reminders);
   }
 }

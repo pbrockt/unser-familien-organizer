@@ -7,47 +7,31 @@
     android:background="@drawable/fp_widget_bg"
     android:padding="16dp">
 
-    <!-- Kopf: App-Icon + Titel -->
-    <LinearLayout
+    <!-- Kopf: Titel -->
+    <TextView
+        android:id="@+id/fp_widget_title"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:orientation="horizontal"
-        android:gravity="center_vertical">
-
-        <ImageView
-            android:layout_width="38dp"
-            android:layout_height="38dp"
-            android:src="@drawable/ic_launcher_foreground"
-            android:scaleType="fitCenter"
-            android:contentDescription="@null" />
-
-        <TextView
-            android:id="@+id/fp_widget_title"
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:layout_marginStart="10dp"
-            android:textColor="@color/fp_orange"
-            android:textSize="15sp"
-            android:textStyle="bold"
-            android:maxLines="1"
-            android:ellipsize="end"
-            android:text="FamilyPlanner" />
-    </LinearLayout>
+        android:textColor="#E8964F"
+        android:textSize="15sp"
+        android:textStyle="bold"
+        android:maxLines="1"
+        android:ellipsize="end"
+        android:text="FamilyPlanner" />
 
     <View
         android:layout_width="match_parent"
         android:layout_height="1dp"
         android:layout_marginTop="10dp"
         android:layout_marginBottom="8dp"
-        android:background="@color/fp_divider" />
+        android:background="#22000000" />
 
     <TextView
         android:id="@+id/fp_widget_body"
         android:layout_width="match_parent"
         android:layout_height="0dp"
         android:layout_weight="1"
-        android:textColor="@color/fp_brown"
+        android:textColor="#3E322A"
         android:textSize="13sp"
         android:lineSpacingExtra="4dp"
         android:ellipsize="end"

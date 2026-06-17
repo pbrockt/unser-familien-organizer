@@ -2,6 +2,6 @@
 <!-- Pfirsich-Pille (z. B. Wetter) – wie die Icon-Chips in der App. -->
 <shape xmlns:android="http://schemas.android.com/apk/res/android"
     android:shape="rectangle">
-    <solid android:color="@color/fp_peach" />
+    <solid android:color="#F7DEC2" />
     <corners android:radius="16dp" />
 </shape>

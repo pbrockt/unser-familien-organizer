@@ -21,6 +21,34 @@ private const val FP_BROWN = 0xFF3E322A.toInt()
 private const val FP_BROWN_SOFT = 0xFF8C7F73.toInt()
 
 /**
+ * Wendet die RemoteViews an. Sollte das (z. B. wegen formatiertem Text) je
+ * fehlschlagen, wird auf eine schlichte Klartext-Version zurückgefallen, damit
+ * das Widget niemals auf dem System-Platzhalter hängen bleibt.
+ */
+private fun applyWithFallback(
+    mgr: AppWidgetManager,
+    id: Int,
+    build: (styled: Boolean) -> RemoteViews,
+) {
+    try {
+        mgr.updateAppWidget(id, build(true))
+    } catch (e: Throwable) {
+        try {
+            mgr.updateAppWidget(id, build(false))
+        } catch (e2: Throwable) {
+            // Aufgeben – lieber keine Aktualisierung als ein Absturz.
+        }
+    }
+}
+
+/** Klartext (Markierungen entfernt, farbiger Punkt → einfacher Aufzählungspunkt). */
+fun plainBody(raw: String): String =
+    raw.split("\n").joinToString("\n") {
+        val s = it.indexOf(COLOR_SEP)
+        if (s >= 0) "•  " + it.substring(s + 1) else it
+    }
+
+/**
  * Wandelt den von Flutter gelieferten Textblock in formatierten Inhalt um:
  * Zeilen mit Farb-Markierung bekommen einen farbigen Punkt (Kalenderfarbe),
  * GROSSGESCHRIEBENE Zeilen werden als fette Überschriften dargestellt.
@@ -60,10 +88,7 @@ fun styledBody(raw: String): CharSequence {
         }
         sb
     } catch (e: Exception) {
-        raw.split("\n").joinToString("\n") {
-            val s = it.indexOf(COLOR_SEP)
-            if (s >= 0) it.substring(s + 1) else it
-        }
+        plainBody(raw)
     }
 }
 
@@ -84,23 +109,24 @@ abstract class FpWidgetProvider : HomeWidgetProvider() {
         appWidgetIds: IntArray,
         widgetData: SharedPreferences,
     ) {
+        val title = widgetData.getString(titleKey, defaultTitle) ?: defaultTitle
+        val rawBody = widgetData.getString(bodyKey, "–") ?: "–"
+        val pending = HomeWidgetLaunchIntent.getActivity(
+            context,
+            MainActivity::class.java,
+            Uri.parse("familyplanner://$route"),
+        )
         for (id in appWidgetIds) {
-            val views = RemoteViews(context.packageName, R.layout.fp_widget)
-            views.setTextViewText(
-                R.id.fp_widget_title,
-                widgetData.getString(titleKey, defaultTitle) ?: defaultTitle,
-            )
-            views.setTextViewText(
-                R.id.fp_widget_body,
-                styledBody(widgetData.getString(bodyKey, "–") ?: "–"),
-            )
-            val pending = HomeWidgetLaunchIntent.getActivity(
-                context,
-                MainActivity::class.java,
-                Uri.parse("familyplanner://$route"),
-            )
-            views.setOnClickPendingIntent(R.id.fp_widget_root, pending)
-            appWidgetManager.updateAppWidget(id, views)
+            applyWithFallback(appWidgetManager, id) { styled ->
+                RemoteViews(context.packageName, R.layout.fp_widget).apply {
+                    setTextViewText(R.id.fp_widget_title, title)
+                    setTextViewText(
+                        R.id.fp_widget_body,
+                        if (styled) styledBody(rawBody) else plainBody(rawBody),
+                    )
+                    setOnClickPendingIntent(R.id.fp_widget_root, pending)
+                }
+            }
         }
     }
 }
@@ -116,25 +142,28 @@ class OverviewWidget : HomeWidgetProvider() {
         appWidgetIds: IntArray,
         widgetData: SharedPreferences,
     ) {
+        val rawBody = widgetData.getString("overview_body", "–") ?: "–"
+        val weather = widgetData.getString("overview_weather", "") ?: ""
+        val pending = HomeWidgetLaunchIntent.getActivity(
+            context,
+            MainActivity::class.java,
+            Uri.parse("familyplanner://home"),
+        )
         for (id in appWidgetIds) {
-            val views = RemoteViews(context.packageName, R.layout.fp_widget_overview)
-            views.setTextViewText(
-                R.id.fp_widget_body,
-                styledBody(widgetData.getString("overview_body", "–") ?: "–"),
-            )
-            val weather = widgetData.getString("overview_weather", "") ?: ""
-            views.setTextViewText(R.id.fp_widget_weather, weather)
-            views.setViewVisibility(
-                R.id.fp_widget_weather,
-                if (weather.isBlank()) View.GONE else View.VISIBLE,
-            )
-            val pending = HomeWidgetLaunchIntent.getActivity(
-                context,
-                MainActivity::class.java,
-                Uri.parse("familyplanner://home"),
-            )
-            views.setOnClickPendingIntent(R.id.fp_widget_root, pending)
-            appWidgetManager.updateAppWidget(id, views)
+            applyWithFallback(appWidgetManager, id) { styled ->
+                RemoteViews(context.packageName, R.layout.fp_widget_overview).apply {
+                    setTextViewText(
+                        R.id.fp_widget_body,
+                        if (styled) styledBody(rawBody) else plainBody(rawBody),
+                    )
+                    setTextViewText(R.id.fp_widget_weather, weather)
+                    setViewVisibility(
+                        R.id.fp_widget_weather,
+                        if (weather.isBlank()) View.GONE else View.VISIBLE,
+                    )
+                    setOnClickPendingIntent(R.id.fp_widget_root, pending)
+                }
+            }
         }
     }
 }

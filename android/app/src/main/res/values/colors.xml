@@ -1,14 +1,4 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <color name="ic_launcher_background">#F3EEE4</color>
-
-    <!-- Home-Widget-Palette (passend zur App, siehe app_theme.dart) -->
-    <color name="fp_orange">#E8964F</color>
-    <color name="fp_cream">#F3EEE4</color>
-    <color name="fp_card">#FFFFFF</color>
-    <color name="fp_border">#EBE3D6</color>
-    <color name="fp_brown">#3E322A</color>
-    <color name="fp_brown_soft">#8C7F73</color>
-    <color name="fp_peach">#F7DEC2</color>
-    <color name="fp_divider">#1A3E322A</color>
 </resources>

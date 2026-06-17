@@ -7,20 +7,12 @@
     android:background="@drawable/fp_widget_bg"
     android:padding="16dp">
 
-    <!-- Kopf: App-Icon + live Uhrzeit/Datum + Wetter-Chip -->
+    <!-- Kopf: live Uhrzeit/Datum + Wetter-Chip -->
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="horizontal"
         android:gravity="center_vertical">
-
-        <ImageView
-            android:layout_width="44dp"
-            android:layout_height="44dp"
-            android:layout_marginEnd="8dp"
-            android:src="@drawable/ic_launcher_foreground"
-            android:scaleType="fitCenter"
-            android:contentDescription="@null" />
 
         <LinearLayout
             android:layout_width="0dp"
@@ -34,7 +26,7 @@
                 android:layout_height="wrap_content"
                 android:format12Hour="HH:mm"
                 android:format24Hour="HH:mm"
-                android:textColor="@color/fp_orange"
+                android:textColor="#E8964F"
                 android:textSize="24sp"
                 android:textStyle="bold" />
 
@@ -44,7 +36,7 @@
                 android:layout_height="wrap_content"
                 android:format12Hour="EEE, d. MMMM"
                 android:format24Hour="EEE, d. MMMM"
-                android:textColor="@color/fp_brown_soft"
+                android:textColor="#8C7F73"
                 android:textSize="12sp" />
         </LinearLayout>
 
@@ -57,7 +49,7 @@
             android:paddingEnd="12dp"
             android:paddingTop="6dp"
             android:paddingBottom="6dp"
-            android:textColor="@color/fp_brown"
+            android:textColor="#3E322A"
             android:textSize="15sp"
             android:textStyle="bold"
             android:text="" />
@@ -68,7 +60,7 @@
         android:layout_height="1dp"
         android:layout_marginTop="10dp"
         android:layout_marginBottom="8dp"
-        android:background="@color/fp_divider" />
+        android:background="#22000000" />
 
     <!-- Heute / Morgen / Countdown -->
     <TextView
@@ -76,7 +68,7 @@
         android:layout_width="match_parent"
         android:layout_height="0dp"
         android:layout_weight="1"
-        android:textColor="@color/fp_brown"
+        android:textColor="#3E322A"
         android:textSize="13sp"
         android:lineSpacingExtra="4dp"
         android:ellipsize="end"
