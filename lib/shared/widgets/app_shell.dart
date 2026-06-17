@@ -3,9 +3,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../core/auth/account_providers.dart';
+import '../../core/platform/platform_support.dart';
 import '../../features/calendar/event_editor_sheet.dart';
 import '../../features/tasks/task_editor_sheet.dart';
 import '../../features/tasks/task_providers.dart';
+import '../../features/update/update_prompt.dart';
 
 /// Grundgerüst mit persistenter Bottom-Navigation: Start, Kalender, Aufgaben,
 /// Einkauf und ein „+", über das man direkt einen Termin oder eine Aufgabe
@@ -23,9 +25,23 @@ class AppShell extends ConsumerStatefulWidget {
 
 class _AppShellState extends ConsumerState<AppShell> {
   final List<int> _history = [];
+  bool _updateChecked = false;
 
   /// Index der „+"-Schaltfläche (keine echte Seite, sondern eine Aktion).
   static const int _plusIndex = 4;
+
+  @override
+  void initState() {
+    super.initState();
+    // Beim Start einmalig auf eine neue Version prüfen. Hier (im Navigator)
+    // gibt es einen gültigen Context für den Update-Dialog.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (_updateChecked || !mounted) return;
+      _updateChecked = true;
+      if (!isAndroid) return;
+      runUpdateCheck(context, ref, silentIfNone: true);
+    });
+  }
 
   void _onDestination(int index) {
     if (index == _plusIndex) {

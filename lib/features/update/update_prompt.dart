@@ -5,36 +5,6 @@ import 'package:url_launcher/url_launcher.dart';
 import '../../core/platform/platform_support.dart';
 import '../../core/update/update_service.dart';
 
-/// Legt sich um die App und prüft **einmal beim Start** (nach dem ersten Frame)
-/// auf eine neue Version. Nur Android (dort kann das APK direkt installiert
-/// werden). Fehler/keine Updates bleiben still.
-class UpdateChecker extends ConsumerStatefulWidget {
-  const UpdateChecker({super.key, required this.child});
-
-  final Widget child;
-
-  @override
-  ConsumerState<UpdateChecker> createState() => _UpdateCheckerState();
-}
-
-class _UpdateCheckerState extends ConsumerState<UpdateChecker> {
-  bool _checked = false;
-
-  @override
-  void initState() {
-    super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (_checked) return;
-      _checked = true;
-      if (!isAndroid) return;
-      runUpdateCheck(context, ref, silentIfNone: true);
-    });
-  }
-
-  @override
-  Widget build(BuildContext context) => widget.child;
-}
-
 /// Prüft auf Updates und zeigt ggf. einen Dialog. Bei [silentIfNone] = false
 /// wird auch eine Rückmeldung gezeigt, wenn alles aktuell ist (für den
 /// manuellen „Nach Updates suchen"-Knopf in den Einstellungen).
