@@ -142,36 +142,12 @@ class HomeScreen extends ConsumerWidget {
                     if (upcoming.isEmpty && passedToday.isEmpty)
                       const _EmptyHint('Keine anstehenden Termine 🎉')
                     else
-                      SizedBox(
-                        height: 118,
-                        child: ListView.builder(
-                          scrollDirection: Axis.horizontal,
-                          padding: const EdgeInsets.symmetric(horizontal: 16),
-                          itemCount: upcoming.length + passedToday.length,
-                          itemBuilder: (context, i) {
-                            if (i < upcoming.length) {
-                              final e = upcoming[i];
-                              return _EventCard(
-                                event: e,
-                                now: now,
-                                highlighted: i == 0,
-                                onTap: () => openInCalendar(e),
-                                onLongPress: () =>
-                                    showEventEditor(context, existing: e),
-                              );
-                            }
-                            final e = passedToday[i - upcoming.length];
-                            return _EventCard(
-                              event: e,
-                              now: now,
-                              highlighted: false,
-                              passed: true,
-                              onTap: () => openInCalendar(e),
-                              onLongPress: () =>
-                                  showEventEditor(context, existing: e),
-                            );
-                          },
-                        ),
+                      _UpcomingStrip(
+                        passed: passedToday,
+                        upcoming: upcoming,
+                        now: now,
+                        onOpen: openInCalendar,
+                        onEdit: (e) => showEventEditor(context, existing: e),
                       ),
                     const _SectionLabel('Überblick'),
                     ...countdowns.map(
@@ -214,8 +190,9 @@ class HomeScreen extends ConsumerWidget {
     return list.take(20).toList();
   }
 
-  /// Heute bereits abgeschlossene (zeitgebundene) Termine, neueste zuerst –
-  /// erscheinen ausgegraut am Ende der „Anstehende Termine"-Liste.
+  /// Heute bereits abgeschlossene (zeitgebundene) Termine, chronologisch
+  /// aufsteigend – erscheinen ausgegraut links (zeitlich vor) den anstehenden
+  /// Terminen, sodass der jüngste vergangene direkt vor dem nächsten liegt.
   List<CalendarEvent> _passedToday(
     List<CalendarEvent> events,
     DateTime now,
@@ -224,7 +201,7 @@ class HomeScreen extends ConsumerWidget {
     final list = events.where((e) {
       if (e.allDay || e.isMultiDay) return false;
       return e.startDay == today && e.hasPassed(now);
-    }).toList()..sort((a, b) => b.start.compareTo(a.start));
+    }).toList()..sort((a, b) => a.start.compareTo(b.start));
     return list.take(20).toList();
   }
 }
@@ -559,6 +536,84 @@ class _TwoWeekCalendar extends StatelessWidget {
           weekRow(0),
           weekRow(7),
         ],
+      ),
+    );
+  }
+}
+
+// ---------- Anstehende-Termine-Leiste (horizontal) ----------
+
+/// Breite einer Termin-Karte inkl. rechtem Abstand. Muss zur Größe in
+/// [_EventCard] passen (width 185 + EdgeInsets.only(right: 12)).
+const double _kCardExtent = 185 + 12;
+
+/// Horizontale Zeitleiste: links die heute bereits erledigten Termine
+/// (ausgegraut), rechts die anstehenden. Startet vorgescrollt beim ersten
+/// anstehenden Termin, sodass die erledigten links außerhalb der Sicht liegen
+/// und man zum Ansehen nach links zurückscrollt.
+class _UpcomingStrip extends StatefulWidget {
+  const _UpcomingStrip({
+    required this.passed,
+    required this.upcoming,
+    required this.now,
+    required this.onOpen,
+    required this.onEdit,
+  });
+
+  final List<CalendarEvent> passed;
+  final List<CalendarEvent> upcoming;
+  final DateTime now;
+  final void Function(CalendarEvent event) onOpen;
+  final void Function(CalendarEvent event) onEdit;
+
+  @override
+  State<_UpcomingStrip> createState() => _UpcomingStripState();
+}
+
+class _UpcomingStripState extends State<_UpcomingStrip> {
+  late final ScrollController _controller = ScrollController(
+    initialScrollOffset: widget.passed.length * _kCardExtent,
+  );
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final passed = widget.passed;
+    final upcoming = widget.upcoming;
+    return SizedBox(
+      height: 118,
+      child: ListView.builder(
+        controller: _controller,
+        scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.symmetric(horizontal: 16),
+        itemCount: passed.length + upcoming.length,
+        itemBuilder: (context, i) {
+          if (i < passed.length) {
+            final e = passed[i];
+            return _EventCard(
+              event: e,
+              now: widget.now,
+              highlighted: false,
+              passed: true,
+              onTap: () => widget.onOpen(e),
+              onLongPress: () => widget.onEdit(e),
+            );
+          }
+          final idx = i - passed.length;
+          final e = upcoming[idx];
+          return _EventCard(
+            event: e,
+            now: widget.now,
+            highlighted: idx == 0,
+            onTap: () => widget.onOpen(e),
+            onLongPress: () => widget.onEdit(e),
+          );
+        },
       ),
     );
   }
