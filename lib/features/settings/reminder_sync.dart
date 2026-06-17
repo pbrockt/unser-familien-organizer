@@ -53,7 +53,6 @@ class ReminderSync extends ConsumerWidget {
     final reminders = planReminders(
       events: events,
       taskLists: lists,
-      leadMinutes: settings.leadMinutes,
     );
     await service.schedule(reminders);
   }

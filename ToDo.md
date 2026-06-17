@@ -200,7 +200,9 @@ Reihenfolge ≈ Priorität:
 
 ## 🔔 Phase 8 — Benachrichtigungen
 - [x] Lokale Notifications (flutter_local_notifications + timezone)
-- [x] Erinnerung an anstehende Termine (Vorlaufzeit einstellbar)
+- [x] **Erinnerung pro Termin** (VALARM): im Editor Aus / 5 / 15 / 30 Min / 1 Std
+      vorher; Standard aus. Planung nutzt die termin-eigene Vorlaufzeit (statt
+      globaler Vorlaufzeit für alle Termine)
 - [x] Benachrichtigungs-Berechtigung anfragen (Android 13+)
 - [x] Erinnerung an fällige Aufgaben (am Fälligkeitstag)
 - [x] Reminder überleben Neustart (Boot-Receiver)

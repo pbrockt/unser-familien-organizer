@@ -6,30 +6,32 @@ import '../tasks/task_item.dart';
 
 /// Erstellt die zu planenden Erinnerungen aus Terminen und Aufgaben.
 ///
-/// - Termine: [leadMinutes] vor Beginn (keine Ganztags-Termine).
+/// - Termine: **pro Termin** eingestellte Vorlaufzeit (VALARM, keine Ganztags-
+///   Termine, nur wenn eine Erinnerung gesetzt ist).
 /// - Aufgaben mit Fälligkeit: zur Fälligkeitszeit bzw. um 9 Uhr am Fälligkeitstag.
 ///
 /// Reine Funktion ohne Riverpod – nutzbar in der UI und im Hintergrund.
 List<ScheduledReminder> planReminders({
   required List<CalendarEvent> events,
   required List<TaskList> taskLists,
-  required int leadMinutes,
   DateTime? now,
 }) {
   final n = now ?? DateTime.now();
   final horizon = n.add(const Duration(days: 14));
   final reminders = <ScheduledReminder>[];
 
-  // Termine.
-  final lead = Duration(minutes: leadMinutes);
+  // Termine – nur solche mit gesetzter Erinnerung (reminderMinutes).
   final upcoming = events
       .where((e) =>
-          !e.allDay && e.start.isAfter(n) && e.start.isBefore(horizon))
+          !e.allDay &&
+          (e.reminderMinutes ?? 0) > 0 &&
+          e.start.isAfter(n) &&
+          e.start.isBefore(horizon))
       .toList()
     ..sort((a, b) => a.start.compareTo(b.start));
   var id = 1;
   for (final e in upcoming) {
-    final when = e.start.subtract(lead);
+    final when = e.start.subtract(Duration(minutes: e.reminderMinutes!));
     if (!when.isAfter(n)) continue;
     final location =
         (e.location != null && e.location!.isNotEmpty) ? ' · ${e.location}' : '';

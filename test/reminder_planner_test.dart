@@ -6,8 +6,14 @@ import 'package:family_planner/features/tasks/task_item.dart';
 void main() {
   final now = DateTime(2026, 6, 13, 8, 0);
 
-  CalendarEvent ev(String s, DateTime start, {bool allDay = false}) =>
-      CalendarEvent(uid: s, summary: s, start: start, allDay: allDay);
+  CalendarEvent ev(String s, DateTime start,
+          {bool allDay = false, int? reminderMinutes}) =>
+      CalendarEvent(
+          uid: s,
+          summary: s,
+          start: start,
+          allDay: allDay,
+          reminderMinutes: reminderMinutes);
 
   TaskList list(List<TaskItem> items) =>
       TaskList(href: '/l/', name: 'L', items: items);
@@ -16,11 +22,12 @@ void main() {
       uid: s, summary: s, objectHref: '/l/$s.ics', etag: 'e', rawIcal: 'X',
       due: due);
 
-  test('Termin: Erinnerung Vorlaufzeit vor Beginn', () {
+  test('Termin mit Erinnerung: Vorlaufzeit vor Beginn', () {
     final r = planReminders(
-      events: [ev('Zahnarzt', DateTime(2026, 6, 13, 10, 0))],
+      events: [
+        ev('Zahnarzt', DateTime(2026, 6, 13, 10, 0), reminderMinutes: 30)
+      ],
       taskLists: const [],
-      leadMinutes: 30,
       now: now,
     );
     expect(r, hasLength(1));
@@ -28,14 +35,22 @@ void main() {
     expect(r.first.when, DateTime(2026, 6, 13, 9, 30));
   });
 
-  test('Ganztags-Termine und vergangene Termine ergeben keine Erinnerung', () {
+  test('Termin ohne gesetzte Erinnerung ergibt keine Benachrichtigung', () {
+    final r = planReminders(
+      events: [ev('Ohne Erinnerung', DateTime(2026, 6, 13, 10, 0))],
+      taskLists: const [],
+      now: now,
+    );
+    expect(r, isEmpty);
+  });
+
+  test('Ganztags- und vergangene Termine ergeben keine Erinnerung', () {
     final r = planReminders(
       events: [
-        ev('Urlaub', DateTime(2026, 6, 14), allDay: true),
-        ev('Vorbei', DateTime(2026, 6, 13, 7, 0)),
+        ev('Urlaub', DateTime(2026, 6, 14), allDay: true, reminderMinutes: 30),
+        ev('Vorbei', DateTime(2026, 6, 13, 7, 0), reminderMinutes: 30),
       ],
       taskLists: const [],
-      leadMinutes: 30,
       now: now,
     );
     expect(r, isEmpty);
@@ -47,7 +62,6 @@ void main() {
       taskLists: [
         list([task('Müll rausbringen', DateTime(2026, 6, 14))])
       ],
-      leadMinutes: 30,
       now: now,
     );
     expect(r, hasLength(1));
@@ -62,7 +76,6 @@ void main() {
       taskLists: [
         list([task('Ohne Datum', null)])
       ],
-      leadMinutes: 30,
       now: now,
     );
     expect(r, isEmpty);

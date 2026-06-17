@@ -221,26 +221,13 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen>
               onChanged: _toggleEnabled,
             ),
             if (settings.enabled)
-              ListTile(
-                leading: const Icon(Icons.timer_outlined),
-                title: const Text('Vorlaufzeit'),
-                subtitle: const Text('Wie früh vor Beginn erinnern?'),
-                trailing: DropdownButton<int>(
-                  value: settings.leadMinutes,
-                  items: const [
-                    DropdownMenuItem(value: 10, child: Text('10 Min')),
-                    DropdownMenuItem(value: 15, child: Text('15 Min')),
-                    DropdownMenuItem(value: 30, child: Text('30 Min')),
-                    DropdownMenuItem(value: 60, child: Text('1 Std')),
-                    DropdownMenuItem(value: 120, child: Text('2 Std')),
-                  ],
-                  onChanged: (v) {
-                    if (v != null) {
-                      ref
-                          .read(notificationSettingsProvider.notifier)
-                          .setLeadMinutes(v);
-                    }
-                  },
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+                child: Text(
+                  'Die Vorlaufzeit (5 Min … 1 Std) stellst du pro Termin im '
+                  'Termin-Editor ein – standardmäßig ist sie aus.',
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: Theme.of(context).colorScheme.onSurfaceVariant),
                 ),
               ),
             const Divider(),

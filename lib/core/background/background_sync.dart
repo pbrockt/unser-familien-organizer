@@ -57,7 +57,6 @@ void callbackDispatcher() {
         await service.schedule(planReminders(
           events: events,
           taskLists: lists,
-          leadMinutes: settings.leadMinutes,
         ));
       }
       return true;

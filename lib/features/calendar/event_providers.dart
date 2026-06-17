@@ -123,19 +123,23 @@ class EventsController extends AsyncNotifier<List<CalendarEvent>> {
     }
   }
 
-  /// Nach einer Änderung: frisch synchronisieren (Delta) und State setzen.
+  /// Nach einer lokalen Änderung: **sofort** aus dem bereits aktualisierten
+  /// Cache neu aufbauen, damit der Termin ohne manuelles „Aktualisieren"
+  /// erscheint.
+  ///
+  /// Bewusst KEIN sofortiger Server-Sync: `putObject`/`deleteObject` haben den
+  /// Cache schon aktualisiert; ein direkter REPORT würde den Cache evtl. mit
+  /// einem noch nicht propagierten Server-Stand überschreiben (dann „verschwände"
+  /// der neue Termin). Der Abgleich passiert über den Hintergrund-Sync, den
+  /// „Aktualisieren"-Knopf bzw. den nächsten App-Start.
   Future<void> _refresh(NextcloudAccount account) async {
     final repo = ref.read(caldavRepositoryProvider);
-    _setSyncing();
-    try {
-      final fresh = await repo.sync(account);
-      if (_disposed) return;
-      _applySyncResult(fresh);
-      state = AsyncData(buildEventsFromSnapshot(fresh));
-    } catch (e) {
-      _setOffline(e);
-      rethrow;
+    final cached = await repo.cachedSnapshot(account);
+    if (_disposed) return;
+    if (cached != null) {
+      state = AsyncData(buildEventsFromSnapshot(cached));
     }
+    _setOnline();
   }
 
 
@@ -173,6 +177,7 @@ class EventsController extends AsyncNotifier<List<CalendarEvent>> {
     bool allDay = false,
     String? description,
     String? location,
+    int? reminderMinutes,
   }) async {
     final account = await ref.read(accountProvider.future);
     if (account == null) return;
@@ -187,6 +192,7 @@ class EventsController extends AsyncNotifier<List<CalendarEvent>> {
       allDay: allDay,
       description: description,
       location: location,
+      reminderMinutes: reminderMinutes,
     );
     await repo.putObject(account, _objectHref(calendarHref, uid), ical);
     await _refresh(account);
@@ -200,6 +206,7 @@ class EventsController extends AsyncNotifier<List<CalendarEvent>> {
     bool allDay = false,
     String? description,
     String? location,
+    int? reminderMinutes,
     bool force = false,
   }) async {
     final account = await ref.read(accountProvider.future);
@@ -214,6 +221,7 @@ class EventsController extends AsyncNotifier<List<CalendarEvent>> {
       allDay: allDay,
       description: description,
       location: location,
+      reminderMinutes: reminderMinutes,
     );
     await repo.putObject(
       account,
@@ -287,6 +295,7 @@ class EventsController extends AsyncNotifier<List<CalendarEvent>> {
     bool allDay = false,
     String? description,
     String? location,
+    int? reminderMinutes,
     bool force = false,
   }) async {
     final account = await ref.read(accountProvider.future);
@@ -301,6 +310,7 @@ class EventsController extends AsyncNotifier<List<CalendarEvent>> {
       allDay: allDay,
       description: description,
       location: location,
+      reminderMinutes: reminderMinutes,
     );
 
     final fileName = event.objectHref.split('/').last;

@@ -45,6 +45,7 @@ class IcalBuilder {
     bool allDay = false,
     String? description,
     String? location,
+    int? reminderMinutes,
   }) {
     final calendar = VCalendar()
       ..version = '2.0'
@@ -71,7 +72,8 @@ class IcalBuilder {
     }
 
     final text = calendar.toString();
-    return allDay ? _applyAllDay(text, start, effectiveEnd) : text;
+    final withDay = allDay ? _applyAllDay(text, start, effectiveEnd) : text;
+    return _withAlarm(withDay, reminderMinutes, summary);
   }
 
   /// Ändert ein bestehendes VEVENT und behält den Rest (z.B. RRULE) erhalten.
@@ -83,6 +85,7 @@ class IcalBuilder {
     bool allDay = false,
     String? description,
     String? location,
+    int? reminderMinutes,
   }) {
     final root = VComponent.parse(rawIcal);
     final components = root is VCalendar ? root.children : [root];
@@ -105,8 +108,34 @@ class IcalBuilder {
       }
     }
     final text = root.toString();
-    return allDay ? _applyAllDay(text, start, effectiveEnd) : text;
+    final withDay = allDay ? _applyAllDay(text, start, effectiveEnd) : text;
+    return _withAlarm(withDay, reminderMinutes, summary);
   }
+
+  /// Setzt/entfernt einen VALARM (DISPLAY) mit relativem Trigger „[minutes] vor
+  /// Beginn". Bestehende VALARM-Blöcke werden zuerst entfernt.
+  String _withAlarm(String text, int? minutes, String summary) {
+    final cleaned = text.replaceAll(
+      RegExp(r'BEGIN:VALARM.*?END:VALARM\r?\n', dotAll: true),
+      '',
+    );
+    if (minutes == null || minutes <= 0) return cleaned;
+    final desc = _escapeText(summary.isEmpty ? 'Erinnerung' : summary);
+    final block = 'BEGIN:VALARM\r\n'
+        'ACTION:DISPLAY\r\n'
+        'DESCRIPTION:$desc\r\n'
+        'TRIGGER:-PT${minutes}M\r\n'
+        'END:VALARM\r\n';
+    final idx = cleaned.indexOf('END:VEVENT');
+    if (idx < 0) return cleaned;
+    return cleaned.substring(0, idx) + block + cleaned.substring(idx);
+  }
+
+  String _escapeText(String s) => s
+      .replaceAll('\\', '\\\\')
+      .replaceAll(';', '\\;')
+      .replaceAll(',', '\\,')
+      .replaceAll('\n', '\\n');
 
   /// Legt für eine Serie eine geänderte Einzel-Instanz (Override) an bzw.
   /// ersetzt eine bestehende: ein zusätzliches VEVENT mit derselben UID und

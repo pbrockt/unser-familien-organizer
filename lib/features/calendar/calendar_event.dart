@@ -22,6 +22,7 @@ class CalendarEvent {
     this.etag = '',
     this.rawIcal = '',
     this.recurrenceDate,
+    this.reminderMinutes,
   });
 
   final String uid;
@@ -51,6 +52,9 @@ class CalendarEvent {
   /// löschen" via EXDATE). Bei Einzelterminen `null`.
   final DateTime? recurrenceDate;
 
+  /// Minuten vor Beginn für die Erinnerung (VALARM). `null` = keine Erinnerung.
+  final int? reminderMinutes;
+
   factory CalendarEvent.fromParsed(
     ParsedEvent e, {
     Color? color,
@@ -78,6 +82,7 @@ class CalendarEvent {
       etag: etag,
       rawIcal: rawIcal,
       recurrenceDate: recurrenceDate,
+      reminderMinutes: e.reminderMinutes,
     );
   }
 
@@ -104,6 +109,7 @@ class CalendarEvent {
       etag: etag,
       rawIcal: rawIcal,
       recurrenceDate: recurrenceDate ?? this.recurrenceDate,
+      reminderMinutes: reminderMinutes,
     );
   }
 

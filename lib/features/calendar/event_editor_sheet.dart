@@ -63,6 +63,9 @@ class _EventEditorSheetState extends ConsumerState<_EventEditorSheet> {
   late DateTime _endDate;
   late TimeOfDay _endTime;
   String? _calendarHref;
+
+  /// Erinnerung in Minuten vor Beginn (`null` = aus). Standard: aus.
+  int? _reminderMinutes;
   bool _busy = false;
 
   bool get _isEdit => widget.existing != null;
@@ -74,6 +77,7 @@ class _EventEditorSheetState extends ConsumerState<_EventEditorSheet> {
     _summaryCtrl = TextEditingController(text: e?.summary ?? '');
     _locationCtrl = TextEditingController(text: e?.location ?? '');
     _descCtrl = TextEditingController(text: e?.description ?? '');
+    _reminderMinutes = e?.reminderMinutes;
 
     if (e != null) {
       _allDay = e.allDay;
@@ -257,6 +261,7 @@ class _EventEditorSheetState extends ConsumerState<_EventEditorSheet> {
             allDay: _allDay,
             location: location,
             description: desc,
+            reminderMinutes: _reminderMinutes,
           );
         } else if (editOnlyThis) {
           await notifier.updateOccurrence(
@@ -280,6 +285,7 @@ class _EventEditorSheetState extends ConsumerState<_EventEditorSheet> {
             allDay: _allDay,
             location: location,
             description: desc,
+            reminderMinutes: _reminderMinutes,
             force: force,
           );
         } else {
@@ -291,6 +297,7 @@ class _EventEditorSheetState extends ConsumerState<_EventEditorSheet> {
             allDay: _allDay,
             location: location,
             description: desc,
+            reminderMinutes: _reminderMinutes,
             force: force,
           );
         }
@@ -571,6 +578,24 @@ class _EventEditorSheetState extends ConsumerState<_EventEditorSheet> {
                 prefixIcon: Icon(Icons.notes),
                 border: OutlineInputBorder(),
               ),
+            ),
+            const SizedBox(height: 12),
+            DropdownButtonFormField<int>(
+              initialValue: _reminderMinutes ?? 0,
+              decoration: const InputDecoration(
+                labelText: 'Erinnerung',
+                prefixIcon: Icon(Icons.notifications_outlined),
+                border: OutlineInputBorder(),
+              ),
+              items: const [
+                DropdownMenuItem(value: 0, child: Text('Aus')),
+                DropdownMenuItem(value: 5, child: Text('5 Minuten vorher')),
+                DropdownMenuItem(value: 15, child: Text('15 Minuten vorher')),
+                DropdownMenuItem(value: 30, child: Text('30 Minuten vorher')),
+                DropdownMenuItem(value: 60, child: Text('1 Stunde vorher')),
+              ],
+              onChanged: (v) =>
+                  setState(() => _reminderMinutes = (v == null || v == 0) ? null : v),
             ),
             const SizedBox(height: 12),
             if (calendars.length > 1)

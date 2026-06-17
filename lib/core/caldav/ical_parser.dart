@@ -14,6 +14,7 @@ class ParsedEvent {
     this.recurrence,
     this.recurrenceId,
     this.exDates = const [],
+    this.reminderMinutes,
   });
 
   final String uid;
@@ -24,6 +25,10 @@ class ParsedEvent {
   final String? location;
   final bool allDay;
   final bool isRecurring;
+
+  /// Minuten vor Beginn, zu denen erinnert werden soll (aus VALARM). `null` =
+  /// keine Erinnerung.
+  final int? reminderMinutes;
 
   /// Wiederholungsregel (RRULE), falls vorhanden – für die Expansion.
   final Recurrence? recurrence;
@@ -104,6 +109,19 @@ class IcalParser {
     return sb.toString();
   }
 
+  /// Liest die relative Erinnerungszeit (Minuten vor Beginn) aus einem VALARM
+  /// mit negativem TRIGGER (z. B. `TRIGGER:-PT15M`, `-PT1H`). `null` = keine.
+  static int? _alarmMinutes(VComponent c) {
+    final text = c.toString();
+    final m =
+        RegExp(r'TRIGGER[^:\r\n]*:-PT(?:(\d+)H)?(?:(\d+)M)?').firstMatch(text);
+    if (m == null) return null;
+    final h = int.tryParse(m.group(1) ?? '') ?? 0;
+    final min = int.tryParse(m.group(2) ?? '') ?? 0;
+    final total = h * 60 + min;
+    return total > 0 ? total : null;
+  }
+
   /// Alle VEVENTs aus einem iCal-Body. Fehlerhafte Objekte werden
   /// übersprungen, statt den ganzen Sync zu kippen.
   List<ParsedEvent> parseEvents(String icalData) {
@@ -133,6 +151,7 @@ class IcalParser {
                   .whereType<DateTime>()
                   .toList() ??
               const [],
+          reminderMinutes: _alarmMinutes(c),
         ));
       }
     } catch (_) {
