@@ -8,6 +8,7 @@ import 'package:intl/intl.dart';
 
 import '../../core/auth/account_providers.dart';
 import '../../core/auth/nextcloud_account.dart';
+import '../../core/sync/sync_status.dart';
 import '../../shared/widgets/blob_background.dart';
 import '../calendar/calendar_event.dart';
 import '../calendar/event_editor_sheet.dart';
@@ -44,12 +45,21 @@ class HomeScreen extends ConsumerWidget {
 
     final now = DateTime.now();
     final today = DateTime(now.year, now.month, now.day);
-    final upcoming = _upcoming(filterHomeEvents(events, memberSettings), now, today);
+    final homeEvents = filterHomeEvents(events, memberSettings);
+    final upcoming = _upcoming(homeEvents, now, today);
     final countdowns = countdownEvents(events, memberSettings, today);
 
     // Tippen auf einen Termin/Countdown → in die Kalender-Tagesansicht springen.
     void openInCalendar(CalendarEvent e) {
       ref.read(calendarJumpProvider.notifier).set(e.start);
+      context.go('/calendar');
+    }
+
+    // Tippen auf einen Tag der 2-Wochen-Übersicht → Kalender-Tagesansicht.
+    void openDay(DateTime day) {
+      ref
+          .read(calendarJumpProvider.notifier)
+          .set(DateTime(day.year, day.month, day.day, 8));
       context.go('/calendar');
     }
 
@@ -80,6 +90,12 @@ class HomeScreen extends ConsumerWidget {
                   if (account == null)
                     const _ConnectCard()
                   else ...[
+                    const _SectionLabel('Nächste 2 Wochen'),
+                    _TwoWeekCalendar(
+                      today: today,
+                      events: homeEvents,
+                      onTapDay: openDay,
+                    ),
                     const _SectionLabel('Anstehende Termine'),
                     if (upcoming.isEmpty)
                       const _EmptyHint('Keine Termine heute oder morgen 🎉')
@@ -253,6 +269,131 @@ class _SectionLabel extends StatelessWidget {
               fontSize: 15,
               fontWeight: FontWeight.w800,
               color: Theme.of(context).colorScheme.onSurface)),
+    );
+  }
+}
+
+// ---------- 2-Wochen-Kalenderübersicht ----------
+
+/// Kompakte 2-Wochen-Übersicht (aktuelle + nächste Woche) auf der Startseite.
+/// Zeigt Event-Punkte je Tag; Tippen auf einen Tag öffnet die Kalender-
+/// Tagesansicht für diesen Tag.
+class _TwoWeekCalendar extends StatelessWidget {
+  const _TwoWeekCalendar({
+    required this.today,
+    required this.events,
+    required this.onTapDay,
+  });
+  final DateTime today;
+  final List<CalendarEvent> events;
+  final void Function(DateTime day) onTapDay;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    // Beginn bei Montag der aktuellen Woche, damit die Spalten zu den
+    // Wochentagen passen.
+    final start = today.subtract(Duration(days: today.weekday - 1));
+    const labels = ['Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa', 'So'];
+
+    Widget cell(DateTime day) {
+      final isToday = day.year == today.year &&
+          day.month == today.month &&
+          day.day == today.day;
+      final isPast = day.isBefore(today);
+      final dayEvents = events.where((e) => e.occursOn(day)).toList();
+      return Expanded(
+        child: GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTap: () => onTapDay(day),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 4),
+            child: Column(
+              children: [
+                Container(
+                  width: 30,
+                  height: 30,
+                  alignment: Alignment.center,
+                  decoration: BoxDecoration(
+                    color: isToday ? scheme.primary : Colors.transparent,
+                    shape: BoxShape.circle,
+                  ),
+                  child: Text(
+                    '${day.day}',
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight:
+                          isToday ? FontWeight.w700 : FontWeight.w500,
+                      color: isToday
+                          ? scheme.onPrimary
+                          : isPast
+                              ? scheme.onSurfaceVariant.withValues(alpha: 0.5)
+                              : scheme.onSurface,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 3),
+                SizedBox(
+                  height: 6,
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      for (final e in dayEvents.take(3))
+                        Container(
+                          width: 5,
+                          height: 5,
+                          margin: const EdgeInsets.symmetric(horizontal: 1),
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            color: e.color ?? scheme.primary,
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
+
+    Widget weekRow(int offset) => Row(
+          children: [
+            for (var i = 0; i < 7; i++)
+              cell(start.add(Duration(days: offset + i))),
+          ],
+        );
+
+    return Container(
+      margin: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
+      decoration: BoxDecoration(
+        color: Theme.of(context).cardColor,
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: _softShadow(context),
+      ),
+      child: Column(
+        children: [
+          Row(
+            children: [
+              for (final l in labels)
+                Expanded(
+                  child: Center(
+                    child: Text(l,
+                        style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w600,
+                            color: scheme.onSurfaceVariant)),
+                  ),
+                ),
+            ],
+          ),
+          const SizedBox(height: 4),
+          weekRow(0),
+          weekRow(7),
+        ],
+      ),
     );
   }
 }
@@ -609,34 +750,85 @@ class _Avatar extends StatelessWidget {
 
 /// Profilbild aus der Nextcloud (echtes Bild oder generierte Initialen).
 /// Fällt auf lokale Initialen ([_Avatar]) zurück, wenn kein Konto/Bild da ist.
-class _NextcloudAvatar extends StatelessWidget {
+/// Zeigt zusätzlich einen kleinen Sync-Statuspunkt (grün = online, gelb =
+/// synchronisiert gerade, rot = offline).
+class _NextcloudAvatar extends ConsumerWidget {
   const _NextcloudAvatar({required this.account, this.radius = 22});
   final NextcloudAccount? account;
   final double radius;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final a = account;
     final fallback = _Avatar(
       name: a?.username ?? '?',
       color: Theme.of(context).colorScheme.primary,
       radius: radius,
     );
-    if (a == null) return fallback;
-    final url = '${a.baseUrl}/index.php/avatar/${a.username}/128';
-    final auth = 'Basic ${base64Encode(utf8.encode(a.credentials))}';
-    return ClipOval(
-      child: Image.network(
-        url,
-        width: radius * 2,
-        height: radius * 2,
-        fit: BoxFit.cover,
-        headers: {'Authorization': auth},
-        errorBuilder: (_, _, _) => fallback,
-        loadingBuilder: (_, child, progress) =>
-            progress == null ? child : fallback,
+
+    final Widget avatar;
+    if (a == null) {
+      avatar = fallback;
+    } else {
+      final url = '${a.baseUrl}/index.php/avatar/${a.username}/128';
+      final auth = 'Basic ${base64Encode(utf8.encode(a.credentials))}';
+      avatar = ClipOval(
+        child: Image.network(
+          url,
+          width: radius * 2,
+          height: radius * 2,
+          fit: BoxFit.cover,
+          headers: {'Authorization': auth},
+          errorBuilder: (_, _, _) => fallback,
+          loadingBuilder: (_, child, progress) =>
+              progress == null ? child : fallback,
+        ),
+      );
+    }
+
+    // Ohne Konto kein Statuspunkt.
+    if (a == null) return avatar;
+
+    final status = ref.watch(syncStatusProvider);
+    final dot = radius * 0.5;
+    return SizedBox(
+      width: radius * 2,
+      height: radius * 2,
+      child: Stack(
+        children: [
+          avatar,
+          Positioned(
+            right: 0,
+            bottom: 0,
+            child: Container(
+              width: dot,
+              height: dot,
+              decoration: BoxDecoration(
+                color: _statusColor(context, status),
+                shape: BoxShape.circle,
+                border: Border.all(
+                  color: Theme.of(context).scaffoldBackgroundColor,
+                  width: 2,
+                ),
+              ),
+            ),
+          ),
+        ],
       ),
     );
+  }
+
+  Color _statusColor(BuildContext context, SyncStatus status) {
+    switch (status) {
+      case SyncStatus.online:
+        return const Color(0xFF34C759); // grün – erreichbar/synchronisiert
+      case SyncStatus.syncing:
+        return const Color(0xFFFFB300); // gelb – synchronisiert gerade
+      case SyncStatus.offline:
+        return const Color(0xFFE53935); // rot – offline
+      case SyncStatus.idle:
+        return Theme.of(context).colorScheme.onSurfaceVariant; // grau
+    }
   }
 }
 

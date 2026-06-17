@@ -141,6 +141,8 @@ Reihenfolge ≈ Priorität:
 - [x] **Wetter** im Überblick (Open-Meteo per PLZ, Icons im Kalender)
 - [x] **Countdown** („Noch X Tage bis …") pro Kalender konfigurierbar (alle/nächster)
 - [x] Konfigurierbar: welche Kalender im Überblick / als Countdown erscheinen
+- [x] **2-Wochen-Kalenderübersicht** oben (Event-Punkte, Tippen → Tagesansicht)
+- [x] **Sync-Status-Punkt am Avatar** (grün=online, gelb=sync läuft, rot=offline)
 - [ ] Optional: Geburtstage hervorheben
 
 ## 🧩 Home-Screen-Widgets (Android)

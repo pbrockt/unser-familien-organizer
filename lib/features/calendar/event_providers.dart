@@ -4,6 +4,7 @@ import '../../core/auth/account_providers.dart';
 import '../../core/auth/nextcloud_account.dart';
 import '../../core/caldav/caldav_repository.dart';
 import '../../core/caldav/ical_builder.dart';
+import '../../core/sync/sync_status.dart';
 import '../members/member_settings.dart';
 import 'calendar_event.dart';
 import 'events_builder.dart';
@@ -35,6 +36,15 @@ class EventsController extends AsyncNotifier<List<CalendarEvent>> {
 
   bool _disposed = false;
 
+  /// Setzt den sichtbaren Sync-Status (über Microtask, um nicht während des
+  /// Provider-Builds einen anderen Provider zu verändern).
+  void _status(SyncStatus status) {
+    Future.microtask(() {
+      if (_disposed) return;
+      ref.read(syncStatusProvider.notifier).set(status);
+    });
+  }
+
   @override
   Future<List<CalendarEvent>> build() async {
     ref.onDispose(() => _disposed = true);
@@ -46,7 +56,15 @@ class EventsController extends AsyncNotifier<List<CalendarEvent>> {
     final cached = await repo.cachedSnapshot(account);
     if (cached == null) {
       // Erststart ohne Cache: einmalig synchron laden.
-      return buildEventsFromSnapshot(await repo.sync(account));
+      _status(SyncStatus.syncing);
+      try {
+        final fresh = await repo.sync(account);
+        _status(SyncStatus.online);
+        return buildEventsFromSnapshot(fresh);
+      } catch (e) {
+        _status(SyncStatus.offline);
+        rethrow;
+      }
     }
     Future.microtask(() => _backgroundRefresh(account, repo));
     return buildEventsFromSnapshot(cached);
@@ -54,21 +72,31 @@ class EventsController extends AsyncNotifier<List<CalendarEvent>> {
 
   Future<void> _backgroundRefresh(
       NextcloudAccount account, CalDavRepository repo) async {
+    _status(SyncStatus.syncing);
     try {
       final fresh = await repo.sync(account);
       if (_disposed) return;
+      _status(SyncStatus.online);
       state = AsyncData(buildEventsFromSnapshot(fresh));
     } catch (_) {
       // Offline o.ä. → gecachter Stand bleibt sichtbar.
+      _status(SyncStatus.offline);
     }
   }
 
   /// Nach einer Änderung: frisch synchronisieren (Delta) und State setzen.
   Future<void> _refresh(NextcloudAccount account) async {
     final repo = ref.read(caldavRepositoryProvider);
-    final fresh = await repo.sync(account);
-    if (_disposed) return;
-    state = AsyncData(buildEventsFromSnapshot(fresh));
+    _status(SyncStatus.syncing);
+    try {
+      final fresh = await repo.sync(account);
+      if (_disposed) return;
+      _status(SyncStatus.online);
+      state = AsyncData(buildEventsFromSnapshot(fresh));
+    } catch (e) {
+      _status(SyncStatus.offline);
+      rethrow;
+    }
   }
 
 
