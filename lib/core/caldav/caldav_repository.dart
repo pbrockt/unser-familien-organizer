@@ -11,14 +11,40 @@ import 'caldav_exception.dart';
 /// dem Offline-Cache stammen.
 class CalDavSnapshot {
   const CalDavSnapshot(this.collections, this.objects,
-      {required this.fromCache});
+      {required this.fromCache, this.error});
 
   final List<CalDavCollection> collections;
   final Map<String, List<CalDavObject>> objects;
   final bool fromCache;
 
+  /// Fehler des letzten Online-Syncs, falls auf den Cache zurückgefallen wurde.
+  final String? error;
+
   List<CalDavObject> objectsOf(String collectionHref) =>
       objects[collectionHref] ?? const [];
+
+  /// Menschenlesbarer Debug-Bericht: Quelle, Fehler und je Collection die
+  /// Anzahl Einträge (für das Sync-Diagnose-Popup).
+  String debugReport() {
+    final sb = StringBuffer();
+    sb.writeln(fromCache
+        ? 'Quelle: Cache (kein frischer Server-Stand)'
+        : 'Quelle: Server (frisch geladen)');
+    if (error != null) sb.writeln('⚠️ Sync-Fehler: $error');
+    if (collections.isEmpty) {
+      sb.writeln('Keine Kalender/Listen gefunden.');
+    }
+    for (final c in collections) {
+      final n = (objects[c.href] ?? const []).length;
+      final type = c.supportsEvents
+          ? 'Kalender'
+          : c.supportsTodos
+              ? 'Aufgaben'
+              : '—';
+      sb.writeln('• ${c.displayName} [$type]: $n Einträge');
+    }
+    return sb.toString().trim();
+  }
 }
 
 /// Lädt CalDAV-Daten vom Server und spiegelt sie in den lokalen Cache.
@@ -89,8 +115,10 @@ class CalDavRepository {
     } catch (e) {
       final cached = await _cache.load(key);
       if (cached != null) {
+        // Online-Sync fehlgeschlagen, aber Cache vorhanden → Fehler mitliefern,
+        // damit die Diagnose zeigt, WAS nicht klappt.
         return CalDavSnapshot(cached.collections, cached.objects,
-            fromCache: true);
+            fromCache: true, error: e.toString());
       }
       rethrow;
     }

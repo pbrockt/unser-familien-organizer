@@ -374,13 +374,24 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
     final eventsAsync = ref.watch(eventsControllerProvider);
     final eventsByDay = ref.watch(eventsByDayProvider);
 
-    // Sprung-Anforderung von der Startseite (Termin/Countdown angetippt).
+    // Sprung-Anforderung von der Startseite.
     final jump = ref.watch(calendarJumpProvider);
     if (jump != null) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (!mounted) return;
         ref.read(calendarJumpProvider.notifier).set(null);
-        _enterDay(jump, focusTime: jump);
+        if (jump.openDay) {
+          // Termin/Countdown → Tagesansicht zum Zeitpunkt.
+          _enterDay(jump.date, focusTime: jump.date);
+        } else {
+          // 2-Wochen-Übersicht → nur im Monat anspringen.
+          setState(() {
+            _view = _CalView.month;
+            _selectedDay = jump.date;
+            _focusedDay = jump.date;
+          });
+          ref.read(calendarSelectedDayProvider.notifier).set(jump.date);
+        }
       });
     }
 
@@ -496,16 +507,41 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
                 },
                 calendarStyle: CalendarStyle(
                   markersMaxCount: 4,
+                  // Tage des aktuellen Monats leicht hinterlegen, Tage außerhalb
+                  // klar abgesetzt (blasser, ohne Hintergrund).
+                  defaultDecoration: BoxDecoration(
+                    color: Theme.of(context)
+                        .colorScheme
+                        .primary
+                        .withValues(alpha: 0.07),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  weekendDecoration: BoxDecoration(
+                    color: Theme.of(context)
+                        .colorScheme
+                        .primary
+                        .withValues(alpha: 0.07),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  outsideDecoration: const BoxDecoration(
+                    color: Colors.transparent,
+                  ),
+                  outsideTextStyle: TextStyle(
+                    color: Theme.of(context)
+                        .colorScheme
+                        .onSurface
+                        .withValues(alpha: 0.32),
+                  ),
                   todayDecoration: BoxDecoration(
                     color: Theme.of(context).colorScheme.primaryContainer,
-                    shape: BoxShape.circle,
+                    borderRadius: BorderRadius.circular(8),
                   ),
                   todayTextStyle: TextStyle(
                     color: Theme.of(context).colorScheme.onPrimaryContainer,
                   ),
                   selectedDecoration: BoxDecoration(
                     color: Theme.of(context).colorScheme.primary,
-                    shape: BoxShape.circle,
+                    borderRadius: BorderRadius.circular(8),
                   ),
                 ),
                 calendarBuilders: CalendarBuilders<CalendarEvent>(

@@ -72,15 +72,17 @@ class HomeScreen extends ConsumerWidget {
 
     // Tippen auf einen Termin/Countdown → in die Kalender-Tagesansicht springen.
     void openInCalendar(CalendarEvent e) {
-      ref.read(calendarJumpProvider.notifier).set(e.start);
+      ref.read(calendarJumpProvider.notifier).set(CalendarJumpTarget(e.start));
       context.go('/calendar');
     }
 
-    // Tippen auf einen Tag der 2-Wochen-Übersicht → Kalender-Tagesansicht.
+    // Tippen auf die 2-Wochen-Übersicht → Kalender-Tab (Monatsansicht), nicht
+    // in die Tagesansicht.
     void openDay(DateTime day) {
-      ref
-          .read(calendarJumpProvider.notifier)
-          .set(DateTime(day.year, day.month, day.day, 8));
+      ref.read(calendarJumpProvider.notifier).set(
+            CalendarJumpTarget(DateTime(day.year, day.month, day.day),
+                openDay: false),
+          );
       context.go('/calendar');
     }
 
@@ -865,8 +867,12 @@ class _NextcloudAvatar extends ConsumerStatefulWidget {
 }
 
 class _NextcloudAvatarState extends ConsumerState<_NextcloudAvatar> {
+  /// Frühestens alle … darf ein manueller Sync per Tipp ausgelöst werden.
+  static const _cooldown = Duration(minutes: 1);
+
   int _taps = 0;
   DateTime _lastTap = DateTime.fromMillisecondsSinceEpoch(0);
+  DateTime _lastSyncAt = DateTime.fromMillisecondsSinceEpoch(0);
 
   void _handleTap() {
     final now = DateTime.now();
@@ -884,8 +890,25 @@ class _NextcloudAvatarState extends ConsumerState<_NextcloudAvatar> {
     _triggerSync();
   }
 
-  void _triggerSync() {
+  void _triggerSync({bool force = false}) {
     if (ref.read(syncStatusProvider).status == SyncStatus.syncing) return;
+
+    final now = DateTime.now();
+    final since = now.difference(_lastSyncAt);
+    if (!force && since < _cooldown) {
+      // Sperre aktiv – nur beim ersten Tipp einer Serie kurz Bescheid geben.
+      if (_taps <= 1) {
+        final remaining = (_cooldown - since).inSeconds + 1;
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text('Gerade erst synchronisiert – bitte noch $remaining s '
+              'warten.'),
+          duration: const Duration(seconds: 2),
+        ));
+      }
+      return;
+    }
+
+    _lastSyncAt = now;
     ref.invalidate(eventsControllerProvider);
     ref.invalidate(tasksControllerProvider);
     ref.invalidate(pendingSyncCountProvider);
@@ -911,19 +934,21 @@ class _NextcloudAvatarState extends ConsumerState<_NextcloudAvatar> {
     final eventsInfo = eventsAsync.hasError
         ? 'Fehler: ${eventsAsync.error}'
         : '${eventsAsync.value?.length ?? 0} Termine geladen';
-    final lastSync = sync.lastSuccessAt == null
-        ? '—'
-        : DateFormat('d. MMM y, HH:mm', 'de_DE').format(sync.lastSuccessAt!);
+    String fmt(DateTime? d) =>
+        d == null ? '—' : DateFormat('d. MMM y, HH:mm:ss', 'de_DE').format(d);
 
     final lines = <String>[
       'Verbindung: ${a == null ? 'NICHT verbunden ⚠️' : 'verbunden'}',
       if (a != null) 'Benutzer: ${a.username}',
       if (a != null) 'Server: ${a.baseUrl}',
       'Status: ${_statusLabel(sync.status)}',
-      'Letzter erfolgreicher Sync: $lastSync',
+      'Letzter Versuch: ${fmt(sync.lastAttemptAt)}',
+      'Letzter erfolgreicher Sync: ${fmt(sync.lastSuccessAt)}',
       'Termine: $eventsInfo',
       'Offene Offline-Änderungen: ${pending ?? '—'}',
-      if (sync.lastError != null) '\nLetzter Fehler:\n${sync.lastError}',
+      '\n— Details —',
+      sync.debugInfo ?? 'Noch kein Sync-Bericht vorhanden.',
+      if (sync.lastError != null) '\n⚠️ Letzter Fehler:\n${sync.lastError}',
     ];
 
     if (!mounted) return;
@@ -938,7 +963,7 @@ class _NextcloudAvatarState extends ConsumerState<_NextcloudAvatar> {
           TextButton(
             onPressed: () {
               Navigator.pop(ctx);
-              _triggerSync();
+              _triggerSync(force: true);
             },
             child: const Text('Jetzt synchronisieren'),
           ),

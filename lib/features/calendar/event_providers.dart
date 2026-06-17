@@ -9,17 +9,27 @@ import '../members/member_settings.dart';
 import 'calendar_event.dart';
 import 'events_builder.dart';
 
-/// Ziel-Datum, zu dem die Kalender-Tagesansicht springen soll (z.B. beim Tippen
-/// auf einen Termin/Countdown auf der Startseite). `null` = kein Sprung offen.
-class CalendarJump extends Notifier<DateTime?> {
-  @override
-  DateTime? build() => null;
+/// Sprungziel für den Kalender (von der Startseite ausgelöst).
+class CalendarJumpTarget {
+  const CalendarJumpTarget(this.date, {this.openDay = true});
 
-  void set(DateTime? date) => state = date;
+  final DateTime date;
+
+  /// true = direkt die Tagesansicht öffnen (z.B. Termin/Countdown angetippt),
+  /// false = nur im Monat zu diesem Tag springen (2-Wochen-Übersicht angetippt).
+  final bool openDay;
+}
+
+/// Offenes Sprungziel für die Kalenderansicht – `null` = kein Sprung offen.
+class CalendarJump extends Notifier<CalendarJumpTarget?> {
+  @override
+  CalendarJumpTarget? build() => null;
+
+  void set(CalendarJumpTarget? target) => state = target;
 }
 
 final calendarJumpProvider =
-    NotifierProvider<CalendarJump, DateTime?>(CalendarJump.new);
+    NotifierProvider<CalendarJump, CalendarJumpTarget?>(CalendarJump.new);
 
 /// Aktuell im Kalender ausgewählter Tag – wird genutzt, um „Neuer Termin" (über
 /// das „+") mit dem gewählten Tag statt „heute" vorzubelegen.
@@ -61,6 +71,16 @@ class EventsController extends AsyncNotifier<List<CalendarEvent>> {
   void _setOnline() => _post((c) => c.setOnline());
   void _setOffline(Object e) => _post((c) => c.setOffline(e.toString()));
 
+  /// Wertet das Sync-Ergebnis aus: Status (online/offline) + Debug-Bericht.
+  void _applySyncResult(CalDavSnapshot snap) {
+    if (snap.fromCache && snap.error != null) {
+      _setOffline(snap.error!);
+    } else {
+      _setOnline();
+    }
+    _post((c) => c.setDebug(snap.debugReport()));
+  }
+
   @override
   Future<List<CalendarEvent>> build() async {
     ref.onDispose(() => _disposed = true);
@@ -78,7 +98,7 @@ class EventsController extends AsyncNotifier<List<CalendarEvent>> {
       _setSyncing();
       try {
         final fresh = await repo.sync(account);
-        _setOnline();
+        _applySyncResult(fresh);
         return buildEventsFromSnapshot(fresh);
       } catch (e) {
         _setOffline(e);
@@ -95,7 +115,7 @@ class EventsController extends AsyncNotifier<List<CalendarEvent>> {
     try {
       final fresh = await repo.sync(account);
       if (_disposed) return;
-      _setOnline();
+      _applySyncResult(fresh);
       state = AsyncData(buildEventsFromSnapshot(fresh));
     } catch (e) {
       // Offline o.ä. → gecachter Stand bleibt sichtbar.
@@ -110,7 +130,7 @@ class EventsController extends AsyncNotifier<List<CalendarEvent>> {
     try {
       final fresh = await repo.sync(account);
       if (_disposed) return;
-      _setOnline();
+      _applySyncResult(fresh);
       state = AsyncData(buildEventsFromSnapshot(fresh));
     } catch (e) {
       _setOffline(e);

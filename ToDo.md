@@ -46,7 +46,13 @@ Reihenfolge ≈ Priorität:
 - [x] „Neuer Termin" übernimmt jetzt den im Kalender gewählten Tag (statt heute)
 - [x] Termin lässt sich beim Bearbeiten in einen anderen Kalender verschieben
 - [x] Sync-Diagnose: 5× auf den Statuspunkt am Avatar tippen zeigt ein
-      Fehler-/Info-Popup (Verbindung, Status, letzter Fehler, Zähler)
+      Fehler-/Info-Popup (Verbindung, Status, letzter Fehler, Zähler); inkl.
+      Debug-Bericht (Quelle, Collections + Anzahl, was nicht klappt)
+- [x] Sync-per-Tipp: 1 Sync, danach 1 Minute Sperre (Diagnose bleibt erreichbar)
+- [x] Tippen auf die 2-Wochen-Übersicht öffnet den Kalender im **Monat** (nicht
+      Tagesansicht)
+- [x] Monatsansicht: Tage des aktuellen Monats leicht hinterlegt, Tage außerhalb
+      blasser
 
 ---
 

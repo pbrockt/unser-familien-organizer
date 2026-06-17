@@ -23,6 +23,8 @@ class SyncState {
     this.status = SyncStatus.idle,
     this.lastError,
     this.lastSuccessAt,
+    this.debugInfo,
+    this.lastAttemptAt,
   });
 
   final SyncStatus status;
@@ -33,16 +35,26 @@ class SyncState {
   /// Zeitpunkt des letzten erfolgreichen Syncs (sonst null).
   final DateTime? lastSuccessAt;
 
+  /// Zeitpunkt des letzten Sync-Versuchs (egal ob erfolgreich).
+  final DateTime? lastAttemptAt;
+
+  /// Debug-Bericht des letzten Syncs (Quelle, Collections + Anzahl, Fehler).
+  final String? debugInfo;
+
   SyncState copyWith({
     SyncStatus? status,
     String? lastError,
     DateTime? lastSuccessAt,
+    DateTime? lastAttemptAt,
+    String? debugInfo,
     bool clearError = false,
   }) =>
       SyncState(
         status: status ?? this.status,
         lastError: clearError ? null : (lastError ?? this.lastError),
         lastSuccessAt: lastSuccessAt ?? this.lastSuccessAt,
+        lastAttemptAt: lastAttemptAt ?? this.lastAttemptAt,
+        debugInfo: debugInfo ?? this.debugInfo,
       );
 }
 
@@ -50,7 +62,10 @@ class SyncStatusController extends Notifier<SyncState> {
   @override
   SyncState build() => const SyncState();
 
-  void setSyncing() => state = state.copyWith(status: SyncStatus.syncing);
+  void setSyncing() => state = state.copyWith(
+        status: SyncStatus.syncing,
+        lastAttemptAt: DateTime.now(),
+      );
 
   void setOnline() => state = state.copyWith(
         status: SyncStatus.online,
@@ -60,6 +75,8 @@ class SyncStatusController extends Notifier<SyncState> {
 
   void setOffline(String error) =>
       state = state.copyWith(status: SyncStatus.offline, lastError: error);
+
+  void setDebug(String info) => state = state.copyWith(debugInfo: info);
 }
 
 final syncStatusProvider =
