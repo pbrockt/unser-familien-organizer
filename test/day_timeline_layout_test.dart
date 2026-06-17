@@ -51,6 +51,17 @@ void main() {
       expect(res.single.event.uid, 'A');
     });
 
+    test('mehrtägiger Termin mit Uhrzeit wird auf den Tag geklemmt im Raster '
+        'gezeigt', () {
+      // Termin von Vortag 22:00 bis Folgetag 02:00 → am 14.6. den ganzen Tag.
+      final res = layoutDayEvents([
+        _ev('M', DateTime(2026, 6, 13, 22, 0), DateTime(2026, 6, 15, 2, 0)),
+      ], day);
+      expect(res.length, 1);
+      expect(res.single.startMinute, 0);
+      expect(res.single.endMinute, 1440);
+    });
+
     test('drei sich überlappende Termine: drei Spalten', () {
       final res = layoutDayEvents([
         _ev('A', at(9, 0), at(11, 0)),

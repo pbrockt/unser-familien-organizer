@@ -791,29 +791,48 @@ class _NextcloudAvatar extends ConsumerWidget {
 
     final status = ref.watch(syncStatusProvider);
     final dot = radius * 0.5;
-    return SizedBox(
-      width: radius * 2,
-      height: radius * 2,
-      child: Stack(
-        children: [
-          avatar,
-          Positioned(
-            right: 0,
-            bottom: 0,
-            child: Container(
-              width: dot,
-              height: dot,
-              decoration: BoxDecoration(
-                color: _statusColor(context, status),
-                shape: BoxShape.circle,
-                border: Border.all(
-                  color: Theme.of(context).scaffoldBackgroundColor,
-                  width: 2,
+
+    // Tippen auf den Avatar/Statuspunkt stößt eine Synchronisation an.
+    void triggerSync() {
+      if (status == SyncStatus.syncing) return; // läuft bereits
+      ref.invalidate(eventsControllerProvider);
+      ref.invalidate(tasksControllerProvider);
+      ref.invalidate(pendingSyncCountProvider);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Synchronisiere mit der Nextcloud…'),
+          duration: Duration(seconds: 2),
+        ),
+      );
+    }
+
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: triggerSync,
+      child: SizedBox(
+        width: radius * 2,
+        height: radius * 2,
+        child: Stack(
+          children: [
+            avatar,
+            Positioned(
+              right: 0,
+              bottom: 0,
+              child: Container(
+                width: dot,
+                height: dot,
+                decoration: BoxDecoration(
+                  color: _statusColor(context, status),
+                  shape: BoxShape.circle,
+                  border: Border.all(
+                    color: Theme.of(context).scaffoldBackgroundColor,
+                    width: 2,
+                  ),
                 ),
               ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }

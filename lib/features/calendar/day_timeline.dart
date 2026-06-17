@@ -40,7 +40,9 @@ List<PositionedDayEvent> layoutDayEvents(
 
   final items = <_Span>[];
   for (final e in events) {
-    if (e.allDay || e.isMultiDay) continue;
+    // Echte Ganztags-Termine kommen in die Kopfzeile; mehrtägige Termine mit
+    // Uhrzeiten werden hier (auf den jeweiligen Tag geklemmt) im Raster gezeigt.
+    if (e.allDay) continue;
     final end = e.end ?? e.start.add(const Duration(hours: 1));
     final s = e.start.isBefore(dayStart) ? dayStart : e.start;
     final en = end.isAfter(dayEnd) ? dayEnd : end;
@@ -155,8 +157,9 @@ class _DayTimelineState extends State<DayTimeline> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final allDay =
-        widget.events.where((e) => e.allDay || e.isMultiDay).toList();
+    // Nur echte Ganztags-Termine in die Kopfzeile; mehrtägige Termine mit
+    // Uhrzeiten erscheinen als Block im Stundenraster.
+    final allDay = widget.events.where((e) => e.allDay).toList();
     final positioned = layoutDayEvents(widget.events, widget.day);
 
     return Column(
@@ -292,7 +295,12 @@ class _DayTimelineState extends State<DayTimeline> {
                 ),
                 if (height > 40)
                   Text(
-                    DateFormat('HH:mm').format(p.event.start),
+                    p.event.isMultiDay
+                        ? '${DateFormat('d. MMM', 'de_DE').format(p.event.start)} – '
+                            '${DateFormat('d. MMM', 'de_DE').format(p.event.endDayInclusive)}'
+                        : DateFormat('HH:mm').format(p.event.start),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                     style: theme.textTheme.labelSmall
                         ?.copyWith(color: onColor.withValues(alpha: .85)),
                   ),
