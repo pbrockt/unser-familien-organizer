@@ -1,76 +1,78 @@
 # 📅 Unser Familien-Organizer
 
-**Der Familienplaner für die Nextcloud!**
+**Der Familienplaner für deine Nextcloud.**
 
-Selbst-gehosteter **Familien-Organizer** — Kalender, Aufgaben und Einkaufsliste
-für die ganze Familie. Alle Daten leben in deiner eigenen **Nextcloud** und
-werden per **CalDAV** synchronisiert.
+Kalender, Aufgaben und Einkaufsliste für die ganze Familie – alle Daten liegen in
+**deiner eigenen Nextcloud** und werden per CalDAV synchronisiert.
 
-> Kein fremder Server. Kein Abo. Kein fremdes Konto.
+> 🔒 Kein fremder Server. Kein Abo. Kein fremdes Konto. Deine Daten bleiben bei dir.
 
-## Download
+---
 
-Fertige Builds gibt es unter **[Releases](https://github.com/pbrockt/unser-familien-organizer/releases)**:
+## ✨ Was kann die App?
 
-| Plattform | Datei |
-|---|---|
-| 📱 Android | `UnserFamilienOrganizer-<version>.apk` |
-| 🪟 Windows | `UnserFamilienOrganizer-Setup-<version>.exe` (Installer) · `…-windows-<version>.zip` (portabel) |
-| 🐧 Linux | `UnserFamilienOrganizer-<version>-amd64.deb` · `…-linux-<version>.tar.gz` (mit `install.sh`) |
+- 📅 **Kalender** – Monats- und Tagesansicht, mehrtägige Termine, Serientermine,
+  farbige Kalender pro Person, Wetter-Vorschau und Filter (z. B. „nur Arbeit")
+- ⏰ **Erinnerungen** – pro Termin einstellbar (5 Min bis 1 Stunde vorher)
+- ✔️ **Aufgaben** – Listen mit Fälligkeitsdatum, Abhaken, per Drag&Drop sortieren
+- 🛒 **Einkaufsliste** – schnell hinzufügen, abhaken, Erledigtes aufräumen
+- 🏠 **Startseite** – Überblick über Heute & Morgen, 2-Wochen-Kalender, Countdown
+  („Noch 10 Tage bis Ferien")
+- 👪 **Familie** – Kalender/Listen an andere Nextcloud-Nutzer freigeben
+- 📲 **Home-Widgets** (Android), **Benachrichtigungen** und **Offline-Modus**
+- 🔄 **Automatische Updates** beim App-Start
+- 💻 Läuft auf **Android, Windows und Linux**
 
-Installationshinweise zu Desktop: siehe [installer/README.md](installer/README.md).
+---
 
-## Konzept
+## 📥 Installation
 
-| Bereich | Speicherung in Nextcloud |
-|---|---|
-| 📅 Kalender | `VEVENT` per CalDAV (RFC 4791) |
-| ✔️ Aufgaben | `VTODO` per CalDAV (gleiche URL-Basis) |
-| 🛒 Einkaufsliste | spezielle `VTODO`-Collection (`STATUS:COMPLETED` = abgehakt) |
-| 👪 Familie | farbcodierte Personen + geteilte Kalender/Listen |
+Fertige Versionen gibt es immer unter
+**[Releases](https://github.com/pbrockt/unser-familien-organizer/releases)**.
 
-Die App ist reines **Frontend** — kein eigenes Backend nötig.
+### 📱 Android (empfohlen)
+1. Unter [Releases](https://github.com/pbrockt/unser-familien-organizer/releases)
+   die neueste Datei **`UnserFamilienOrganizer-<version>.apk`** herunterladen.
+2. Die Datei öffnen und installieren. (Beim ersten Mal fragt Android, ob es
+   Apps aus dieser Quelle installieren darf – das einmal erlauben.)
+3. Fertig! Künftige Updates meldet die App selbst beim Start.
 
-## Tech-Stack
+### 🪟 Windows / 🐧 Linux
+Siehe die passenden Dateien im Release. Details:
+[installer/README.md](installer/README.md).
 
-Flutter · Riverpod · GoRouter · enough_icalendar · table_calendar · sqflite ·
-flutter_local_notifications · flutter_secure_storage · workmanager
+---
 
-## Architektur
+## 🚀 Einrichtung in 3 Schritten
 
-```
-lib/
-├── core/
-│   ├── caldav/   ← CalDAV Client + iCal Parser + Sync Engine (kritischer Kern)
-│   ├── auth/     ← Nextcloud Login Flow v2 / Account
-│   ├── sync/     ← Offline-Queue, Konfliktlösung
-│   ├── db/       ← SQLite-Cache
-│   └── router/   ← GoRouter
-├── features/
-│   ├── calendar/ ← VEVENT
-│   ├── tasks/    ← VTODO
-│   ├── shopping/ ← Einkaufsliste (VTODO-basiert)
-│   └── family/   ← Familiengruppen / Personen
-└── shared/       ← Theme, Widgets, Utils
-```
+1. **App öffnen** und oben links auf das Profilbild bzw. unten über die
+   Einstellungen (Zahnrad) zu **„Familie & Verbindung"** gehen.
+2. **Mit Nextcloud verbinden:** Adresse deiner Nextcloud eingeben (z. B.
+   `https://cloud.example.de`) und im Browser anmelden. Die App legt automatisch
+   ein eigenes App-Passwort an – dein richtiges Passwort sieht sie nie.
+   *(Heimserver mit eigenem Zertifikat? Dafür gibt es beim Anmelden eine Option.)*
+3. **Loslegen:** Deine Kalender und Aufgabenlisten erscheinen automatisch. Neue
+   kannst du direkt in der App anlegen.
 
-## Build
+> 💡 Eine ausführliche Schritt-für-Schritt-Anleitung mit allen Einstellungen
+> (Benachrichtigungen, Wetter, Familienfreigabe, Widgets …) findest du in der
+> **[📖 Anleitung](docs/ANLEITUNG.md)**.
 
-Das Release-APK wird von **GitHub Actions** gebaut (Tab *Actions* → *Build APK*
-→ Artifact `UnserFamilienOrganizer-release`). Lokal:
+---
 
-```bash
-flutter pub get
-flutter analyze
-flutter test
-flutter build apk --release   # benötigt viel RAM
-```
+## 🔄 Updates
 
-## Roadmap
+Die App prüft **beim Start automatisch**, ob eine neue Version vorliegt, und bietet
+sie zum direkten Download an. Du kannst auch jederzeit manuell suchen:
+**Einstellungen → App → „Nach Updates suchen"**.
 
-Siehe [ToDo.md](ToDo.md) — der Phasenplan von Setup bis Release.
-Kritischer Pfad: **Phase 2 – CalDAV Core**.
+---
 
-## Lizenz
+## 🔧 Für Technik-Interessierte
+
+Tech-Stack, Architektur, Build-Anleitung und Mitwirken:
+**[docs/TECHNIK.md](docs/TECHNIK.md)** · Roadmap: [ToDo.md](ToDo.md)
+
+## 📜 Lizenz
 
 [MIT](LICENSE) © 2026 pbrockt
