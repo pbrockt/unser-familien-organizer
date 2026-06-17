@@ -16,6 +16,57 @@ final pendingSyncCountProvider = FutureProvider.autoDispose<int>((ref) async {
   return ref.read(caldavRepositoryProvider).pendingCount(account);
 });
 
+/// Anzahl Tage, die unter „Anstehende Termine" vorausgeschaut werden
+/// (Standard: 2 = heute + morgen). In den Einstellungen anpassbar.
+final upcomingDaysProvider =
+    AsyncNotifierProvider<UpcomingDaysController, int>(
+        UpcomingDaysController.new);
+
+class UpcomingDaysController extends AsyncNotifier<int> {
+  static const _key = 'home_upcoming_days';
+
+  @override
+  Future<int> build() async {
+    final prefs = await SharedPreferences.getInstance();
+    final v = prefs.getInt(_key) ?? 2;
+    return v < 1 ? 1 : v;
+  }
+
+  Future<void> set(int days) async {
+    final prefs = await SharedPreferences.getInstance();
+    final v = days < 1 ? 1 : days;
+    await prefs.setInt(_key, v);
+    state = AsyncData(v);
+  }
+}
+
+/// Auf der Startseite gewählter Kalender-Filter (Name eines gespeicherten
+/// Presets) oder `null` = „Alle". Wird gerätelokal gespeichert.
+final homeCalendarFilterProvider =
+    AsyncNotifierProvider<HomeCalendarFilterController, String?>(
+        HomeCalendarFilterController.new);
+
+class HomeCalendarFilterController extends AsyncNotifier<String?> {
+  static const _key = 'home_calendar_filter';
+
+  @override
+  Future<String?> build() async {
+    final prefs = await SharedPreferences.getInstance();
+    final v = prefs.getString(_key);
+    return (v == null || v.isEmpty) ? null : v;
+  }
+
+  Future<void> set(String? name) async {
+    final prefs = await SharedPreferences.getInstance();
+    if (name == null || name.isEmpty) {
+      await prefs.remove(_key);
+    } else {
+      await prefs.setString(_key, name);
+    }
+    state = AsyncData(name);
+  }
+}
+
 /// Kurz-Zusammenfassung der Einkaufsliste fürs Dashboard.
 typedef ShoppingSummary = ({String? listName, int openCount});
 

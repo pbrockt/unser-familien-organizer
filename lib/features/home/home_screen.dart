@@ -11,6 +11,7 @@ import '../../core/auth/nextcloud_account.dart';
 import '../../core/sync/sync_status.dart';
 import '../../shared/widgets/blob_background.dart';
 import '../calendar/calendar_event.dart';
+import '../calendar/calendar_presets.dart';
 import '../calendar/event_editor_sheet.dart';
 import '../calendar/event_providers.dart';
 import '../family/family_screen.dart';
@@ -45,8 +46,28 @@ class HomeScreen extends ConsumerWidget {
 
     final now = DateTime.now();
     final today = DateTime(now.year, now.month, now.day);
-    final homeEvents = filterHomeEvents(events, memberSettings);
-    final upcoming = _upcoming(homeEvents, now, today);
+    final upcomingDays = ref.watch(upcomingDaysProvider).value ?? 2;
+    final presets = ref.watch(calendarPresetsProvider).value ?? const [];
+    final selectedFilter = ref.watch(homeCalendarFilterProvider).value;
+
+    // Startseiten-Termine: nur „Startseite"-Kalender, optional zusätzlich auf ein
+    // gewähltes Filter-Preset eingeschränkt.
+    var homeEvents = filterHomeEvents(events, memberSettings);
+    if (selectedFilter != null) {
+      CalendarPreset? preset;
+      for (final p in presets) {
+        if (p.name == selectedFilter) {
+          preset = p;
+          break;
+        }
+      }
+      if (preset != null) {
+        final visible = preset.visibleHrefs;
+        homeEvents =
+            homeEvents.where((e) => visible.contains(e.calendarHref)).toList();
+      }
+    }
+    final upcoming = _upcoming(homeEvents, now, today, upcomingDays);
     final countdowns = countdownEvents(events, memberSettings, today);
 
     // Tippen auf einen Termin/Countdown → in die Kalender-Tagesansicht springen.
@@ -77,7 +98,6 @@ class HomeScreen extends ConsumerWidget {
                 padding: const EdgeInsets.only(bottom: 28),
                 children: [
                   _TopBar(account: account),
-                  _Greeting(account: account),
                   if (pendingSync > 0)
                     _SyncBanner(
                       count: pendingSync,
@@ -90,7 +110,18 @@ class HomeScreen extends ConsumerWidget {
                   if (account == null)
                     const _ConnectCard()
                   else ...[
-                    const _SectionLabel('Nächste 2 Wochen'),
+                    _SectionLabel(
+                      'Nächste 2 Wochen',
+                      trailing: presets.isEmpty
+                          ? null
+                          : _HomeFilterButton(
+                              presets: presets,
+                              selected: selectedFilter,
+                              onSelected: (name) => ref
+                                  .read(homeCalendarFilterProvider.notifier)
+                                  .set(name),
+                            ),
+                    ),
                     _TwoWeekCalendar(
                       today: today,
                       events: homeEvents,
@@ -98,10 +129,10 @@ class HomeScreen extends ConsumerWidget {
                     ),
                     const _SectionLabel('Anstehende Termine'),
                     if (upcoming.isEmpty)
-                      const _EmptyHint('Keine Termine heute oder morgen 🎉')
+                      const _EmptyHint('Keine anstehenden Termine 🎉')
                     else
                       SizedBox(
-                        height: 150,
+                        height: 118,
                         child: ListView.builder(
                           scrollDirection: Axis.horizontal,
                           padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -135,22 +166,21 @@ class HomeScreen extends ConsumerWidget {
     );
   }
 
-  /// Nur Termine von heute und (maximal) morgen.
+  /// Anstehende Termine der nächsten [days] Tage (1 = nur heute).
   List<CalendarEvent> _upcoming(
-      List<CalendarEvent> events, DateTime now, DateTime today) {
-    final tomorrow = today.add(const Duration(days: 1));
-    final endExclusive = today.add(const Duration(days: 2));
+      List<CalendarEvent> events, DateTime now, DateTime today, int days) {
+    final lastDay = today.add(Duration(days: days - 1));
+    final endExclusive = today.add(Duration(days: days));
     final list = events.where((e) {
       if (e.allDay) {
         return !e.endDayInclusive.isBefore(today) &&
-            !e.startDay.isAfter(tomorrow);
+            !e.startDay.isAfter(lastDay);
       }
-      // Bereits beendete Termine ausblenden; laufende und kommende (bis morgen)
-      // anzeigen.
+      // Bereits beendete Termine ausblenden; laufende und kommende anzeigen.
       return !e.hasPassed(now) && e.start.isBefore(endExclusive);
     }).toList()
       ..sort((a, b) => a.start.compareTo(b.start));
-    return list.take(12).toList();
+    return list.take(20).toList();
   }
 }
 
@@ -164,11 +194,14 @@ class _TopBar extends StatelessWidget {
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+      padding: const EdgeInsets.fromLTRB(16, 10, 16, 0),
       child: Row(
         children: [
-          _NextcloudAvatar(account: account, radius: 22),
-          const Spacer(),
+          _NextcloudAvatar(account: account, radius: 24),
+          const SizedBox(width: 12),
+          // Begrüßung + Datum/Uhrzeit direkt neben dem Avatar (spart Platz).
+          Expanded(child: _Greeting(account: account)),
+          const SizedBox(width: 8),
           Material(
             color: Theme.of(context).cardColor,
             shape: const CircleBorder(),
@@ -180,7 +213,7 @@ class _TopBar extends StatelessWidget {
                 MaterialPageRoute(builder: (_) => const SettingsScreen()),
               ),
               child: Padding(
-                padding: const EdgeInsets.all(10),
+                padding: const EdgeInsets.all(9),
                 child: Icon(Icons.settings_outlined, color: scheme.onSurface),
               ),
             ),
@@ -233,42 +266,108 @@ class _GreetingState extends State<_Greeting> {
         ? ''
         : ', ${name[0].toUpperCase()}${name.substring(1)}';
     final dateLine =
-        '${DateFormat('EEEE, d. MMMM', 'de_DE').format(_now)} · '
+        '${DateFormat('EEE, d. MMM', 'de_DE').format(_now)} · '
         '${DateFormat('HH:mm').format(_now)} Uhr';
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text('${_greeting()}$who',
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+                fontSize: 19,
+                fontWeight: FontWeight.w800,
+                color: scheme.onSurface)),
+        const SizedBox(height: 1),
+        Text(dateLine,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+                fontSize: 12.5,
+                fontWeight: FontWeight.w600,
+                color: scheme.primary)),
+      ],
+    );
+  }
+}
+
+class _SectionLabel extends StatelessWidget {
+  const _SectionLabel(this.text, {this.trailing});
+  final String text;
+  final Widget? trailing;
+  @override
+  Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(20, 14, 20, 4),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+      padding: EdgeInsets.fromLTRB(20, 22, trailing == null ? 20 : 12, 12),
+      child: Row(
         children: [
-          Text('${_greeting()}$who',
-              style: TextStyle(
-                  fontSize: 28,
-                  fontWeight: FontWeight.w800,
-                  color: scheme.onSurface)),
-          const SizedBox(height: 2),
-          Text(dateLine,
-              style: TextStyle(
-                  fontSize: 15,
-                  fontWeight: FontWeight.w600,
-                  color: scheme.primary)),
+          Expanded(
+            child: Text(text,
+                style: TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w800,
+                    color: Theme.of(context).colorScheme.onSurface)),
+          ),
+          ?trailing,
         ],
       ),
     );
   }
 }
 
-class _SectionLabel extends StatelessWidget {
-  const _SectionLabel(this.text);
-  final String text;
+/// Filter-Auswahl für die Startseite: „Alle" + gespeicherte Presets.
+class _HomeFilterButton extends StatelessWidget {
+  const _HomeFilterButton({
+    required this.presets,
+    required this.selected,
+    required this.onSelected,
+  });
+  final List<CalendarPreset> presets;
+  final String? selected;
+  final void Function(String? name) onSelected;
+
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(20, 22, 20, 12),
-      child: Text(text,
-          style: TextStyle(
-              fontSize: 15,
-              fontWeight: FontWeight.w800,
-              color: Theme.of(context).colorScheme.onSurface)),
+    final scheme = Theme.of(context).colorScheme;
+    final label = selected ?? 'Alle';
+    return PopupMenuButton<String?>(
+      tooltip: 'Filter',
+      onSelected: onSelected,
+      itemBuilder: (ctx) => [
+        CheckedPopupMenuItem<String?>(
+          value: null,
+          checked: selected == null,
+          child: const Text('Alle'),
+        ),
+        for (final p in presets)
+          CheckedPopupMenuItem<String?>(
+            value: p.name,
+            checked: selected == p.name,
+            child: Text(p.name),
+          ),
+      ],
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+        decoration: BoxDecoration(
+          color: scheme.primaryContainer.withValues(alpha: 0.5),
+          borderRadius: BorderRadius.circular(20),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.filter_list, size: 16, color: scheme.onSurfaceVariant),
+            const SizedBox(width: 6),
+            Text(label,
+                style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: scheme.onSurface)),
+            Icon(Icons.arrow_drop_down,
+                size: 18, color: scheme.onSurfaceVariant),
+          ],
+        ),
+      ),
     );
   }
 }
@@ -444,11 +543,11 @@ class _EventCard extends StatelessWidget {
         onTap: onTap,
         onLongPress: onLongPress,
         child: Container(
-          width: 230,
-          padding: const EdgeInsets.all(16),
+          width: 185,
+          padding: const EdgeInsets.all(12),
           decoration: BoxDecoration(
             color: Theme.of(context).cardColor,
-            borderRadius: BorderRadius.circular(22),
+            borderRadius: BorderRadius.circular(18),
             boxShadow: _softShadow(context),
             border: highlighted
                 ? Border.all(color: scheme.primary, width: 1.6)
@@ -461,25 +560,25 @@ class _EventCard extends StatelessWidget {
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(
-                      fontSize: 20,
+                      fontSize: 15,
                       fontWeight: FontWeight.w700,
                       height: 1.15,
                       color: scheme.onSurface)),
               if (soon != null) ...[
-                const SizedBox(height: 4),
+                const SizedBox(height: 3),
                 Text(soon,
                     style: TextStyle(
-                        fontSize: 13,
+                        fontSize: 12,
                         fontWeight: FontWeight.w700,
                         color: scheme.primary)),
               ] else if (event.location != null &&
                   event.location!.isNotEmpty) ...[
-                const SizedBox(height: 4),
+                const SizedBox(height: 3),
                 Text('📍 ${event.location}',
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: TextStyle(
-                        fontSize: 13, color: scheme.onSurfaceVariant)),
+                        fontSize: 12, color: scheme.onSurfaceVariant)),
               ],
               const Spacer(),
               Row(
@@ -492,8 +591,10 @@ class _EventCard extends StatelessWidget {
                       children: [
                         // Tages-Hinweis (Heute/Morgen/Datum) klein über der Zeit.
                         Text(_dayLabel(),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
                             style: TextStyle(
-                                fontSize: 12,
+                                fontSize: 11,
                                 fontWeight: FontWeight.w700,
                                 color: highlighted
                                     ? scheme.primary
@@ -502,7 +603,7 @@ class _EventCard extends StatelessWidget {
                         if (event.allDay)
                           Text('Ganztägig',
                               style: TextStyle(
-                                  fontSize: 16,
+                                  fontSize: 14,
                                   fontWeight: FontWeight.w800,
                                   color: scheme.onSurface))
                         else
@@ -512,7 +613,7 @@ class _EventCard extends StatelessWidget {
                               Text(
                                 DateFormat('HH:mm').format(event.start),
                                 style: TextStyle(
-                                    fontSize: 16,
+                                    fontSize: 14,
                                     fontWeight: FontWeight.w800,
                                     color: scheme.onSurface),
                               ),
@@ -522,7 +623,7 @@ class _EventCard extends StatelessWidget {
                                   child: Text(
                                     '– ${DateFormat('HH:mm').format(event.end!)}',
                                     style: TextStyle(
-                                        fontSize: 16,
+                                        fontSize: 14,
                                         fontWeight: FontWeight.w600,
                                         color: scheme.onSurface
                                             .withValues(alpha: 0.45)),
@@ -533,8 +634,8 @@ class _EventCard extends StatelessWidget {
                       ],
                     ),
                   ),
-                  const SizedBox(width: 8),
-                  _Avatar(name: event.calendarName, color: color, radius: 14),
+                  const SizedBox(width: 6),
+                  _Avatar(name: event.calendarName, color: color, radius: 12),
                 ],
               ),
             ],

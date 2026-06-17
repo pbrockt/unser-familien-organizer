@@ -8,6 +8,7 @@ import '../../core/platform/platform_support.dart';
 import '../../shared/theme/app_theme.dart';
 import '../calendar/event_templates.dart';
 import '../family/family_screen.dart';
+import '../home/dashboard_providers.dart';
 import '../members/member_settings.dart';
 import '../weather/weather_service.dart';
 import 'about_update_sheet.dart';
@@ -26,6 +27,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen>
     with WidgetsBindingObserver {
   bool? _permissionGranted;
   bool? _batteryIgnored;
+  int _versionTaps = 0;
 
   @override
   void initState() {
@@ -88,6 +90,31 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen>
     }
   }
 
+  /// Easter Egg: 5× auf die Versionsnummer tippen zeigt eine Danksagung.
+  void _onVersionTap() {
+    _versionTaps++;
+    if (_versionTaps < 5) return;
+    _versionTaps = 0;
+    showDialog<void>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Danke, dass du dabei bist! 💛'),
+        content: const Text(
+          'Diese App ist mit viel Liebe für unsere Familie entstanden – '
+          'gemeinsam von Phillipp und Claude. 🛠️\n\n'
+          'Schön, dass du „Unser Familien-Organizer" nutzt. '
+          'Wir sind einfach happy! 🎉',
+        ),
+        actions: [
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('🥳 Weiter geht\'s'),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final settingsAsync = ref.watch(notificationSettingsProvider);
@@ -98,6 +125,9 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen>
     final accent = ref.watch(accentColorProvider).value ?? AppTheme.orange;
     final templatesEnabled = ref.watch(templatesEnabledProvider).value ?? true;
     final weatherPlz = ref.watch(weatherPlzProvider).value ?? '';
+    final upcomingDays = ref.watch(upcomingDaysProvider).value ?? 2;
+    const dayChoices = [1, 2, 3, 5, 7, 14];
+    final daysValue = dayChoices.contains(upcomingDays) ? upcomingDays : 2;
 
     return Scaffold(
       appBar: AppBar(title: const Text('Einstellungen')),
@@ -316,6 +346,28 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen>
                   ],
                 ),
               ),
+              ListTile(
+                leading: const Icon(Icons.date_range_outlined),
+                title: const Text('Anstehende Termine: Vorschau'),
+                subtitle:
+                    const Text('Wie viele Tage im Voraus auf der Startseite?'),
+                trailing: DropdownButton<int>(
+                  value: daysValue,
+                  items: const [
+                    DropdownMenuItem(value: 1, child: Text('Nur heute')),
+                    DropdownMenuItem(value: 2, child: Text('Heute + morgen')),
+                    DropdownMenuItem(value: 3, child: Text('3 Tage')),
+                    DropdownMenuItem(value: 5, child: Text('5 Tage')),
+                    DropdownMenuItem(value: 7, child: Text('1 Woche')),
+                    DropdownMenuItem(value: 14, child: Text('2 Wochen')),
+                  ],
+                  onChanged: (v) {
+                    if (v != null) {
+                      ref.read(upcomingDaysProvider.notifier).set(v);
+                    }
+                  },
+                ),
+              ),
               const Divider(),
             ],
             _sectionHeader(context, 'Vorlagen'),
@@ -358,6 +410,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen>
                   subtitle: Text(info == null
                       ? '…'
                       : '${info.version} (${info.buildNumber})'),
+                  onTap: _onVersionTap,
                 );
               },
             ),

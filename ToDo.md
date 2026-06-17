@@ -142,7 +142,14 @@ Reihenfolge ≈ Priorität:
 - [x] **Countdown** („Noch X Tage bis …") pro Kalender konfigurierbar (alle/nächster)
 - [x] Konfigurierbar: welche Kalender im Überblick / als Countdown erscheinen
 - [x] **2-Wochen-Kalenderübersicht** oben (Event-Punkte, Tippen → Tagesansicht)
-- [x] **Sync-Status-Punkt am Avatar** (grün=online, gelb=sync läuft, rot=offline)
+- [x] **Sync-Status-Punkt am Avatar** (grün=online, gelb=sync läuft, rot=offline;
+      Tippen startet Sync)
+- [x] Begrüßung + Datum/Uhrzeit kompakt **neben dem Avatar** (mehr Platz)
+- [x] **Filter-Auswahl** (gespeicherte Presets) für die 2-Wochen-Übersicht;
+      kein Button, wenn keine Presets existieren
+- [x] **Vorschau-Tage** für „Anstehende Termine" in den Einstellungen einstellbar
+- [x] Anstehende-Termine-Karten kompakter
+- [x] Easter Egg: 5× auf die Versionsnummer = Danksagung 💛
 - [ ] Optional: Geburtstage hervorheben
 
 ## 🧩 Home-Screen-Widgets (Android)
