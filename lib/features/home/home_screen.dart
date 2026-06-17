@@ -50,9 +50,10 @@ class HomeScreen extends ConsumerWidget {
     final presets = ref.watch(calendarPresetsProvider).value ?? const [];
     final selectedFilter = ref.watch(homeCalendarFilterProvider).value;
 
-    // Startseiten-Termine: nur „Startseite"-Kalender, optional zusätzlich auf ein
-    // gewähltes Filter-Preset eingeschränkt.
-    var homeEvents = filterHomeEvents(events, memberSettings);
+    // Startseiten-Termine: standardmäßig alle sichtbaren Kalender, optional auf
+    // ein gewähltes Filter-Preset eingeschränkt (der Filter ersetzt die frühere
+    // „Anstehende Termine"-Kalenderauswahl in den Einstellungen).
+    var homeEvents = events;
     if (selectedFilter != null) {
       CalendarPreset? preset;
       for (final p in presets) {
@@ -329,21 +330,26 @@ class _HomeFilterButton extends StatelessWidget {
   final String? selected;
   final void Function(String? name) onSelected;
 
+  // Platzhalter-Wert für „Alle". PopupMenuButton löst bei einem `null`-Wert
+  // `onSelected` NICHT aus (null gilt als „abgebrochen") – sonst ließe sich
+  // „Alle" nie wieder auswählen.
+  static const _allValue = ' __alle__';
+
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     final label = selected ?? 'Alle';
-    return PopupMenuButton<String?>(
+    return PopupMenuButton<String>(
       tooltip: 'Filter',
-      onSelected: onSelected,
+      onSelected: (v) => onSelected(v == _allValue ? null : v),
       itemBuilder: (ctx) => [
-        CheckedPopupMenuItem<String?>(
-          value: null,
+        CheckedPopupMenuItem<String>(
+          value: _allValue,
           checked: selected == null,
           child: const Text('Alle'),
         ),
         for (final p in presets)
-          CheckedPopupMenuItem<String?>(
+          CheckedPopupMenuItem<String>(
             value: p.name,
             checked: selected == p.name,
             child: Text(p.name),
