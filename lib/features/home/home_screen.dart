@@ -664,14 +664,14 @@ class _ListCard extends StatelessWidget {
     final done = list.items.where((t) => t.completed).length;
     final color = list.color ?? scheme.primary;
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+      padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
       child: GestureDetector(
         onTap: () => context.go(_isShopping ? '/shopping' : '/tasks'),
         child: Container(
-          padding: const EdgeInsets.all(14),
+          padding: const EdgeInsets.all(10),
           decoration: BoxDecoration(
             color: Theme.of(context).cardColor,
-            borderRadius: BorderRadius.circular(20),
+            borderRadius: BorderRadius.circular(16),
             boxShadow: _softShadow(context),
           ),
           child: Row(
@@ -679,7 +679,7 @@ class _ListCard extends StatelessWidget {
               _IconChip(
                   icon: _isShopping ? Icons.shopping_cart : Icons.checklist,
                   color: color),
-              const SizedBox(width: 14),
+              const SizedBox(width: 10),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -688,17 +688,18 @@ class _ListCard extends StatelessWidget {
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: TextStyle(
-                            fontSize: 16,
+                            fontSize: 14.5,
                             fontWeight: FontWeight.w700,
                             color: scheme.onSurface)),
-                    const SizedBox(height: 2),
+                    const SizedBox(height: 1),
                     Text('$done/$total erledigt',
                         style: TextStyle(
-                            fontSize: 13, color: scheme.onSurfaceVariant)),
+                            fontSize: 12, color: scheme.onSurfaceVariant)),
                   ],
                 ),
               ),
-              Icon(Icons.chevron_right, color: scheme.onSurfaceVariant),
+              Icon(Icons.chevron_right,
+                  size: 20, color: scheme.onSurfaceVariant),
             ],
           ),
         ),
@@ -726,31 +727,31 @@ class _CountdownCard extends StatelessWidget {
     final days = event.startDay.difference(today).inDays;
     final dateStr = DateFormat('EEE, d. MMM', 'de_DE').format(event.start);
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+      padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
       child: GestureDetector(
         onTap: onTap,
         child: Container(
-          padding: const EdgeInsets.all(14),
+          padding: const EdgeInsets.all(10),
           decoration: BoxDecoration(
             color: Theme.of(context).cardColor,
-            borderRadius: BorderRadius.circular(20),
+            borderRadius: BorderRadius.circular(16),
             boxShadow: _softShadow(context),
           ),
           child: Row(
             children: [
               Container(
-                width: 48,
-                height: 48,
+                width: 40,
+                height: 40,
                 decoration: BoxDecoration(
                   color: color.withValues(alpha: 0.18),
-                  borderRadius: BorderRadius.circular(13),
+                  borderRadius: BorderRadius.circular(11),
                 ),
                 child: Center(
                   child: days <= 1
                       ? Text(days == 0 ? 'Heute' : 'Morgen',
                           textAlign: TextAlign.center,
                           style: TextStyle(
-                              fontSize: 11,
+                              fontSize: 10,
                               fontWeight: FontWeight.w800,
                               color: color))
                       : Column(
@@ -758,17 +759,17 @@ class _CountdownCard extends StatelessWidget {
                           children: [
                             Text('$days',
                                 style: TextStyle(
-                                    fontSize: 18,
+                                    fontSize: 16,
                                     height: 1,
                                     fontWeight: FontWeight.w800,
                                     color: color)),
                             Text('Tage',
-                                style: TextStyle(fontSize: 9, color: color)),
+                                style: TextStyle(fontSize: 8, color: color)),
                           ],
                         ),
                 ),
               ),
-              const SizedBox(width: 14),
+              const SizedBox(width: 10),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -777,20 +778,21 @@ class _CountdownCard extends StatelessWidget {
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: TextStyle(
-                            fontSize: 16,
+                            fontSize: 14.5,
                             fontWeight: FontWeight.w700,
                             color: scheme.onSurface)),
-                    const SizedBox(height: 2),
+                    const SizedBox(height: 1),
                     Text(
                         days <= 1
                             ? dateStr
                             : 'Noch $days Tage · $dateStr',
                         style: TextStyle(
-                            fontSize: 13, color: scheme.onSurfaceVariant)),
+                            fontSize: 12, color: scheme.onSurfaceVariant)),
                   ],
                 ),
               ),
-              Icon(Icons.chevron_right, color: scheme.onSurfaceVariant),
+              Icon(Icons.chevron_right,
+                  size: 20, color: scheme.onSurfaceVariant),
             ],
           ),
         ),
@@ -808,13 +810,13 @@ class _IconChip extends StatelessWidget {
   Widget build(BuildContext context) {
     final c = color ?? Theme.of(context).colorScheme.primary;
     return Container(
-      width: 42,
-      height: 42,
+      width: 34,
+      height: 34,
       decoration: BoxDecoration(
         color: c.withValues(alpha: 0.18),
-        borderRadius: BorderRadius.circular(13),
+        borderRadius: BorderRadius.circular(10),
       ),
-      child: Icon(icon, color: c, size: 22),
+      child: Icon(icon, color: c, size: 18),
     );
   }
 }
@@ -853,14 +855,119 @@ class _Avatar extends StatelessWidget {
 /// Fällt auf lokale Initialen ([_Avatar]) zurück, wenn kein Konto/Bild da ist.
 /// Zeigt zusätzlich einen kleinen Sync-Statuspunkt (grün = online, gelb =
 /// synchronisiert gerade, rot = offline).
-class _NextcloudAvatar extends ConsumerWidget {
+class _NextcloudAvatar extends ConsumerStatefulWidget {
   const _NextcloudAvatar({required this.account, this.radius = 22});
   final NextcloudAccount? account;
   final double radius;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final a = account;
+  ConsumerState<_NextcloudAvatar> createState() => _NextcloudAvatarState();
+}
+
+class _NextcloudAvatarState extends ConsumerState<_NextcloudAvatar> {
+  int _taps = 0;
+  DateTime _lastTap = DateTime.fromMillisecondsSinceEpoch(0);
+
+  void _handleTap() {
+    final now = DateTime.now();
+    // Tap-Serie zurücksetzen, wenn zwischen den Tipps zu viel Zeit liegt.
+    if (now.difference(_lastTap) > const Duration(milliseconds: 1200)) {
+      _taps = 0;
+    }
+    _lastTap = now;
+    _taps++;
+    if (_taps >= 5) {
+      _taps = 0;
+      _showDiagnostics();
+      return;
+    }
+    _triggerSync();
+  }
+
+  void _triggerSync() {
+    if (ref.read(syncStatusProvider).status == SyncStatus.syncing) return;
+    ref.invalidate(eventsControllerProvider);
+    ref.invalidate(tasksControllerProvider);
+    ref.invalidate(pendingSyncCountProvider);
+    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+      content: Text('Synchronisiere mit der Nextcloud…'),
+      duration: Duration(seconds: 2),
+    ));
+  }
+
+  String _statusLabel(SyncStatus s) => switch (s) {
+        SyncStatus.online => 'Online – zuletzt erfolgreich synchronisiert',
+        SyncStatus.syncing => 'Synchronisiert gerade …',
+        SyncStatus.offline => 'Offline – Server nicht erreichbar',
+        SyncStatus.idle => 'Noch nicht synchronisiert',
+      };
+
+  /// Fehler-/Diagnose-Popup (5× auf den Statuspunkt tippen).
+  Future<void> _showDiagnostics() async {
+    final a = widget.account;
+    final sync = ref.read(syncStatusProvider);
+    final pending = ref.read(pendingSyncCountProvider).value;
+    final eventsAsync = ref.read(eventsControllerProvider);
+    final eventsInfo = eventsAsync.hasError
+        ? 'Fehler: ${eventsAsync.error}'
+        : '${eventsAsync.value?.length ?? 0} Termine geladen';
+    final lastSync = sync.lastSuccessAt == null
+        ? '—'
+        : DateFormat('d. MMM y, HH:mm', 'de_DE').format(sync.lastSuccessAt!);
+
+    final lines = <String>[
+      'Verbindung: ${a == null ? 'NICHT verbunden ⚠️' : 'verbunden'}',
+      if (a != null) 'Benutzer: ${a.username}',
+      if (a != null) 'Server: ${a.baseUrl}',
+      'Status: ${_statusLabel(sync.status)}',
+      'Letzter erfolgreicher Sync: $lastSync',
+      'Termine: $eventsInfo',
+      'Offene Offline-Änderungen: ${pending ?? '—'}',
+      if (sync.lastError != null) '\nLetzter Fehler:\n${sync.lastError}',
+    ];
+
+    if (!mounted) return;
+    await showDialog<void>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('🔍 Sync-Diagnose'),
+        content: SingleChildScrollView(
+          child: SelectableText(lines.join('\n')),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () {
+              Navigator.pop(ctx);
+              _triggerSync();
+            },
+            child: const Text('Jetzt synchronisieren'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Schließen'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Color _statusColor(SyncStatus status) {
+    switch (status) {
+      case SyncStatus.online:
+        return const Color(0xFF34C759); // grün – erreichbar/synchronisiert
+      case SyncStatus.syncing:
+        return const Color(0xFFFFB300); // gelb – synchronisiert gerade
+      case SyncStatus.offline:
+        return const Color(0xFFE53935); // rot – offline
+      case SyncStatus.idle:
+        return Theme.of(context).colorScheme.onSurfaceVariant; // grau
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final a = widget.account;
+    final radius = widget.radius;
     final fallback = _Avatar(
       name: a?.username ?? '?',
       color: Theme.of(context).colorScheme.primary,
@@ -890,26 +997,12 @@ class _NextcloudAvatar extends ConsumerWidget {
     // Ohne Konto kein Statuspunkt.
     if (a == null) return avatar;
 
-    final status = ref.watch(syncStatusProvider);
+    final status = ref.watch(syncStatusProvider).status;
     final dot = radius * 0.5;
-
-    // Tippen auf den Avatar/Statuspunkt stößt eine Synchronisation an.
-    void triggerSync() {
-      if (status == SyncStatus.syncing) return; // läuft bereits
-      ref.invalidate(eventsControllerProvider);
-      ref.invalidate(tasksControllerProvider);
-      ref.invalidate(pendingSyncCountProvider);
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Synchronisiere mit der Nextcloud…'),
-          duration: Duration(seconds: 2),
-        ),
-      );
-    }
 
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
-      onTap: triggerSync,
+      onTap: _handleTap,
       child: SizedBox(
         width: radius * 2,
         height: radius * 2,
@@ -923,7 +1016,7 @@ class _NextcloudAvatar extends ConsumerWidget {
                 width: dot,
                 height: dot,
                 decoration: BoxDecoration(
-                  color: _statusColor(context, status),
+                  color: _statusColor(status),
                   shape: BoxShape.circle,
                   border: Border.all(
                     color: Theme.of(context).scaffoldBackgroundColor,
@@ -936,19 +1029,6 @@ class _NextcloudAvatar extends ConsumerWidget {
         ),
       ),
     );
-  }
-
-  Color _statusColor(BuildContext context, SyncStatus status) {
-    switch (status) {
-      case SyncStatus.online:
-        return const Color(0xFF34C759); // grün – erreichbar/synchronisiert
-      case SyncStatus.syncing:
-        return const Color(0xFFFFB300); // gelb – synchronisiert gerade
-      case SyncStatus.offline:
-        return const Color(0xFFE53935); // rot – offline
-      case SyncStatus.idle:
-        return Theme.of(context).colorScheme.onSurfaceVariant; // grau
-    }
   }
 }
 

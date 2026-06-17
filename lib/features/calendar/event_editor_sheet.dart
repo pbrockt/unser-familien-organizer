@@ -269,9 +269,22 @@ class _EventEditorSheetState extends ConsumerState<_EventEditorSheet> {
             description: desc,
             force: force,
           );
+        } else if (calHref != ev!.calendarHref) {
+          // Kalender gewechselt → Termin in die andere Collection verschieben.
+          await notifier.moveEvent(
+            ev,
+            newCalendarHref: calHref,
+            summary: summary,
+            start: times.start,
+            end: times.end,
+            allDay: _allDay,
+            location: location,
+            description: desc,
+            force: force,
+          );
         } else {
           await notifier.updateEvent(
-            ev!,
+            ev,
             summary: summary,
             start: times.start,
             end: times.end,
@@ -560,7 +573,7 @@ class _EventEditorSheetState extends ConsumerState<_EventEditorSheet> {
               ),
             ),
             const SizedBox(height: 12),
-            if (!_isEdit && calendars.length > 1)
+            if (calendars.length > 1)
               Padding(
                 padding: const EdgeInsets.only(bottom: 12),
                 child: DropdownButtonFormField<String>(

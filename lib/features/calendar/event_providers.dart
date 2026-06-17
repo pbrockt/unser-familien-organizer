@@ -21,6 +21,18 @@ class CalendarJump extends Notifier<DateTime?> {
 final calendarJumpProvider =
     NotifierProvider<CalendarJump, DateTime?>(CalendarJump.new);
 
+/// Aktuell im Kalender ausgewählter Tag – wird genutzt, um „Neuer Termin" (über
+/// das „+") mit dem gewählten Tag statt „heute" vorzubelegen.
+class CalendarSelectedDay extends Notifier<DateTime> {
+  @override
+  DateTime build() => DateTime.now();
+
+  void set(DateTime day) => state = DateTime(day.year, day.month, day.day);
+}
+
+final calendarSelectedDayProvider =
+    NotifierProvider<CalendarSelectedDay, DateTime>(CalendarSelectedDay.new);
+
 /// Lädt alle Termine aus den Kalender-Collections der Nextcloud und verwaltet
 /// Anlegen/Bearbeiten/Löschen.
 ///
@@ -36,33 +48,40 @@ class EventsController extends AsyncNotifier<List<CalendarEvent>> {
 
   bool _disposed = false;
 
-  /// Setzt den sichtbaren Sync-Status (über Microtask, um nicht während des
+  /// Setzt Sync-Status/Diagnose (über Microtask, um nicht während des
   /// Provider-Builds einen anderen Provider zu verändern).
-  void _status(SyncStatus status) {
+  void _post(void Function(SyncStatusController c) fn) {
     Future.microtask(() {
       if (_disposed) return;
-      ref.read(syncStatusProvider.notifier).set(status);
+      fn(ref.read(syncStatusProvider.notifier));
     });
   }
+
+  void _setSyncing() => _post((c) => c.setSyncing());
+  void _setOnline() => _post((c) => c.setOnline());
+  void _setOffline(Object e) => _post((c) => c.setOffline(e.toString()));
 
   @override
   Future<List<CalendarEvent>> build() async {
     ref.onDispose(() => _disposed = true);
     final account = await ref.watch(accountProvider.future);
-    if (account == null) return const [];
+    if (account == null) {
+      _setOffline('Nicht mit der Nextcloud verbunden.');
+      return const [];
+    }
     final repo = ref.watch(caldavRepositoryProvider);
 
     // Gecachte Daten sofort zeigen, im Hintergrund frisch synchronisieren.
     final cached = await repo.cachedSnapshot(account);
     if (cached == null) {
       // Erststart ohne Cache: einmalig synchron laden.
-      _status(SyncStatus.syncing);
+      _setSyncing();
       try {
         final fresh = await repo.sync(account);
-        _status(SyncStatus.online);
+        _setOnline();
         return buildEventsFromSnapshot(fresh);
       } catch (e) {
-        _status(SyncStatus.offline);
+        _setOffline(e);
         rethrow;
       }
     }
@@ -72,29 +91,29 @@ class EventsController extends AsyncNotifier<List<CalendarEvent>> {
 
   Future<void> _backgroundRefresh(
       NextcloudAccount account, CalDavRepository repo) async {
-    _status(SyncStatus.syncing);
+    _setSyncing();
     try {
       final fresh = await repo.sync(account);
       if (_disposed) return;
-      _status(SyncStatus.online);
+      _setOnline();
       state = AsyncData(buildEventsFromSnapshot(fresh));
-    } catch (_) {
+    } catch (e) {
       // Offline o.ä. → gecachter Stand bleibt sichtbar.
-      _status(SyncStatus.offline);
+      _setOffline(e);
     }
   }
 
   /// Nach einer Änderung: frisch synchronisieren (Delta) und State setzen.
   Future<void> _refresh(NextcloudAccount account) async {
     final repo = ref.read(caldavRepositoryProvider);
-    _status(SyncStatus.syncing);
+    _setSyncing();
     try {
       final fresh = await repo.sync(account);
       if (_disposed) return;
-      _status(SyncStatus.online);
+      _setOnline();
       state = AsyncData(buildEventsFromSnapshot(fresh));
     } catch (e) {
-      _status(SyncStatus.offline);
+      _setOffline(e);
       rethrow;
     }
   }
@@ -231,6 +250,53 @@ class EventsController extends AsyncNotifier<List<CalendarEvent>> {
       ical,
       ifMatchEtag: event.etag.isEmpty ? null : event.etag,
       force: force,
+    );
+    await _refresh(account);
+  }
+
+  /// Verschiebt einen Termin in einen anderen Kalender (andere Collection) und
+  /// übernimmt dabei die geänderten Felder. Da CalDAV-Objekte an ihre Collection
+  /// gebunden sind, wird das Objekt in der neuen Collection angelegt und in der
+  /// alten gelöscht (UID/Dateiname bleiben erhalten).
+  Future<void> moveEvent(
+    CalendarEvent event, {
+    required String newCalendarHref,
+    required String summary,
+    required DateTime start,
+    DateTime? end,
+    bool allDay = false,
+    String? description,
+    String? location,
+    bool force = false,
+  }) async {
+    final account = await ref.read(accountProvider.future);
+    if (account == null) return;
+    final repo = ref.read(caldavRepositoryProvider);
+
+    final ical = _builder.updateEvent(
+      event.rawIcal,
+      summary: summary,
+      start: start,
+      end: end,
+      allDay: allDay,
+      description: description,
+      location: location,
+    );
+
+    final fileName = event.objectHref.split('/').last;
+    final base = newCalendarHref.endsWith('/')
+        ? newCalendarHref
+        : '$newCalendarHref/';
+    final newHref = '$base$fileName';
+
+    // Erst neu anlegen, dann altes Objekt entfernen (kein Datenverlust, falls
+    // der zweite Schritt fehlschlägt).
+    await repo.putObject(account, newHref, ical);
+    await repo.deleteObject(
+      account,
+      event.objectHref,
+      ifMatchEtag: event.etag.isEmpty ? null : event.etag,
+      force: true,
     );
     await _refresh(account);
   }

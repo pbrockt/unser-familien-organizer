@@ -73,6 +73,37 @@ class IcalParser {
     return [parsed];
   }
 
+  /// enough_icalendar entescaped TEXT-Werte (SUMMARY/LOCATION/DESCRIPTION) beim
+  /// Parsen **nicht**, sodass z.B. ein Komma als „\," ankommt. Hier rückgängig
+  /// machen (RFC 5545: \\ \; \, \n).
+  static String? _unescapeText(String? v) {
+    if (v == null || !v.contains('\\')) return v;
+    final sb = StringBuffer();
+    for (var i = 0; i < v.length; i++) {
+      final ch = v[i];
+      if (ch == '\\' && i + 1 < v.length) {
+        final next = v[i + 1];
+        switch (next) {
+          case 'n':
+          case 'N':
+            sb.write('\n');
+          case ',':
+            sb.write(',');
+          case ';':
+            sb.write(';');
+          case '\\':
+            sb.write('\\');
+          default:
+            sb.write(next);
+        }
+        i++;
+      } else {
+        sb.write(ch);
+      }
+    }
+    return sb.toString();
+  }
+
   /// Alle VEVENTs aus einem iCal-Body. Fehlerhafte Objekte werden
   /// übersprungen, statt den ganzen Sync zu kippen.
   List<ParsedEvent> parseEvents(String icalData) {
@@ -83,15 +114,16 @@ class IcalParser {
         final start = c.start;
         if (start == null) continue;
         final end = c.end;
+        final summary = _unescapeText(c.summary)?.trim();
         result.add(ParsedEvent(
           uid: c.uid,
-          summary: c.summary?.trim().isNotEmpty == true
-              ? c.summary!.trim()
+          summary: (summary != null && summary.isNotEmpty)
+              ? summary
               : '(ohne Titel)',
           start: start,
           end: end,
-          description: c.description,
-          location: c.location,
+          description: _unescapeText(c.description),
+          location: _unescapeText(c.location),
           allDay: _looksAllDay(start, end),
           isRecurring: c.recurrenceRule != null,
           recurrence: c.recurrenceRule,
@@ -115,12 +147,13 @@ class IcalParser {
     try {
       for (final c in _components(icalData)) {
         if (c is! VTodo) continue;
+        final todoSummary = _unescapeText(c.summary)?.trim();
         result.add(ParsedTodo(
           uid: c.uid,
-          summary: c.summary?.trim().isNotEmpty == true
-              ? c.summary!.trim()
+          summary: (todoSummary != null && todoSummary.isNotEmpty)
+              ? todoSummary
               : '(ohne Titel)',
-          description: c.description,
+          description: _unescapeText(c.description),
           due: c.due,
           completed: c.status == TodoStatus.completed,
           priority: c.priorityInt,

@@ -69,6 +69,7 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
       _focusedDay = date;
       _focusTime = focusTime;
     });
+    ref.read(calendarSelectedDayProvider.notifier).set(date);
     WidgetsBinding.instance.addPostFrameCallback((_) => old.dispose());
   }
 
@@ -437,10 +438,15 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
                       // zeigt garantiert die Zielseite.
                       key: ValueKey(_dayPager),
                       controller: _dayPager,
-                      onPageChanged: (i) => setState(() {
-                        _selectedDay = _dateOf(i);
-                        _focusedDay = _selectedDay;
-                      }),
+                      onPageChanged: (i) {
+                        setState(() {
+                          _selectedDay = _dateOf(i);
+                          _focusedDay = _selectedDay;
+                        });
+                        ref
+                            .read(calendarSelectedDayProvider.notifier)
+                            .set(_selectedDay);
+                      },
                       itemBuilder: (context, index) {
                         final date = _dateOf(index);
                         final dayEvents = eventsByDay[_dayKey(date)] ??
@@ -479,10 +485,15 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
                 eventLoader: loader,
                 onFormatChanged: (f) => setState(() => _format = f),
                 onPageChanged: (day) => _focusedDay = day,
-                onDaySelected: (selected, focused) => setState(() {
-                  _selectedDay = selected;
-                  _focusedDay = focused;
-                }),
+                onDaySelected: (selected, focused) {
+                  setState(() {
+                    _selectedDay = selected;
+                    _focusedDay = focused;
+                  });
+                  ref
+                      .read(calendarSelectedDayProvider.notifier)
+                      .set(selected);
+                },
                 calendarStyle: CalendarStyle(
                   markersMaxCount: 4,
                   todayDecoration: BoxDecoration(

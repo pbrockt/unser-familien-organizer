@@ -41,6 +41,12 @@ Reihenfolge ≈ Priorität:
       Master (Overrides bleiben erhalten).
 - [ ] Ganztags-Serien: EXDATE/Override als VALUE=DATE (umgesetzt, praktisch
       prüfen)
+- [x] Komma (und `;`/Zeilenumbruch) in Titel/Ort wurde als „\\," angezeigt –
+      TEXT-Werte werden beim Parsen jetzt entescaped (enough_icalendar tut das nicht)
+- [x] „Neuer Termin" übernimmt jetzt den im Kalender gewählten Tag (statt heute)
+- [x] Termin lässt sich beim Bearbeiten in einen anderen Kalender verschieben
+- [x] Sync-Diagnose: 5× auf den Statuspunkt am Avatar tippen zeigt ein
+      Fehler-/Info-Popup (Verbindung, Status, letzter Fehler, Zähler)
 
 ---
 

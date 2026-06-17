@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../../core/auth/account_providers.dart';
 import '../../core/platform/platform_support.dart';
 import '../../features/calendar/event_editor_sheet.dart';
+import '../../features/calendar/event_providers.dart';
 import '../../features/tasks/task_editor_sheet.dart';
 import '../../features/tasks/task_providers.dart';
 import '../../features/update/update_prompt.dart';
@@ -94,7 +95,11 @@ class _AppShellState extends ConsumerState<AppShell> {
     );
     if (!mounted || choice == null) return;
     if (choice == 'event') {
-      await showEventEditor(context);
+      // Im Kalender-Tab den dort gewählten Tag vorbelegen (sonst heute).
+      final onCalendar = widget.navigationShell.currentIndex == 1;
+      final day =
+          onCalendar ? ref.read(calendarSelectedDayProvider) : null;
+      await showEventEditor(context, initialDay: day);
     } else {
       final lists = ref.read(tasksControllerProvider).value ?? const [];
       if (lists.isEmpty) {

@@ -17,12 +17,50 @@ enum SyncStatus {
   offline,
 }
 
-class SyncStatusController extends Notifier<SyncStatus> {
-  @override
-  SyncStatus build() => SyncStatus.idle;
+/// Status + Diagnose-Infos (für das Fehler-Popup auf der Startseite).
+class SyncState {
+  const SyncState({
+    this.status = SyncStatus.idle,
+    this.lastError,
+    this.lastSuccessAt,
+  });
 
-  void set(SyncStatus status) => state = status;
+  final SyncStatus status;
+
+  /// Fehlermeldung des letzten fehlgeschlagenen Syncs (sonst null).
+  final String? lastError;
+
+  /// Zeitpunkt des letzten erfolgreichen Syncs (sonst null).
+  final DateTime? lastSuccessAt;
+
+  SyncState copyWith({
+    SyncStatus? status,
+    String? lastError,
+    DateTime? lastSuccessAt,
+    bool clearError = false,
+  }) =>
+      SyncState(
+        status: status ?? this.status,
+        lastError: clearError ? null : (lastError ?? this.lastError),
+        lastSuccessAt: lastSuccessAt ?? this.lastSuccessAt,
+      );
+}
+
+class SyncStatusController extends Notifier<SyncState> {
+  @override
+  SyncState build() => const SyncState();
+
+  void setSyncing() => state = state.copyWith(status: SyncStatus.syncing);
+
+  void setOnline() => state = state.copyWith(
+        status: SyncStatus.online,
+        lastSuccessAt: DateTime.now(),
+        clearError: true,
+      );
+
+  void setOffline(String error) =>
+      state = state.copyWith(status: SyncStatus.offline, lastError: error);
 }
 
 final syncStatusProvider =
-    NotifierProvider<SyncStatusController, SyncStatus>(SyncStatusController.new);
+    NotifierProvider<SyncStatusController, SyncState>(SyncStatusController.new);
