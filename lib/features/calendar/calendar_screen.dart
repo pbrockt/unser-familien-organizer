@@ -299,9 +299,14 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
 
   Widget _viewToggle() {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(12, 8, 12, 4),
+      padding: const EdgeInsets.fromLTRB(12, 4, 12, 2),
       child: SegmentedButton<_CalView>(
         showSelectedIcon: false,
+        style: SegmentedButton.styleFrom(
+          visualDensity: VisualDensity.compact,
+          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+        ),
         segments: const [
           ButtonSegment(
             value: _CalView.month,
@@ -420,6 +425,7 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
             children: [
               _viewToggle(),
               _presetBar(eventCalendars),
+              _legend(eventCalendars),
               if (_view == _CalView.day) ...[
                 _dayHeader(),
                 Expanded(
@@ -518,10 +524,6 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
                   },
                 ),
               ),
-              _legend(ref
-                  .watch(membersProvider)
-                  .where((m) => m.supportsEvents)
-                  .toList()),
               const Divider(height: 1),
               Expanded(
                 child: eventsAsync.when(
