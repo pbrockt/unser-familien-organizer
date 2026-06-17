@@ -297,27 +297,20 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
     );
   }
 
+  /// Kompakter Monat/Tag-Umschalter – sitzt in der AppBar (spart eine Zeile).
   Widget _viewToggle() {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(12, 4, 12, 2),
+    return Center(
       child: SegmentedButton<_CalView>(
         showSelectedIcon: false,
         style: SegmentedButton.styleFrom(
           visualDensity: VisualDensity.compact,
           tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+          textStyle: const TextStyle(fontSize: 12),
         ),
         segments: const [
-          ButtonSegment(
-            value: _CalView.month,
-            label: Text('Monat'),
-            icon: Icon(Icons.calendar_month),
-          ),
-          ButtonSegment(
-            value: _CalView.day,
-            label: Text('Tag'),
-            icon: Icon(Icons.view_day),
-          ),
+          ButtonSegment(value: _CalView.month, label: Text('Monat')),
+          ButtonSegment(value: _CalView.day, label: Text('Tag')),
         ],
         selected: {_view},
         onSelectionChanged: (s) {
@@ -399,6 +392,8 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
       appBar: AppBar(
         title: const Text('Kalender'),
         actions: [
+          _viewToggle(),
+          const SizedBox(width: 4),
           IconButton(
             tooltip: 'Aktualisieren',
             icon: const Icon(Icons.refresh),
@@ -423,7 +418,6 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
               .toList();
           return Column(
             children: [
-              _viewToggle(),
               _presetBar(eventCalendars),
               _legend(eventCalendars),
               if (_view == _CalView.day) ...[
@@ -524,7 +518,6 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
                   },
                 ),
               ),
-              const Divider(height: 1),
               Expanded(
                 child: eventsAsync.when(
                   loading: () =>
