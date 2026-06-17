@@ -7,6 +7,7 @@ import '../../features/members/member_settings.dart';
 import '../../features/settings/notification_providers.dart';
 import '../../features/settings/reminder_planner.dart';
 import '../../features/tasks/tasks_builder.dart';
+import '../../features/weather/weather_service.dart';
 import '../auth/account_providers.dart';
 import '../platform/platform_support.dart';
 import '../widgets/home_widgets.dart';
@@ -34,8 +35,19 @@ void callbackDispatcher() {
           buildEventsFromSnapshot(snapshot), memberSettings);
       final lists = buildTaskListsFromSnapshot(snapshot, memberSettings);
 
+      // Wetter (falls PLZ gesetzt) für das Überblick-Widget; Fehler ignorieren.
+      Map<String, DayWeather> weather = const {};
+      try {
+        weather = await container.read(weatherProvider.future);
+      } catch (_) {}
+
       // Home-Screen-Widgets immer aktualisieren.
-      await HomeWidgets.update(events: events, lists: lists);
+      await HomeWidgets.update(
+        events: events,
+        lists: lists,
+        memberSettings: memberSettings,
+        weather: weather,
+      );
 
       // Erinnerungen nur, wenn aktiviert.
       final settings =

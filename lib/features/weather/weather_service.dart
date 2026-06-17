@@ -79,6 +79,21 @@ final weatherProvider = FutureProvider<Map<String, DayWeather>>((ref) async {
   }
 });
 
+/// Emoji zu einem WMO-Wettercode (für Home-Screen-Widgets, die kein
+/// Material-Icon rendern können).
+String weatherEmoji(int code) {
+  if (code == 0) return '☀️';
+  if (code <= 2) return '🌤️'; // leicht/teilweise bewölkt
+  if (code == 3) return '☁️';
+  if (code == 45 || code == 48) return '🌫️';
+  if (code >= 51 && code <= 67) return '🌧️'; // Niesel/Regen
+  if (code >= 71 && code <= 77) return '❄️'; // Schnee
+  if (code >= 80 && code <= 82) return '🌦️'; // Schauer
+  if (code >= 85 && code <= 86) return '🌨️'; // Schneeschauer
+  if (code >= 95) return '⛈️'; // Gewitter
+  return '☁️';
+}
+
 /// Material-Icon zu einem WMO-Wettercode.
 IconData weatherIcon(int code) {
   if (code == 0) return Icons.wb_sunny;

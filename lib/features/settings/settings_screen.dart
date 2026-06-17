@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 
 import '../../core/background/background_sync.dart';
+import '../../core/platform/battery_optimization.dart';
 import '../../core/platform/platform_support.dart';
 import '../../shared/theme/app_theme.dart';
 import '../calendar/event_templates.dart';
@@ -21,19 +22,44 @@ class SettingsScreen extends ConsumerStatefulWidget {
   ConsumerState<SettingsScreen> createState() => _SettingsScreenState();
 }
 
-class _SettingsScreenState extends ConsumerState<SettingsScreen> {
+class _SettingsScreenState extends ConsumerState<SettingsScreen>
+    with WidgetsBindingObserver {
   bool? _permissionGranted;
+  bool? _batteryIgnored;
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _refreshPermission();
+    _refreshBattery();
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    // Nach Rückkehr aus den System-Dialogen (Akku/Benachrichtigungen) Status neu
+    // prüfen.
+    if (state == AppLifecycleState.resumed) {
+      _refreshPermission();
+      _refreshBattery();
+    }
   }
 
   Future<void> _refreshPermission() async {
     final service = ref.read(notificationServiceProvider);
     final granted = await service.areNotificationsEnabled();
     if (mounted) setState(() => _permissionGranted = granted);
+  }
+
+  Future<void> _refreshBattery() async {
+    final ignored = await BatteryOptimization.isIgnoring();
+    if (mounted) setState(() => _batteryIgnored = ignored);
   }
 
   Future<void> _toggleEnabled(bool value) async {
@@ -222,6 +248,32 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               onTap: () async {
                 await ref.read(notificationServiceProvider).showTest();
               },
+            ),
+            ListTile(
+              leading: Icon(
+                _batteryIgnored == true
+                    ? Icons.battery_charging_full
+                    : Icons.battery_alert,
+                color: _batteryIgnored == true
+                    ? Colors.green
+                    : Theme.of(context).colorScheme.error,
+              ),
+              title: const Text('Hintergrund-Aktualisierung'),
+              subtitle: Text(_batteryIgnored == null
+                  ? 'Status wird geprüft…'
+                  : _batteryIgnored!
+                      ? 'Akku-Optimierung aus – Erinnerungen kommen zuverlässig'
+                      : 'Akku-Optimierung aktiv – Erinnerungen können verspätet '
+                          'kommen oder ausbleiben'),
+              trailing: _batteryIgnored == true
+                  ? null
+                  : TextButton(
+                      onPressed: () async {
+                        await BatteryOptimization.request();
+                        await _refreshBattery();
+                      },
+                      child: const Text('Erlauben'),
+                    ),
             ),
             const Divider(),
             ],

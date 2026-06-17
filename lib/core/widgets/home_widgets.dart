@@ -2,7 +2,9 @@ import 'package:home_widget/home_widget.dart';
 import 'package:intl/intl.dart';
 
 import '../../features/calendar/calendar_event.dart';
+import '../../features/members/member_settings.dart';
 import '../../features/tasks/task_item.dart';
+import '../../features/weather/weather_service.dart';
 import '../platform/platform_support.dart';
 
 /// Aktualisiert die Android-Home-Screen-Widgets (Kalender heute / heute+morgen
@@ -16,11 +18,19 @@ class HomeWidgets {
   static Future<void> update({
     required List<CalendarEvent> events,
     required List<TaskList> lists,
+    Map<String, MemberSetting> memberSettings = const {},
+    Map<String, DayWeather> weather = const {},
   }) async {
     if (!isAndroid) return; // Home-Widgets gibt es nur auf Android.
     final now = DateTime.now();
     final today = DateTime(now.year, now.month, now.day);
     final tomorrow = today.add(const Duration(days: 1));
+
+    // „Überblick"-Widget: Heute & Morgen (nur Startseiten-Kalender) + Countdown.
+    await _pushOverview(
+      _overviewBody(events, memberSettings, today, tomorrow),
+      _weatherToday(weather, today),
+    );
 
     await _push('cal_today', 'CalendarTodayWidget',
         'Heute · ${_fmt('EEE, d. MMM', now)}', _dayBody(events, today));
@@ -50,6 +60,52 @@ class HomeWidgets {
     await HomeWidget.saveWidgetData<String>('${key}_title', title);
     await HomeWidget.saveWidgetData<String>('${key}_body', body);
     await HomeWidget.updateWidget(qualifiedAndroidName: '$_pkg.$widget');
+  }
+
+  static Future<void> _pushOverview(String body, String weather) async {
+    await HomeWidget.saveWidgetData<String>('overview_body', body);
+    await HomeWidget.saveWidgetData<String>('overview_weather', weather);
+    await HomeWidget.updateWidget(qualifiedAndroidName: '$_pkg.OverviewWidget');
+  }
+
+  // ---- Überblick-Widget ----
+
+  /// Wetter des heutigen Tages als „☀️ 21°" (leer, wenn Wetter aus/unbekannt).
+  static String _weatherToday(
+      Map<String, DayWeather> weather, DateTime today) {
+    if (weather.isEmpty) return '';
+    final w = weather[DateFormat('yyyy-MM-dd').format(today)];
+    if (w == null) return '';
+    return '${weatherEmoji(w.code)} ${w.tempMax.round()}°';
+  }
+
+  /// Heute + Morgen (nur Startseiten-Kalender) und Countdown-Termine.
+  static String _overviewBody(List<CalendarEvent> events,
+      Map<String, MemberSetting> settings, DateTime today, DateTime tomorrow) {
+    final home = filterHomeEvents(events, settings);
+    final t = _eventsOn(home, today).map(_eventLine).toList();
+    final m = _eventsOn(home, tomorrow).map(_eventLine).toList();
+    final cd = countdownEvents(events, settings, today);
+
+    final buf = <String>['HEUTE'];
+    buf.add(t.isEmpty ? 'Nichts geplant 🎉' : t.take(5).join('\n'));
+    buf.add('');
+    buf.add('MORGEN');
+    buf.add(m.isEmpty ? '–' : m.take(4).join('\n'));
+
+    if (cd.isNotEmpty) {
+      buf.add('');
+      for (final e in cd.take(3)) {
+        final days = e.startDay.difference(today).inDays;
+        final label = days == 0
+            ? 'heute'
+            : days == 1
+                ? 'morgen'
+                : 'in $days Tagen';
+        buf.add('⏳ ${e.summary} · $label');
+      }
+    }
+    return buf.join('\n');
   }
 
   // ---- Formatierung ----

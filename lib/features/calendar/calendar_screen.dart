@@ -7,6 +7,7 @@ import '../../core/auth/account_providers.dart';
 import '../members/member_settings.dart';
 import '../weather/weather_service.dart';
 import 'calendar_event.dart';
+import 'calendar_presets.dart';
 import 'day_timeline.dart';
 import 'event_actions.dart';
 import 'event_editor_sheet.dart';
@@ -100,6 +101,177 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
         ],
       ),
     );
+  }
+
+  /// Ist [p] aktuell aktiv? (Sichtbare Kalender = Preset-Kalender, bezogen auf
+  /// die existierenden Event-Kalender.)
+  bool _presetActive(CalendarPreset p, List<Member> calendars) {
+    final visibleNow =
+        calendars.where((m) => !m.hidden).map((m) => m.href).toSet();
+    final presetVisible = p.visibleHrefs
+        .where((h) => calendars.any((m) => m.href == h))
+        .toSet();
+    return visibleNow.length == presetVisible.length &&
+        visibleNow.containsAll(presetVisible);
+  }
+
+  /// Wendet ein Preset an: blendet alle nicht enthaltenen Kalender aus.
+  Future<void> _applyPreset(
+      CalendarPreset p, List<Member> calendars) async {
+    final notifier = ref.read(memberSettingsProvider.notifier);
+    for (final m in calendars) {
+      await notifier.setHidden(m.href, !p.visibleHrefs.contains(m.href));
+    }
+  }
+
+  /// Filter-Preset-Leiste: ein Chip je Preset (Tippen = anwenden, lange drücken
+  /// = löschen) plus „+ Filter" zum Anlegen eines neuen Presets.
+  Widget _presetBar(List<Member> calendars) {
+    if (calendars.length < 2) return const SizedBox.shrink();
+    final presets = ref.watch(calendarPresetsProvider).value ?? const [];
+    final allVisible = calendars.every((m) => !m.hidden);
+    return SizedBox(
+      height: 44,
+      child: ListView(
+        scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.symmetric(horizontal: 12),
+        children: [
+          // „Alle"-Chip blendet wieder alle Kalender ein.
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 4),
+            child: ChoiceChip(
+              selected: allVisible,
+              label: const Text('Alle'),
+              visualDensity: VisualDensity.compact,
+              onSelected: (_) async {
+                final notifier = ref.read(memberSettingsProvider.notifier);
+                for (final m in calendars) {
+                  await notifier.setHidden(m.href, false);
+                }
+              },
+            ),
+          ),
+          for (final p in presets)
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 4),
+              child: GestureDetector(
+                onLongPress: () => _deletePreset(p),
+                child: ChoiceChip(
+                  selected: _presetActive(p, calendars),
+                  label: Text(p.name),
+                  visualDensity: VisualDensity.compact,
+                  onSelected: (_) => _applyPreset(p, calendars),
+                ),
+              ),
+            ),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 4),
+            child: ActionChip(
+              avatar: const Icon(Icons.add, size: 18),
+              label: const Text('Filter'),
+              visualDensity: VisualDensity.compact,
+              onPressed: () => _createPreset(calendars),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Dialog zum Anlegen/Überschreiben eines Filter-Presets (Name + Kalenderwahl,
+  /// vorausgewählt nach aktueller Sichtbarkeit).
+  Future<void> _createPreset(List<Member> calendars) async {
+    final ctrl = TextEditingController();
+    final selected = {for (final m in calendars) m.href: !m.hidden};
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setS) => AlertDialog(
+          title: const Text('Filter-Preset'),
+          content: SizedBox(
+            width: double.maxFinite,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextField(
+                  controller: ctrl,
+                  autofocus: true,
+                  textCapitalization: TextCapitalization.sentences,
+                  decoration: const InputDecoration(
+                    labelText: 'Name (z. B. Arbeit)',
+                    border: OutlineInputBorder(),
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Flexible(
+                  child: ListView(
+                    shrinkWrap: true,
+                    children: [
+                      for (final m in calendars)
+                        CheckboxListTile(
+                          dense: true,
+                          value: selected[m.href] ?? false,
+                          onChanged: (v) =>
+                              setS(() => selected[m.href] = v ?? false),
+                          secondary: CircleAvatar(
+                              backgroundColor: m.color, radius: 8),
+                          title: Text(m.name),
+                        ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('Abbrechen'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(ctx, true),
+              child: const Text('Speichern'),
+            ),
+          ],
+        ),
+      ),
+    );
+    if (ok == true) {
+      final name = ctrl.text.trim();
+      if (name.isEmpty) return;
+      final visible = {
+        for (final e in selected.entries)
+          if (e.value) e.key
+      };
+      await ref
+          .read(calendarPresetsProvider.notifier)
+          .addOrUpdate(name, visible);
+      await _applyPreset(
+          CalendarPreset(name: name, visibleHrefs: visible), calendars);
+    }
+  }
+
+  Future<void> _deletePreset(CalendarPreset p) async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text('„${p.name}" löschen?'),
+        content: const Text('Das Filter-Preset wird entfernt.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Abbrechen'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Löschen'),
+          ),
+        ],
+      ),
+    );
+    if (ok == true) {
+      await ref.read(calendarPresetsProvider.notifier).remove(p.name);
+    }
   }
 
   /// Kleines Wetter-Badge (Icon + Max/Min) für einen Tag, falls eine Vorhersage
@@ -240,9 +412,14 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
                   .where((e) => !e.hasPassed(DateTime.now()))
                   .toList()
               : selectedEvents;
+          final eventCalendars = ref
+              .watch(membersProvider)
+              .where((m) => m.supportsEvents)
+              .toList();
           return Column(
             children: [
               _viewToggle(),
+              _presetBar(eventCalendars),
               if (_view == _CalView.day) ...[
                 _dayHeader(),
                 Expanded(

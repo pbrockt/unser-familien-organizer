@@ -3,7 +3,25 @@
 Selbst-gehosteter Familienplaner (Kalender + Aufgaben + Einkaufsliste).
 Alle Daten leben in **Nextcloud** via **CalDAV**. Kein eigener Server, kein Abo.
 
-Stand: Juni 2026 · App: Flutter (Android, später Web)
+Stand: Juni 2026 · App: Flutter (Android + Windows + Linux)
+
+> 🧪 **Im Test:** Seit Juni 2026 nutzen **4 Personen aus dem Haushalt** die App im
+> Alltag – läuft stabil und „ganz gut". Funktional ist die App damit feature-complete
+> für den Eigengebrauch; der Fokus liegt jetzt auf Politur (siehe „Nächste Schritte").
+
+---
+
+## ⭐ Nächste Schritte (aus dem Familien-Test)
+Reihenfolge ≈ Priorität:
+- [ ] **Home-Screen-Widgets verbessern** (schöner & nützlicher; aktuell nur schlichter
+      Text – siehe „Home-Screen-Widgets")
+- [x] **Kalender-Schnellansichten / Kurzwahl-Vorlagen** (Filter-Presets): mit einem Tipp
+      z. B. nur „Arbeit" zeigen, den Rest ausblenden (benennbare Filter-Sets als Chips
+      über dem Kalender, „Alle"-Chip, lange drücken = löschen)
+- [ ] **Desktop-Apps für den PC optimieren** (Layout/Bedienung am großen Bildschirm,
+      Fenstergröße/-titel, ggf. Tray, Tastatur, Maus – siehe „Desktop")
+- [ ] **App optisch aufhübschen** – aktuell funktional aber „basic": durchgängiges,
+      schöneres Design (Abstände, Typografie, Karten, Icons, Animationen, leere Zustände)
 
 ---
 
@@ -38,7 +56,7 @@ Stand: Juni 2026 · App: Flutter (Android, später Web)
 - [x] `flutter analyze` sauber, Smoke-Test grün
 - [x] GitHub Actions: Release-APK-Build + Signierung (wie Tagebuch-App)
 - [x] Erster grüner CI-Lauf — APK gebaut & als Artifact hochgeladen (~21 MB)
-- [ ] APK aufs Handy laden & installieren (Actions → Artifact `UnserFamilienOrganizer-release`)
+- [x] APK aufs Handy laden & installieren (Release-APK + In-App-Update-Check)
 
 ## ⚠️ Phase 2 — CalDAV Core (KRITISCHER PFAD)
 > Alles hängt davon ab. Erst danach starten die UI-Phasen.
@@ -81,14 +99,16 @@ Stand: Juni 2026 · App: Flutter (Android, später Web)
 - [x] **Datumsauswahl beginnt am Montag** (deutsche Lokalisierung der Picker)
 - [x] **Uhrzeit-/Termin-Anzeige aufgehübscht** (Zeit-Block, mehrtägig-Hinweis)
 - [ ] Mehrtägige Termine als durchgehender Balken im Monatsraster
+- [x] **Kurzwahl-Vorlagen / Filter-Presets** (z. B. nur „Arbeit" zeigen, Rest aus)
 
 ## ✔️ Phase 5 — Aufgaben-UI
 - [x] Aufgabenlisten anzeigen (farbcodiert, offen-Zähler)
 - [x] Abhaken (STATUS:COMPLETED) – optimistisch + CalDAV-PUT
 - [x] Fälligkeitsdatum anzeigen (überfällig hervorgehoben)
 - [x] Aufgabe anlegen/bearbeiten/löschen (Editor-Sheet, CalDAV PUT/DELETE)
+- [x] Aufgaben sortieren (Drag&Drop, wichtige nach oben; gerätelokal gespeichert)
+- [x] Alle Kategorien/Listen immer anzeigen (auch wenn nur eine Einträge hat)
 - [ ] Unteraufgaben (RELATED-TO), Priorität nutzen
-- [ ] Termin anlegen/bearbeiten/löschen (analog für VEVENT)
 
 ## 🛒 Phase 6 — Einkaufsliste
 - [x] Einkauf-Tab auf VTODO/Aufgaben-Basis (wählbare Liste, persistent)
@@ -118,13 +138,17 @@ Stand: Juni 2026 · App: Flutter (Android, später Web)
   - [x] Leerzustände („Heute nichts geplant 🎉")
   - [x] Tippen öffnet Termin/Aufgabe bzw. „Alle" springt in den Tab
   - [x] Pull-to-Refresh, nutzt Offline-Cache
-- [ ] Optional: Mitglieder-Filter / Wetter / Geburtstage hervorheben
+- [x] **Wetter** im Überblick (Open-Meteo per PLZ, Icons im Kalender)
+- [x] **Countdown** („Noch X Tage bis …") pro Kalender konfigurierbar (alle/nächster)
+- [x] Konfigurierbar: welche Kalender im Überblick / als Countdown erscheinen
+- [ ] Optional: Geburtstage hervorheben
 
 ## 🧩 Home-Screen-Widgets (Android)
 - [x] Kalender: Heute / Heute+Morgen / Woche / Monat
 - [x] Aufgaben (offene) + Einkauf (offene Artikel)
 - [x] Native, schlicht (Text), aktualisieren im Hintergrund (workmanager) und
       beim App-Öffnen; Antippen öffnet den passenden Tab
+- [ ] **Widgets verbessern**: schöner & nützlicher (mehr als schlichter Text) ⟵ *Test-Feedback*
 - [ ] Optional: Deep-Link-Navigation zum Tab beim Antippen
 - [ ] Optional: scrollbare Listen-Widgets / Monatsraster als Bild
 
@@ -138,6 +162,8 @@ Stand: Juni 2026 · App: Flutter (Android, später Web)
 - [x] Anstehende Termine nur heute + max. morgen, mit klarer „Heute/Morgen"-
       Markierung (heute leer → morgen wird gezeigt)
 - [ ] Feinschliff nach Screenshot-Vorlage (Abstände, Familien-Pille)
+- [ ] **App durchgängig aufhübschen** – aktuell funktional aber „basic":
+      Typografie, Karten, Icons, Animationen, leere Zustände ⟵ *Test-Feedback*
 - [x] Theme-Wahl (System/Hell/Dunkel) in den Einstellungen; Startseite +
       Hintergrund passen sich Hell/Dunkel an
 
@@ -146,7 +172,10 @@ Stand: Juni 2026 · App: Flutter (Android, später Web)
 - [x] Eigener Einstellungs-Screen (Zahnrad im Familie-Tab)
 - [x] **Berechtigungen in den Einstellungen verwalten** (Benachrichtigungen:
       Status anzeigen, anfordern, Test senden)
-- [ ] Theme (hell/dunkel/system) wählbar
+- [x] Theme (hell/dunkel/system) wählbar + frei wählbare Akzentfarbe
+- [x] **Termin-Vorlagen** (Häkchen beim Anlegen, Autocomplete, überschreibbar)
+- [x] **Kalender/Listen anlegen, umbenennen, löschen** (in der App)
+- [x] **Kalender/Aufgaben an andere Nextcloud-Nutzer freigeben** (Benutzersuche)
 
 ## 🔔 Phase 8 — Benachrichtigungen
 - [x] Lokale Notifications (flutter_local_notifications + timezone)
@@ -159,20 +188,23 @@ Stand: Juni 2026 · App: Flutter (Android, später Web)
       berücksichtigt (an/aus über die Erinnerungs-Einstellung)
 
 ## 🔒 Phase 9 — Sicherheit
-- [ ] Keystore/Secrets-Handling final
-- [ ] Self-Signed-Cert UX (Vertrauen bestätigen)
+- [x] Keystore/Secrets-Handling final (Signing-Passwörter nur in GitHub Secrets,
+      Repo öffentlich, MIT-Lizenz)
+- [x] Self-Signed-Cert UX (Vertrauen-Option beim Login)
 
 ## 🖥️ Desktop (Windows + Linux)
 - [x] Windows-Build (.exe, portabel als ZIP) + Linux-Build (Bundle als tar.gz)
       aus demselben Flutter-Code; CI-Jobs auf windows-latest/ubuntu-latest
 - [x] Plattform-Weichen: Benachrichtigungen/Widgets/Hintergrund-Sync nur Android;
       SQLite über sqflite_common_ffi, DB-Pfad via path_provider
-- [ ] Desktop-Politur: Fenstergröße/-titel, ggf. Tray, Timer-Sync
-- [ ] Echte Installer: Windows MSIX/Inno-Setup, Linux AppImage/.deb
+- [x] Echte Installer: Windows (Inno-Setup .exe), Linux (.deb + install.sh)
+- [ ] **Desktop für PC optimieren**: Layout am großen Bildschirm, Fenstergröße/-titel,
+      ggf. Tray, Tastatur/Maus, Timer-Sync ⟵ *Test-Feedback*
 
 ## 🚀 Phase 10 — Release
-- [ ] Testing
-- [ ] F-Droid / Play Store / direkter APK-Download
+- [x] Direkter APK-Download (GitHub Releases + In-App-Update)
+- [~] Testing — **läuft**: 4 Personen aus dem Haushalt nutzen die App im Alltag
+- [ ] F-Droid / Play Store (App-Bundle, Store-Eintrag, Datenschutz, Alterseinstufung)
 
 ---
 

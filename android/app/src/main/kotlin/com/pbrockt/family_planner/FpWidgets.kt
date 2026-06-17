@@ -46,6 +46,38 @@ abstract class FpWidgetProvider : HomeWidgetProvider() {
     }
 }
 
+/**
+ * „Überblick"-Widget: eigenes Layout mit live tickender Uhrzeit/Datum (TextClock),
+ * Wetter-Symbol und einem Textblock „Heute / Morgen / Countdown".
+ */
+class OverviewWidget : HomeWidgetProvider() {
+    override fun onUpdate(
+        context: Context,
+        appWidgetManager: AppWidgetManager,
+        appWidgetIds: IntArray,
+        widgetData: SharedPreferences,
+    ) {
+        for (id in appWidgetIds) {
+            val views = RemoteViews(context.packageName, R.layout.fp_widget_overview)
+            views.setTextViewText(
+                R.id.fp_widget_body,
+                widgetData.getString("overview_body", "–") ?: "–",
+            )
+            views.setTextViewText(
+                R.id.fp_widget_weather,
+                widgetData.getString("overview_weather", "") ?: "",
+            )
+            val pending = HomeWidgetLaunchIntent.getActivity(
+                context,
+                MainActivity::class.java,
+                Uri.parse("familyplanner://home"),
+            )
+            views.setOnClickPendingIntent(R.id.fp_widget_root, pending)
+            appWidgetManager.updateAppWidget(id, views)
+        }
+    }
+}
+
 class CalendarTodayWidget : FpWidgetProvider() {
     override val titleKey = "cal_today_title"
     override val bodyKey = "cal_today_body"
