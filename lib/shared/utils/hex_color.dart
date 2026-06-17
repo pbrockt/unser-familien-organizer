@@ -10,3 +10,11 @@ Color? parseHexColor(String? hex) {
   final value = int.tryParse(h, radix: 16);
   return value == null ? null : Color(0xFF000000 | value);
 }
+
+/// Wandelt eine [Color] in `#RRGGBB` (ohne Alpha). Für die Übergabe von
+/// Kalenderfarben an die nativen Home-Widgets.
+String toHexRgb(Color c) {
+  int channel(double x) => (x * 255).round().clamp(0, 255);
+  String two(int v) => v.toRadixString(16).padLeft(2, '0');
+  return '#${two(channel(c.r))}${two(channel(c.g))}${two(channel(c.b))}';
+}

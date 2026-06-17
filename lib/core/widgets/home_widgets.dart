@@ -5,7 +5,12 @@ import '../../features/calendar/calendar_event.dart';
 import '../../features/members/member_settings.dart';
 import '../../features/tasks/task_item.dart';
 import '../../features/weather/weather_service.dart';
+import '../../shared/utils/hex_color.dart';
 import '../platform/platform_support.dart';
+
+/// Trenner zwischen Farb-Markierung und Text einer Termin-Zeile. Die native
+/// Widget-Seite (FpWidgets.kt) zeichnet daraus einen farbigen Punkt.
+const String _kColorSep = '\u001F';
 
 /// Aktualisiert die Android-Home-Screen-Widgets (Kalender heute / heute+morgen
 /// / Woche / Monat, Aufgaben, Einkauf). Schiebt formatierte Texte in die
@@ -32,31 +37,59 @@ class HomeWidgets {
       _weatherToday(weather, today),
     );
 
-    await _push('cal_today', 'CalendarTodayWidget',
-        'Heute · ${_fmt('EEE, d. MMM', now)}', _dayBody(events, today));
+    await _push(
+      'cal_today',
+      'CalendarTodayWidget',
+      'Heute · ${_fmt('EEE, d. MMM', now)}',
+      _dayBody(events, today),
+    );
 
-    await _push('cal_2day', 'CalendarTomorrowWidget', 'Heute & Morgen',
-        _twoDayBody(events, today, tomorrow));
+    await _push(
+      'cal_2day',
+      'CalendarTomorrowWidget',
+      'Heute & Morgen',
+      _twoDayBody(events, today, tomorrow),
+    );
 
-    await _push('cal_week', 'CalendarWeekWidget', 'Diese Woche',
-        _weekBody(events, today));
+    await _push(
+      'cal_week',
+      'CalendarWeekWidget',
+      'Diese Woche',
+      _weekBody(events, today),
+    );
 
-    await _push('cal_month', 'CalendarMonthWidget', _fmt('MMMM yyyy', now),
-        _monthBody(events, now, today));
+    await _push(
+      'cal_month',
+      'CalendarMonthWidget',
+      _fmt('MMMM yyyy', now),
+      _monthBody(events, now, today),
+    );
 
     final openTasks = _openTasks(lists);
-    await _push('tasks', 'TasksWidget', 'Aufgaben · ${openTasks.length} offen',
-        _tasksBody(openTasks));
+    await _push(
+      'tasks',
+      'TasksWidget',
+      'Aufgaben · ${openTasks.length} offen',
+      _tasksBody(openTasks),
+    );
 
     final shop = _shoppingList(lists);
     final openShop =
         shop?.items.where((t) => !t.completed).toList() ?? const [];
-    await _push('shopping', 'ShoppingWidget',
-        'Einkauf · ${openShop.length} offen', _shoppingBody(openShop));
+    await _push(
+      'shopping',
+      'ShoppingWidget',
+      'Einkauf · ${openShop.length} offen',
+      _shoppingBody(openShop),
+    );
   }
 
   static Future<void> _push(
-      String key, String widget, String title, String body) async {
+    String key,
+    String widget,
+    String title,
+    String body,
+  ) async {
     await HomeWidget.saveWidgetData<String>('${key}_title', title);
     await HomeWidget.saveWidgetData<String>('${key}_body', body);
     await HomeWidget.updateWidget(qualifiedAndroidName: '$_pkg.$widget');
@@ -71,8 +104,7 @@ class HomeWidgets {
   // ---- Überblick-Widget ----
 
   /// Wetter des heutigen Tages als „☀️ 21°" (leer, wenn Wetter aus/unbekannt).
-  static String _weatherToday(
-      Map<String, DayWeather> weather, DateTime today) {
+  static String _weatherToday(Map<String, DayWeather> weather, DateTime today) {
     if (weather.isEmpty) return '';
     final w = weather[DateFormat('yyyy-MM-dd').format(today)];
     if (w == null) return '';
@@ -80,8 +112,12 @@ class HomeWidgets {
   }
 
   /// Heute + Morgen (nur Startseiten-Kalender) und Countdown-Termine.
-  static String _overviewBody(List<CalendarEvent> events,
-      Map<String, MemberSetting> settings, DateTime today, DateTime tomorrow) {
+  static String _overviewBody(
+    List<CalendarEvent> events,
+    Map<String, MemberSetting> settings,
+    DateTime today,
+    DateTime tomorrow,
+  ) {
     final home = filterHomeEvents(events, settings);
     final t = _eventsOn(home, today).map(_eventLine).toList();
     final m = _eventsOn(home, tomorrow).map(_eventLine).toList();
@@ -100,8 +136,8 @@ class HomeWidgets {
         final label = days == 0
             ? 'heute'
             : days == 1
-                ? 'morgen'
-                : 'in $days Tagen';
+            ? 'morgen'
+            : 'in $days Tagen';
         buf.add('⏳ ${e.summary} · $label');
       }
     }
@@ -114,7 +150,9 @@ class HomeWidgets {
       DateFormat(pattern, 'de_DE').format(d);
 
   static List<CalendarEvent> _eventsOn(
-      List<CalendarEvent> events, DateTime day) {
+    List<CalendarEvent> events,
+    DateTime day,
+  ) {
     final list = events.where((e) => e.occursOn(day)).toList()
       ..sort((a, b) {
         if (a.allDay != b.allDay) return a.allDay ? -1 : 1;
@@ -125,7 +163,10 @@ class HomeWidgets {
 
   static String _eventLine(CalendarEvent e) {
     final when = e.allDay ? 'Ganztägig' : _fmt('HH:mm', e.start);
-    return '$when  ${e.summary}';
+    final line = '$when  ${e.summary}';
+    final color = e.color;
+    // Farb-Markierung voranstellen → native Seite zeichnet einen farbigen Punkt.
+    return color == null ? line : '${toHexRgb(color)}$_kColorSep$line';
   }
 
   static String _capList(List<String> lines, int max, String empty) {
@@ -142,7 +183,10 @@ class HomeWidgets {
   }
 
   static String _twoDayBody(
-      List<CalendarEvent> events, DateTime today, DateTime tomorrow) {
+    List<CalendarEvent> events,
+    DateTime today,
+    DateTime tomorrow,
+  ) {
     final t = _eventsOn(events, today).map(_eventLine).toList();
     final m = _eventsOn(events, tomorrow).map(_eventLine).toList();
     final buf = <String>['HEUTE'];
@@ -162,31 +206,43 @@ class HomeWidgets {
       lines.add(_fmt('EEE d.', day).toUpperCase());
       for (final e in dayEvents) {
         if (lines.length >= 9) break;
-        lines.add('  ${_eventLine(e)}');
+        lines.add(_eventLine(e));
       }
     }
     return lines.isEmpty ? 'Keine Termine diese Woche' : lines.join('\n');
   }
 
   static String _monthBody(
-      List<CalendarEvent> events, DateTime now, DateTime today) {
+    List<CalendarEvent> events,
+    DateTime now,
+    DateTime today,
+  ) {
     final monthEnd = DateTime(now.year, now.month + 1, 1);
-    final inMonth = events
-        .where((e) =>
-            !e.start.isBefore(today) && e.start.isBefore(monthEnd) && !e.allDay)
-        .toList()
-      ..sort((a, b) => a.start.compareTo(b.start));
+    final inMonth =
+        events
+            .where(
+              (e) =>
+                  !e.start.isBefore(today) &&
+                  e.start.isBefore(monthEnd) &&
+                  !e.allDay,
+            )
+            .toList()
+          ..sort((a, b) => a.start.compareTo(b.start));
     final allDayMonth = events
-        .where((e) =>
-            e.allDay &&
-            !e.endDayInclusive.isBefore(today) &&
-            e.startDay.isBefore(monthEnd))
+        .where(
+          (e) =>
+              e.allDay &&
+              !e.endDayInclusive.isBefore(today) &&
+              e.startDay.isBefore(monthEnd),
+        )
         .length;
     final total = inMonth.length + allDayMonth;
     final lines = <String>['Noch $total Termine diesen Monat'];
     for (final e in inMonth.take(5)) {
-      lines.add('${_fmt('d. MMM', e.start)} · ${_fmt('HH:mm', e.start)}  '
-          '${e.summary}');
+      lines.add(
+        '${_fmt('d. MMM', e.start)} · ${_fmt('HH:mm', e.start)}  '
+        '${e.summary}',
+      );
     }
     return lines.join('\n');
   }
