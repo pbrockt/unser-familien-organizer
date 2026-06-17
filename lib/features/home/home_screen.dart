@@ -64,11 +64,15 @@ class HomeScreen extends ConsumerWidget {
       }
       if (preset != null) {
         final visible = preset.visibleHrefs;
-        homeEvents =
-            homeEvents.where((e) => visible.contains(e.calendarHref)).toList();
+        homeEvents = homeEvents
+            .where((e) => visible.contains(e.calendarHref))
+            .toList();
       }
     }
     final upcoming = _upcoming(homeEvents, now, today, upcomingDays);
+    // Bereits abgeschlossene Termine von heute – ans Ende der horizontalen
+    // Liste gehängt, sichtbar beim Wischen nach links.
+    final passedToday = _passedToday(homeEvents, now, today);
     final countdowns = countdownEvents(events, memberSettings, today);
 
     // Tippen auf einen Termin/Countdown → in die Kalender-Tagesansicht springen.
@@ -80,9 +84,13 @@ class HomeScreen extends ConsumerWidget {
     // Tippen auf die 2-Wochen-Übersicht → Kalender-Tab (Monatsansicht), nicht
     // in die Tagesansicht.
     void openDay(DateTime day) {
-      ref.read(calendarJumpProvider.notifier).set(
-            CalendarJumpTarget(DateTime(day.year, day.month, day.day),
-                openDay: false),
+      ref
+          .read(calendarJumpProvider.notifier)
+          .set(
+            CalendarJumpTarget(
+              DateTime(day.year, day.month, day.day),
+              openDay: false,
+            ),
           );
       context.go('/calendar');
     }
@@ -131,7 +139,7 @@ class HomeScreen extends ConsumerWidget {
                       onTapDay: openDay,
                     ),
                     const _SectionLabel('Anstehende Termine'),
-                    if (upcoming.isEmpty)
+                    if (upcoming.isEmpty && passedToday.isEmpty)
                       const _EmptyHint('Keine anstehenden Termine 🎉')
                     else
                       SizedBox(
@@ -139,23 +147,40 @@ class HomeScreen extends ConsumerWidget {
                         child: ListView.builder(
                           scrollDirection: Axis.horizontal,
                           padding: const EdgeInsets.symmetric(horizontal: 16),
-                          itemCount: upcoming.length,
-                          itemBuilder: (context, i) => _EventCard(
-                            event: upcoming[i],
-                            now: now,
-                            highlighted: i == 0,
-                            onTap: () => openInCalendar(upcoming[i]),
-                            onLongPress: () =>
-                                showEventEditor(context, existing: upcoming[i]),
-                          ),
+                          itemCount: upcoming.length + passedToday.length,
+                          itemBuilder: (context, i) {
+                            if (i < upcoming.length) {
+                              final e = upcoming[i];
+                              return _EventCard(
+                                event: e,
+                                now: now,
+                                highlighted: i == 0,
+                                onTap: () => openInCalendar(e),
+                                onLongPress: () =>
+                                    showEventEditor(context, existing: e),
+                              );
+                            }
+                            final e = passedToday[i - upcoming.length];
+                            return _EventCard(
+                              event: e,
+                              now: now,
+                              highlighted: false,
+                              passed: true,
+                              onTap: () => openInCalendar(e),
+                              onLongPress: () =>
+                                  showEventEditor(context, existing: e),
+                            );
+                          },
                         ),
                       ),
                     const _SectionLabel('Überblick'),
-                    ...countdowns.map((e) => _CountdownCard(
-                          event: e,
-                          today: today,
-                          onTap: () => openInCalendar(e),
-                        )),
+                    ...countdowns.map(
+                      (e) => _CountdownCard(
+                        event: e,
+                        today: today,
+                        onTap: () => openInCalendar(e),
+                      ),
+                    ),
                     ...taskLists.map((l) => _ListCard(list: l)),
                     if (countdowns.isEmpty && taskLists.isEmpty)
                       const _EmptyHint('Noch keine Listen vorhanden'),
@@ -171,7 +196,11 @@ class HomeScreen extends ConsumerWidget {
 
   /// Anstehende Termine der nächsten [days] Tage (1 = nur heute).
   List<CalendarEvent> _upcoming(
-      List<CalendarEvent> events, DateTime now, DateTime today, int days) {
+    List<CalendarEvent> events,
+    DateTime now,
+    DateTime today,
+    int days,
+  ) {
     final lastDay = today.add(Duration(days: days - 1));
     final endExclusive = today.add(Duration(days: days));
     final list = events.where((e) {
@@ -181,8 +210,21 @@ class HomeScreen extends ConsumerWidget {
       }
       // Bereits beendete Termine ausblenden; laufende und kommende anzeigen.
       return !e.hasPassed(now) && e.start.isBefore(endExclusive);
-    }).toList()
-      ..sort((a, b) => a.start.compareTo(b.start));
+    }).toList()..sort((a, b) => a.start.compareTo(b.start));
+    return list.take(20).toList();
+  }
+
+  /// Heute bereits abgeschlossene (zeitgebundene) Termine, neueste zuerst –
+  /// erscheinen ausgegraut am Ende der „Anstehende Termine"-Liste.
+  List<CalendarEvent> _passedToday(
+    List<CalendarEvent> events,
+    DateTime now,
+    DateTime today,
+  ) {
+    final list = events.where((e) {
+      if (e.allDay || e.isMultiDay) return false;
+      return e.startDay == today && e.hasPassed(now);
+    }).toList()..sort((a, b) => b.start.compareTo(a.start));
     return list.take(20).toList();
   }
 }
@@ -212,9 +254,9 @@ class _TopBar extends StatelessWidget {
             shadowColor: Colors.black26,
             child: InkWell(
               customBorder: const CircleBorder(),
-              onTap: () => Navigator.of(context).push(
-                MaterialPageRoute(builder: (_) => const SettingsScreen()),
-              ),
+              onTap: () => Navigator.of(
+                context,
+              ).push(MaterialPageRoute(builder: (_) => const SettingsScreen())),
               child: Padding(
                 padding: const EdgeInsets.all(9),
                 child: Icon(Icons.settings_outlined, color: scheme.onSurface),
@@ -275,21 +317,27 @@ class _GreetingState extends State<_Greeting> {
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text('${_greeting()}$who',
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: TextStyle(
-                fontSize: 19,
-                fontWeight: FontWeight.w800,
-                color: scheme.onSurface)),
+        Text(
+          '${_greeting()}$who',
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: TextStyle(
+            fontSize: 19,
+            fontWeight: FontWeight.w800,
+            color: scheme.onSurface,
+          ),
+        ),
         const SizedBox(height: 1),
-        Text(dateLine,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: TextStyle(
-                fontSize: 12.5,
-                fontWeight: FontWeight.w600,
-                color: scheme.primary)),
+        Text(
+          dateLine,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: TextStyle(
+            fontSize: 12.5,
+            fontWeight: FontWeight.w600,
+            color: scheme.primary,
+          ),
+        ),
       ],
     );
   }
@@ -306,11 +354,14 @@ class _SectionLabel extends StatelessWidget {
       child: Row(
         children: [
           Expanded(
-            child: Text(text,
-                style: TextStyle(
-                    fontSize: 15,
-                    fontWeight: FontWeight.w800,
-                    color: Theme.of(context).colorScheme.onSurface)),
+            child: Text(
+              text,
+              style: TextStyle(
+                fontSize: 15,
+                fontWeight: FontWeight.w800,
+                color: Theme.of(context).colorScheme.onSurface,
+              ),
+            ),
           ),
           ?trailing,
         ],
@@ -366,13 +417,19 @@ class _HomeFilterButton extends StatelessWidget {
           children: [
             Icon(Icons.filter_list, size: 16, color: scheme.onSurfaceVariant),
             const SizedBox(width: 6),
-            Text(label,
-                style: TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w600,
-                    color: scheme.onSurface)),
-            Icon(Icons.arrow_drop_down,
-                size: 18, color: scheme.onSurfaceVariant),
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+                color: scheme.onSurface,
+              ),
+            ),
+            Icon(
+              Icons.arrow_drop_down,
+              size: 18,
+              color: scheme.onSurfaceVariant,
+            ),
           ],
         ),
       ),
@@ -404,7 +461,8 @@ class _TwoWeekCalendar extends StatelessWidget {
     const labels = ['Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa', 'So'];
 
     Widget cell(DateTime day) {
-      final isToday = day.year == today.year &&
+      final isToday =
+          day.year == today.year &&
           day.month == today.month &&
           day.day == today.day;
       final isPast = day.isBefore(today);
@@ -429,13 +487,12 @@ class _TwoWeekCalendar extends StatelessWidget {
                     '${day.day}',
                     style: TextStyle(
                       fontSize: 13,
-                      fontWeight:
-                          isToday ? FontWeight.w700 : FontWeight.w500,
+                      fontWeight: isToday ? FontWeight.w700 : FontWeight.w500,
                       color: isToday
                           ? scheme.onPrimary
                           : isPast
-                              ? scheme.onSurfaceVariant.withValues(alpha: 0.5)
-                              : scheme.onSurface,
+                          ? scheme.onSurfaceVariant.withValues(alpha: 0.5)
+                          : scheme.onSurface,
                     ),
                   ),
                 ),
@@ -466,11 +523,10 @@ class _TwoWeekCalendar extends StatelessWidget {
     }
 
     Widget weekRow(int offset) => Row(
-          children: [
-            for (var i = 0; i < 7; i++)
-              cell(start.add(Duration(days: offset + i))),
-          ],
-        );
+      children: [
+        for (var i = 0; i < 7; i++) cell(start.add(Duration(days: offset + i))),
+      ],
+    );
 
     return Container(
       margin: const EdgeInsets.fromLTRB(16, 0, 16, 12),
@@ -487,11 +543,14 @@ class _TwoWeekCalendar extends StatelessWidget {
               for (final l in labels)
                 Expanded(
                   child: Center(
-                    child: Text(l,
-                        style: TextStyle(
-                            fontSize: 11,
-                            fontWeight: FontWeight.w600,
-                            color: scheme.onSurfaceVariant)),
+                    child: Text(
+                      l,
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w600,
+                        color: scheme.onSurfaceVariant,
+                      ),
+                    ),
                   ),
                 ),
             ],
@@ -514,12 +573,16 @@ class _EventCard extends StatelessWidget {
     required this.highlighted,
     required this.onTap,
     this.onLongPress,
+    this.passed = false,
   });
   final CalendarEvent event;
   final DateTime now;
   final bool highlighted;
   final VoidCallback onTap;
   final VoidCallback? onLongPress;
+
+  /// Bereits abgeschlossener Termin von heute (ausgegraut dargestellt).
+  final bool passed;
 
   String _dayLabel() {
     final day = DateTime(event.start.year, event.start.month, event.start.day);
@@ -547,106 +610,128 @@ class _EventCard extends StatelessWidget {
     final soon = _soon();
     return Padding(
       padding: const EdgeInsets.only(right: 12, top: 2, bottom: 6),
-      child: GestureDetector(
-        onTap: onTap,
-        onLongPress: onLongPress,
-        child: Container(
-          width: 185,
-          padding: const EdgeInsets.all(12),
-          decoration: BoxDecoration(
-            color: Theme.of(context).cardColor,
-            borderRadius: BorderRadius.circular(18),
-            boxShadow: _softShadow(context),
-            border: highlighted
-                ? Border.all(color: scheme.primary, width: 1.6)
-                : null,
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(event.summary,
+      child: Opacity(
+        opacity: passed ? 0.5 : 1,
+        child: GestureDetector(
+          onTap: onTap,
+          onLongPress: onLongPress,
+          child: Container(
+            width: 185,
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: Theme.of(context).cardColor,
+              borderRadius: BorderRadius.circular(18),
+              boxShadow: _softShadow(context),
+              border: highlighted
+                  ? Border.all(color: scheme.primary, width: 1.6)
+                  : null,
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  event.summary,
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(
-                      fontSize: 15,
-                      fontWeight: FontWeight.w700,
-                      height: 1.15,
-                      color: scheme.onSurface)),
-              if (soon != null) ...[
-                const SizedBox(height: 3),
-                Text(soon,
+                    fontSize: 15,
+                    fontWeight: FontWeight.w700,
+                    height: 1.15,
+                    color: scheme.onSurface,
+                  ),
+                ),
+                if (soon != null) ...[
+                  const SizedBox(height: 3),
+                  Text(
+                    soon,
                     style: TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w700,
-                        color: scheme.primary)),
-              ] else if (event.location != null &&
-                  event.location!.isNotEmpty) ...[
-                const SizedBox(height: 3),
-                Text('📍 ${event.location}',
+                      fontSize: 12,
+                      fontWeight: FontWeight.w700,
+                      color: scheme.primary,
+                    ),
+                  ),
+                ] else if (event.location != null &&
+                    event.location!.isNotEmpty) ...[
+                  const SizedBox(height: 3),
+                  Text(
+                    '📍 ${event.location}',
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: TextStyle(
-                        fontSize: 12, color: scheme.onSurfaceVariant)),
-              ],
-              const Spacer(),
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.end,
-                children: [
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        // Tages-Hinweis (Heute/Morgen/Datum) klein über der Zeit.
-                        Text(_dayLabel(),
+                      fontSize: 12,
+                      color: scheme.onSurfaceVariant,
+                    ),
+                  ),
+                ],
+                const Spacer(),
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          // Tages-Hinweis (Heute/Morgen/Datum) klein über der Zeit.
+                          Text(
+                            _dayLabel(),
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                             style: TextStyle(
-                                fontSize: 11,
-                                fontWeight: FontWeight.w700,
-                                color: highlighted
-                                    ? scheme.primary
-                                    : scheme.onSurfaceVariant)),
-                        const SizedBox(height: 1),
-                        if (event.allDay)
-                          Text('Ganztägig',
+                              fontSize: 11,
+                              fontWeight: FontWeight.w700,
+                              color: highlighted
+                                  ? scheme.primary
+                                  : scheme.onSurfaceVariant,
+                            ),
+                          ),
+                          const SizedBox(height: 1),
+                          if (event.allDay)
+                            Text(
+                              'Ganztägig',
                               style: TextStyle(
-                                  fontSize: 14,
-                                  fontWeight: FontWeight.w800,
-                                  color: scheme.onSurface))
-                        else
-                          Row(
-                            crossAxisAlignment: CrossAxisAlignment.end,
-                            children: [
-                              Text(
-                                DateFormat('HH:mm').format(event.start),
-                                style: TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.w800,
+                                color: scheme.onSurface,
+                              ),
+                            )
+                          else
+                            Row(
+                              crossAxisAlignment: CrossAxisAlignment.end,
+                              children: [
+                                Text(
+                                  DateFormat('HH:mm').format(event.start),
+                                  style: TextStyle(
                                     fontSize: 14,
                                     fontWeight: FontWeight.w800,
-                                    color: scheme.onSurface),
-                              ),
-                              if (event.end != null)
-                                Padding(
-                                  padding: const EdgeInsets.only(left: 4),
-                                  child: Text(
-                                    '– ${DateFormat('HH:mm').format(event.end!)}',
-                                    style: TextStyle(
-                                        fontSize: 14,
-                                        fontWeight: FontWeight.w600,
-                                        color: scheme.onSurface
-                                            .withValues(alpha: 0.45)),
+                                    color: scheme.onSurface,
                                   ),
                                 ),
-                            ],
-                          ),
-                      ],
+                                if (event.end != null)
+                                  Padding(
+                                    padding: const EdgeInsets.only(left: 4),
+                                    child: Text(
+                                      '– ${DateFormat('HH:mm').format(event.end!)}',
+                                      style: TextStyle(
+                                        fontSize: 14,
+                                        fontWeight: FontWeight.w600,
+                                        color: scheme.onSurface.withValues(
+                                          alpha: 0.45,
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                              ],
+                            ),
+                        ],
+                      ),
                     ),
-                  ),
-                  const SizedBox(width: 6),
-                  _Avatar(name: event.calendarName, color: color, radius: 12),
-                ],
-              ),
-            ],
+                    const SizedBox(width: 6),
+                    _Avatar(name: event.calendarName, color: color, radius: 12),
+                  ],
+                ),
+              ],
+            ),
           ),
         ),
       ),
@@ -685,29 +770,40 @@ class _ListCard extends StatelessWidget {
           child: Row(
             children: [
               _IconChip(
-                  icon: _isShopping ? Icons.shopping_cart : Icons.checklist,
-                  color: color),
+                icon: _isShopping ? Icons.shopping_cart : Icons.checklist,
+                color: color,
+              ),
               const SizedBox(width: 10),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(list.name,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                            fontSize: 14.5,
-                            fontWeight: FontWeight.w700,
-                            color: scheme.onSurface)),
+                    Text(
+                      list.name,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontSize: 14.5,
+                        fontWeight: FontWeight.w700,
+                        color: scheme.onSurface,
+                      ),
+                    ),
                     const SizedBox(height: 1),
-                    Text('$done/$total erledigt',
-                        style: TextStyle(
-                            fontSize: 12, color: scheme.onSurfaceVariant)),
+                    Text(
+                      '$done/$total erledigt',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: scheme.onSurfaceVariant,
+                      ),
+                    ),
                   ],
                 ),
               ),
-              Icon(Icons.chevron_right,
-                  size: 20, color: scheme.onSurfaceVariant),
+              Icon(
+                Icons.chevron_right,
+                size: 20,
+                color: scheme.onSurfaceVariant,
+              ),
             ],
           ),
         ),
@@ -756,23 +852,31 @@ class _CountdownCard extends StatelessWidget {
                 ),
                 child: Center(
                   child: days <= 1
-                      ? Text(days == 0 ? 'Heute' : 'Morgen',
+                      ? Text(
+                          days == 0 ? 'Heute' : 'Morgen',
                           textAlign: TextAlign.center,
                           style: TextStyle(
-                              fontSize: 10,
-                              fontWeight: FontWeight.w800,
-                              color: color))
+                            fontSize: 10,
+                            fontWeight: FontWeight.w800,
+                            color: color,
+                          ),
+                        )
                       : Column(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                            Text('$days',
-                                style: TextStyle(
-                                    fontSize: 16,
-                                    height: 1,
-                                    fontWeight: FontWeight.w800,
-                                    color: color)),
-                            Text('Tage',
-                                style: TextStyle(fontSize: 8, color: color)),
+                            Text(
+                              '$days',
+                              style: TextStyle(
+                                fontSize: 16,
+                                height: 1,
+                                fontWeight: FontWeight.w800,
+                                color: color,
+                              ),
+                            ),
+                            Text(
+                              'Tage',
+                              style: TextStyle(fontSize: 8, color: color),
+                            ),
                           ],
                         ),
                 ),
@@ -782,25 +886,32 @@ class _CountdownCard extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(event.summary,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                            fontSize: 14.5,
-                            fontWeight: FontWeight.w700,
-                            color: scheme.onSurface)),
+                    Text(
+                      event.summary,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontSize: 14.5,
+                        fontWeight: FontWeight.w700,
+                        color: scheme.onSurface,
+                      ),
+                    ),
                     const SizedBox(height: 1),
                     Text(
-                        days <= 1
-                            ? dateStr
-                            : 'Noch $days Tage · $dateStr',
-                        style: TextStyle(
-                            fontSize: 12, color: scheme.onSurfaceVariant)),
+                      days <= 1 ? dateStr : 'Noch $days Tage · $dateStr',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: scheme.onSurfaceVariant,
+                      ),
+                    ),
                   ],
                 ),
               ),
-              Icon(Icons.chevron_right,
-                  size: 20, color: scheme.onSurfaceVariant),
+              Icon(
+                Icons.chevron_right,
+                size: 20,
+                color: scheme.onSurfaceVariant,
+              ),
             ],
           ),
         ),
@@ -850,11 +961,14 @@ class _Avatar extends StatelessWidget {
     return CircleAvatar(
       radius: radius,
       backgroundColor: color,
-      child: Text(_initials,
-          style: TextStyle(
-              color: Colors.white,
-              fontSize: radius * 0.7,
-              fontWeight: FontWeight.w700)),
+      child: Text(
+        _initials,
+        style: TextStyle(
+          color: Colors.white,
+          fontSize: radius * 0.7,
+          fontWeight: FontWeight.w700,
+        ),
+      ),
     );
   }
 }
@@ -905,11 +1019,15 @@ class _NextcloudAvatarState extends ConsumerState<_NextcloudAvatar> {
       // Sperre aktiv – nur beim ersten Tipp einer Serie kurz Bescheid geben.
       if (_taps <= 1) {
         final remaining = (_cooldown - since).inSeconds + 1;
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text('Gerade erst synchronisiert – bitte noch $remaining s '
-              'warten.'),
-          duration: const Duration(seconds: 2),
-        ));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'Gerade erst synchronisiert – bitte noch $remaining s '
+              'warten.',
+            ),
+            duration: const Duration(seconds: 2),
+          ),
+        );
       }
       return;
     }
@@ -918,18 +1036,20 @@ class _NextcloudAvatarState extends ConsumerState<_NextcloudAvatar> {
     ref.invalidate(eventsControllerProvider);
     ref.invalidate(tasksControllerProvider);
     ref.invalidate(pendingSyncCountProvider);
-    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-      content: Text('Synchronisiere mit der Nextcloud…'),
-      duration: Duration(seconds: 2),
-    ));
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Synchronisiere mit der Nextcloud…'),
+        duration: Duration(seconds: 2),
+      ),
+    );
   }
 
   String _statusLabel(SyncStatus s) => switch (s) {
-        SyncStatus.online => 'Online – zuletzt erfolgreich synchronisiert',
-        SyncStatus.syncing => 'Synchronisiert gerade …',
-        SyncStatus.offline => 'Offline – Server nicht erreichbar',
-        SyncStatus.idle => 'Noch nicht synchronisiert',
-      };
+    SyncStatus.online => 'Online – zuletzt erfolgreich synchronisiert',
+    SyncStatus.syncing => 'Synchronisiert gerade …',
+    SyncStatus.offline => 'Offline – Server nicht erreichbar',
+    SyncStatus.idle => 'Noch nicht synchronisiert',
+  };
 
   /// Fehler-/Diagnose-Popup (5× auf den Statuspunkt tippen).
   Future<void> _showDiagnostics() async {
@@ -962,9 +1082,7 @@ class _NextcloudAvatarState extends ConsumerState<_NextcloudAvatar> {
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('🔍 Sync-Diagnose'),
-        content: SingleChildScrollView(
-          child: SelectableText(lines.join('\n')),
-        ),
+        content: SingleChildScrollView(child: SelectableText(lines.join('\n'))),
         actions: [
           TextButton(
             onPressed: () {
@@ -1106,9 +1224,10 @@ class _EmptyHint extends StatelessWidget {
   Widget build(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.fromLTRB(20, 0, 20, 8),
-      child: Text(text,
-          style:
-              TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant)),
+      child: Text(
+        text,
+        style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant),
+      ),
     );
   }
 }
@@ -1131,11 +1250,14 @@ class _ConnectCard extends StatelessWidget {
           children: [
             const _IconChip(icon: Icons.cloud_off_outlined),
             const SizedBox(height: 12),
-            Text('Noch nicht verbunden',
-                style: TextStyle(
-                    fontSize: 17,
-                    fontWeight: FontWeight.w700,
-                    color: scheme.onSurface)),
+            Text(
+              'Noch nicht verbunden',
+              style: TextStyle(
+                fontSize: 17,
+                fontWeight: FontWeight.w700,
+                color: scheme.onSurface,
+              ),
+            ),
             const SizedBox(height: 6),
             Text(
               'Verbinde deine Nextcloud, damit hier eure Termine und Listen '
@@ -1145,9 +1267,9 @@ class _ConnectCard extends StatelessWidget {
             ),
             const SizedBox(height: 16),
             FilledButton.icon(
-              onPressed: () => Navigator.of(context).push(
-                MaterialPageRoute(builder: (_) => const FamilyScreen()),
-              ),
+              onPressed: () => Navigator.of(
+                context,
+              ).push(MaterialPageRoute(builder: (_) => const FamilyScreen())),
               icon: const Icon(Icons.cloud_outlined),
               label: const Text('Verbinden'),
             ),
