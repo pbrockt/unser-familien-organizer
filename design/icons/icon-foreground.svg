@@ -1,6 +1,7 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
-  <!-- transparent background; motif scaled to stay inside the adaptive safe-zone -->
-  <g transform="translate(512,512) scale(0.82) translate(-512,-512)">
+  <!-- transparent background; motif vergrößert. Das adaptive Icon fügt zusätzlich
+       einen 16%-Inset hinzu, daher darf das Motiv hier fast den vollen Rand nutzen. -->
+  <g transform="translate(512,512) scale(1.34) translate(-512,-512)">
     <rect x="356" y="240" width="40" height="92" rx="20" fill="#3E322A"/>
     <rect x="628" y="240" width="40" height="92" rx="20" fill="#3E322A"/>
     <rect x="232" y="288" width="560" height="476" rx="56" fill="#FFFFFF"/>
