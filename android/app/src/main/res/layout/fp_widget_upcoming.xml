@@ -7,9 +7,8 @@
     android:background="@drawable/fp_widget_bg"
     android:padding="16dp">
 
-    <!-- Kopf: Titel -->
+    <!-- Kopf -->
     <TextView
-        android:id="@+id/fp_widget_title"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:textColor="#E8964F"
@@ -17,7 +16,7 @@
         android:textStyle="bold"
         android:maxLines="1"
         android:ellipsize="end"
-        android:text="FamilyPlanner" />
+        android:text="Anstehende Termine" />
 
     <View
         android:layout_width="match_parent"

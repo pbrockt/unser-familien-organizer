@@ -52,62 +52,16 @@
             </intent-filter>
         </receiver>
 
-        <!-- Home-Screen-Widgets -->
-        <receiver android:name=".OverviewWidget" android:exported="false"
-            android:label="Überblick (Heute &amp; Morgen)">
+        <!-- Home-Screen-Widget: Anstehende Termine.
+             exported=true, damit das System onUpdate beim Platzieren selbst
+             aufruft (sonst bleibt das Widget auf dem System-Platzhalter). -->
+        <receiver android:name=".UpcomingWidget" android:exported="true"
+            android:label="Anstehende Termine">
             <intent-filter>
                 <action android:name="android.appwidget.action.APPWIDGET_UPDATE"/>
             </intent-filter>
             <meta-data android:name="android.appwidget.provider"
-                android:resource="@xml/fp_widget_overview"/>
-        </receiver>
-        <receiver android:name=".CalendarTodayWidget" android:exported="false"
-            android:label="Kalender · Heute">
-            <intent-filter>
-                <action android:name="android.appwidget.action.APPWIDGET_UPDATE"/>
-            </intent-filter>
-            <meta-data android:name="android.appwidget.provider"
-                android:resource="@xml/fp_widget_today"/>
-        </receiver>
-        <receiver android:name=".CalendarTomorrowWidget" android:exported="false"
-            android:label="Kalender · Heute &amp; Morgen">
-            <intent-filter>
-                <action android:name="android.appwidget.action.APPWIDGET_UPDATE"/>
-            </intent-filter>
-            <meta-data android:name="android.appwidget.provider"
-                android:resource="@xml/fp_widget_2day"/>
-        </receiver>
-        <receiver android:name=".CalendarWeekWidget" android:exported="false"
-            android:label="Kalender · Woche">
-            <intent-filter>
-                <action android:name="android.appwidget.action.APPWIDGET_UPDATE"/>
-            </intent-filter>
-            <meta-data android:name="android.appwidget.provider"
-                android:resource="@xml/fp_widget_week"/>
-        </receiver>
-        <receiver android:name=".CalendarMonthWidget" android:exported="false"
-            android:label="Kalender · Monat">
-            <intent-filter>
-                <action android:name="android.appwidget.action.APPWIDGET_UPDATE"/>
-            </intent-filter>
-            <meta-data android:name="android.appwidget.provider"
-                android:resource="@xml/fp_widget_month"/>
-        </receiver>
-        <receiver android:name=".TasksWidget" android:exported="false"
-            android:label="Aufgaben">
-            <intent-filter>
-                <action android:name="android.appwidget.action.APPWIDGET_UPDATE"/>
-            </intent-filter>
-            <meta-data android:name="android.appwidget.provider"
-                android:resource="@xml/fp_widget_tasks"/>
-        </receiver>
-        <receiver android:name=".ShoppingWidget" android:exported="false"
-            android:label="Einkauf">
-            <intent-filter>
-                <action android:name="android.appwidget.action.APPWIDGET_UPDATE"/>
-            </intent-filter>
-            <meta-data android:name="android.appwidget.provider"
-                android:resource="@xml/fp_widget_shopping"/>
+                android:resource="@xml/fp_widget_upcoming"/>
         </receiver>
     </application>
     <!-- Required to query activities that can process text, see:

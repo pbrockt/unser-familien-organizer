@@ -10,7 +10,6 @@ import android.text.SpannableStringBuilder
 import android.text.Spanned
 import android.text.style.ForegroundColorSpan
 import android.text.style.StyleSpan
-import android.view.View
 import android.widget.RemoteViews
 import es.antonborri.home_widget.HomeWidgetLaunchIntent
 import es.antonborri.home_widget.HomeWidgetProvider
@@ -82,8 +81,7 @@ fun styledBody(raw: String): CharSequence {
             } else {
                 val start = sb.length
                 sb.append(line)
-                val c = if (line.startsWith("⏳")) FP_BROWN else FP_BROWN_SOFT
-                sb.setSpan(ForegroundColorSpan(c), start, sb.length, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+                sb.setSpan(ForegroundColorSpan(FP_BROWN_SOFT), start, sb.length, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
             }
         }
         sb
@@ -93,33 +91,26 @@ fun styledBody(raw: String): CharSequence {
 }
 
 /**
- * Basis für alle FamilyPlanner-Home-Screen-Widgets. Zeigt Titel + (mehrzeiligen)
- * Inhalt aus den von Flutter gesetzten Widget-Daten und öffnet beim Antippen
- * den passenden Tab der App.
+ * „Anstehende Termine"-Widget: zeigt die nächsten Termine im App-Stil
+ * (weiße Karte, farbige Punkte je Kalender). Liest die von Flutter gesetzten
+ * Daten und öffnet beim Antippen den Kalender.
  */
-abstract class FpWidgetProvider : HomeWidgetProvider() {
-    abstract val titleKey: String
-    abstract val bodyKey: String
-    abstract val route: String
-    open val defaultTitle: String = "FamilyPlanner"
-
+class UpcomingWidget : HomeWidgetProvider() {
     override fun onUpdate(
         context: Context,
         appWidgetManager: AppWidgetManager,
         appWidgetIds: IntArray,
         widgetData: SharedPreferences,
     ) {
-        val title = widgetData.getString(titleKey, defaultTitle) ?: defaultTitle
-        val rawBody = widgetData.getString(bodyKey, "–") ?: "–"
+        val rawBody = widgetData.getString("upcoming_body", "–") ?: "–"
         val pending = HomeWidgetLaunchIntent.getActivity(
             context,
             MainActivity::class.java,
-            Uri.parse("familyplanner://$route"),
+            Uri.parse("familyplanner://calendar"),
         )
         for (id in appWidgetIds) {
             applyWithFallback(appWidgetManager, id) { styled ->
-                RemoteViews(context.packageName, R.layout.fp_widget).apply {
-                    setTextViewText(R.id.fp_widget_title, title)
+                RemoteViews(context.packageName, R.layout.fp_widget_upcoming).apply {
                     setTextViewText(
                         R.id.fp_widget_body,
                         if (styled) styledBody(rawBody) else plainBody(rawBody),
@@ -129,83 +120,4 @@ abstract class FpWidgetProvider : HomeWidgetProvider() {
             }
         }
     }
-}
-
-/**
- * „Überblick"-Widget: eigenes Layout mit live tickender Uhrzeit/Datum (TextClock),
- * Wetter-Symbol und einem Textblock „Heute / Morgen / Countdown".
- */
-class OverviewWidget : HomeWidgetProvider() {
-    override fun onUpdate(
-        context: Context,
-        appWidgetManager: AppWidgetManager,
-        appWidgetIds: IntArray,
-        widgetData: SharedPreferences,
-    ) {
-        val rawBody = widgetData.getString("overview_body", "–") ?: "–"
-        val weather = widgetData.getString("overview_weather", "") ?: ""
-        val pending = HomeWidgetLaunchIntent.getActivity(
-            context,
-            MainActivity::class.java,
-            Uri.parse("familyplanner://home"),
-        )
-        for (id in appWidgetIds) {
-            applyWithFallback(appWidgetManager, id) { styled ->
-                RemoteViews(context.packageName, R.layout.fp_widget_overview).apply {
-                    setTextViewText(
-                        R.id.fp_widget_body,
-                        if (styled) styledBody(rawBody) else plainBody(rawBody),
-                    )
-                    setTextViewText(R.id.fp_widget_weather, weather)
-                    setViewVisibility(
-                        R.id.fp_widget_weather,
-                        if (weather.isBlank()) View.GONE else View.VISIBLE,
-                    )
-                    setOnClickPendingIntent(R.id.fp_widget_root, pending)
-                }
-            }
-        }
-    }
-}
-
-class CalendarTodayWidget : FpWidgetProvider() {
-    override val titleKey = "cal_today_title"
-    override val bodyKey = "cal_today_body"
-    override val route = "calendar"
-    override val defaultTitle = "Heute"
-}
-
-class CalendarTomorrowWidget : FpWidgetProvider() {
-    override val titleKey = "cal_2day_title"
-    override val bodyKey = "cal_2day_body"
-    override val route = "calendar"
-    override val defaultTitle = "Heute & Morgen"
-}
-
-class CalendarWeekWidget : FpWidgetProvider() {
-    override val titleKey = "cal_week_title"
-    override val bodyKey = "cal_week_body"
-    override val route = "calendar"
-    override val defaultTitle = "Diese Woche"
-}
-
-class CalendarMonthWidget : FpWidgetProvider() {
-    override val titleKey = "cal_month_title"
-    override val bodyKey = "cal_month_body"
-    override val route = "calendar"
-    override val defaultTitle = "Monat"
-}
-
-class TasksWidget : FpWidgetProvider() {
-    override val titleKey = "tasks_title"
-    override val bodyKey = "tasks_body"
-    override val route = "tasks"
-    override val defaultTitle = "Aufgaben"
-}
-
-class ShoppingWidget : FpWidgetProvider() {
-    override val titleKey = "shopping_title"
-    override val bodyKey = "shopping_body"
-    override val route = "shopping"
-    override val defaultTitle = "Einkauf"
 }
