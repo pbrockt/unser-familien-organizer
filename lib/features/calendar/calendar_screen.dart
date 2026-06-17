@@ -417,13 +417,6 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
         orElse: () => const Center(child: CircularProgressIndicator()),
         data: (account) {
           if (account == null) return const _ConnectPrompt();
-          // Tagesliste (Monatsmodus): am heutigen Tag bereits beendete Termine
-          // ausblenden; vergangene Tage bleiben vollständig sichtbar.
-          final listEvents = isSameDay(_selectedDay, DateTime.now())
-              ? selectedEvents
-                  .where((e) => !e.hasPassed(DateTime.now()))
-                  .toList()
-              : selectedEvents;
           final eventCalendars = ref
               .watch(membersProvider)
               .where((m) => m.supportsEvents)
@@ -513,14 +506,14 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
                     color: Theme.of(context)
                         .colorScheme
                         .primary
-                        .withValues(alpha: 0.07),
+                        .withValues(alpha: 0.035),
                     borderRadius: BorderRadius.circular(8),
                   ),
                   weekendDecoration: BoxDecoration(
                     color: Theme.of(context)
                         .colorScheme
                         .primary
-                        .withValues(alpha: 0.07),
+                        .withValues(alpha: 0.035),
                     borderRadius: BorderRadius.circular(8),
                   ),
                   outsideDecoration: const BoxDecoration(
@@ -575,7 +568,7 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
                   ),
                   data: (_) => _DayEventList(
                     day: _selectedDay,
-                    events: listEvents,
+                    events: selectedEvents,
                     weather: _weatherBadge(_selectedDay),
                     onEventLongPress: (e) => showEventActions(context, ref, e),
                   ),
@@ -638,16 +631,30 @@ class _DayEventList extends StatelessWidget {
           );
         }
         final e = events[index - 1];
-        return _EventTile(event: e, onLongPress: () => onEventLongPress(e));
+        // Am heutigen Tag bereits beendete Termine eingeklappt + transparent
+        // zeigen (statt ausblenden).
+        final passed = isSameDay(day, DateTime.now()) && e.hasPassed(DateTime.now());
+        return _EventTile(
+          event: e,
+          passed: passed,
+          onLongPress: () => onEventLongPress(e),
+        );
       },
     );
   }
 }
 
 class _EventTile extends StatelessWidget {
-  const _EventTile({required this.event, required this.onLongPress});
+  const _EventTile({
+    required this.event,
+    required this.onLongPress,
+    this.passed = false,
+  });
   final CalendarEvent event;
   final VoidCallback onLongPress;
+
+  /// Bereits beendeter Termin (heute) → eingeklappt + leicht durchsichtig.
+  final bool passed;
 
   @override
   Widget build(BuildContext context) {
@@ -655,6 +662,8 @@ class _EventTile extends StatelessWidget {
     final color = event.color ?? theme.colorScheme.primary;
     final hasLocation =
         event.location != null && event.location!.isNotEmpty;
+
+    if (passed) return _buildPassed(context, theme, color);
 
     return Card(
       margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
@@ -703,6 +712,53 @@ class _EventTile extends StatelessWidget {
               if (event.isRecurring)
                 Icon(Icons.repeat,
                     size: 16, color: theme.colorScheme.onSurfaceVariant),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// Kompakte, transparente Darstellung für bereits beendete Termine.
+  Widget _buildPassed(BuildContext context, ThemeData theme, Color color) {
+    final timeLabel = (event.allDay || event.isMultiDay)
+        ? 'ganztags'
+        : DateFormat('HH:mm').format(event.start);
+    return Opacity(
+      opacity: 0.5,
+      child: InkWell(
+        onLongPress: onLongPress,
+        borderRadius: BorderRadius.circular(12),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 4),
+          child: Row(
+            children: [
+              SizedBox(
+                width: 42,
+                child: Text(timeLabel,
+                    style: theme.textTheme.labelMedium
+                        ?.copyWith(color: theme.colorScheme.onSurfaceVariant)),
+              ),
+              Container(
+                width: 3,
+                height: 16,
+                margin: const EdgeInsets.only(right: 10),
+                decoration: BoxDecoration(
+                  color: color,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+              Expanded(
+                child: Text(
+                  event.summary,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: theme.textTheme.bodyMedium,
+                ),
+              ),
+              if (event.isRecurring)
+                Icon(Icons.repeat,
+                    size: 14, color: theme.colorScheme.onSurfaceVariant),
             ],
           ),
         ),
