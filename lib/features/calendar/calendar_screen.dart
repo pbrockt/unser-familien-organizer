@@ -506,11 +506,13 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
                         locale: 'de_DE',
                         startingDayOfWeek: StartingDayOfWeek.monday,
                         calendarFormat: _format,
+                        // Nur Monatsansicht – kein Umschalter (2 Wochen/Woche).
                         availableCalendarFormats: const {
                           CalendarFormat.month: 'Monat',
-                          CalendarFormat.twoWeeks: '2 Wochen',
-                          CalendarFormat.week: 'Woche',
                         },
+                        headerStyle: const HeaderStyle(
+                          formatButtonVisible: false,
+                        ),
                         selectedDayPredicate: (d) => isSameDay(d, _selectedDay),
                         eventLoader: loader,
                         onFormatChanged: (f) => setState(() => _format = f),
@@ -568,15 +570,28 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
                           markerBuilder: (context, day, events) {
                             if (events.isEmpty) return null;
                             final now = DateTime.now();
-                            final past = day.isBefore(
-                              DateTime(now.year, now.month, now.day),
+                            final today = DateTime(
+                              now.year,
+                              now.month,
+                              now.day,
                             );
+                            final dayOnly = DateTime(
+                              day.year,
+                              day.month,
+                              day.day,
+                            );
+                            final pastDay = dayOnly.isBefore(today);
                             return Row(
                               mainAxisAlignment: MainAxisAlignment.center,
                               children: events.take(4).map((e) {
                                 final base =
                                     e.color ??
                                     Theme.of(context).colorScheme.primary;
+                                // Vergangene Tage – und heute bereits erledigte
+                                // Termine – nur noch schwach sichtbar.
+                                final faint =
+                                    pastDay ||
+                                    (dayOnly == today && e.hasPassed(now));
                                 return Container(
                                   width: 6,
                                   height: 6,
@@ -585,9 +600,8 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
                                   ),
                                   decoration: BoxDecoration(
                                     shape: BoxShape.circle,
-                                    // Vergangene Tage: Punkte nur noch schwach.
                                     color: base.withValues(
-                                      alpha: past ? 0.3 : 1,
+                                      alpha: faint ? 0.3 : 1,
                                     ),
                                   ),
                                 );
