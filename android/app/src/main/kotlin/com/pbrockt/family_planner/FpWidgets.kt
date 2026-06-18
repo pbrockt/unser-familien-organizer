@@ -50,9 +50,18 @@ private fun styledBody(raw: String, marker: String): CharSequence {
                 val mStart = sb.length
                 sb.append(marker)
                 sb.setSpan(ForegroundColorSpan(color), mStart, sb.length, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+                sb.append("  ")
                 val tStart = sb.length
-                sb.append("  ").append(text)
+                sb.append(text)
                 sb.setSpan(ForegroundColorSpan(FP_BROWN), tStart, sb.length, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+                // Endzeit „–HH:mm" (bis zum Titel-Trenner) grau + kleiner.
+                val titleSep = text.indexOf("  ")
+                val timeEnd = if (titleSep >= 0) titleSep else text.length
+                val dash = text.indexOf('\u2013')
+                if (dash in 0 until timeEnd) {
+                    sb.setSpan(ForegroundColorSpan(FP_BROWN_SOFT), tStart + dash, tStart + timeEnd, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+                    sb.setSpan(RelativeSizeSpan(0.8f), tStart + dash, tStart + timeEnd, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+                }
             } else if (line.isNotEmpty() && line == line.uppercase() && line.any { it.isLetter() }) {
                 val st = sb.length
                 sb.append(line)
@@ -123,7 +132,6 @@ class NextEventsWidget : HomeWidgetProvider() {
     }
 }
 
-/** „Countdown" – Liste aller aktiven Countdowns (farbiger Punkt ●). */
 /**
  * Wendet das Design-Layout (Datums-Kopf, vertikaler Strich, Liste rechts,
  * „+" und Sync) an. Drei Klick-Ziele: Karte → Kalender, „+" → neuer Termin,

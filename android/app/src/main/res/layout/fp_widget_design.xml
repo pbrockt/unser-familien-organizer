@@ -22,6 +22,7 @@
             android:layout_height="wrap_content"
             android:format12Hour="EEEE"
             android:format24Hour="EEEE"
+            android:includeFontPadding="false"
             android:textColor="#6B5B4D"
             android:textSize="12sp" />
 
@@ -29,8 +30,10 @@
             android:id="@+id/fp_widget_day"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
+            android:layout_marginTop="1dp"
             android:format12Hour="d"
             android:format24Hour="d"
+            android:includeFontPadding="false"
             android:textColor="#3E322A"
             android:textSize="42sp"
             android:textStyle="bold" />
@@ -39,8 +42,10 @@
             android:id="@+id/fp_widget_month"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
+            android:layout_marginTop="1dp"
             android:format12Hour="MMMM"
             android:format24Hour="MMMM"
+            android:includeFontPadding="false"
             android:textColor="#6B5B4D"
             android:textSize="12sp" />
 
