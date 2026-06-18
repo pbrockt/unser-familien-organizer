@@ -1,14 +1,16 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!-- Bewusst exakt nach dem früher funktionierenden Muster: nur LinearLayout +
+     zwei TextViews. Kein <View>, kein <stroke> – RemoteViews ist wählerisch. -->
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:id="@+id/fp_widget_root"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:orientation="vertical"
     android:background="@drawable/fp_widget_bg"
-    android:padding="16dp">
+    android:padding="14dp">
 
-    <!-- Kopf -->
     <TextView
+        android:id="@+id/fp_widget_title"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:textColor="#E8964F"
@@ -18,21 +20,15 @@
         android:ellipsize="end"
         android:text="Anstehende Termine" />
 
-    <View
-        android:layout_width="match_parent"
-        android:layout_height="1dp"
-        android:layout_marginTop="10dp"
-        android:layout_marginBottom="8dp"
-        android:background="#22000000" />
-
     <TextView
         android:id="@+id/fp_widget_body"
         android:layout_width="match_parent"
         android:layout_height="0dp"
         android:layout_weight="1"
+        android:layout_marginTop="6dp"
         android:textColor="#3E322A"
         android:textSize="13sp"
-        android:lineSpacingExtra="4dp"
+        android:lineSpacingExtra="3dp"
         android:ellipsize="end"
         android:text="–" />
 </LinearLayout>
