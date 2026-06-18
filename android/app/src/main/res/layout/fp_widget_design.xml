@@ -1,7 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!-- Design-Widget. RemoteViews-sicher: nur LinearLayout, TextView, TextClock.
-     Der vertikale Strich ist eine schmale TextView mit Hintergrundfarbe –
-     KEIN <View> (das war der RemoteViews-Übeltäter). -->
+     Vertikaler Strich = schmale TextView mit Hintergrundfarbe (kein <View>). -->
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:id="@+id/fp_widget_root"
     android:layout_width="match_parent"
@@ -10,11 +9,12 @@
     android:background="@drawable/fp_widget_design_bg"
     android:padding="12dp">
 
-    <!-- Linke Spalte: Datum, darunter "+" und Sync -->
+    <!-- Linke Spalte: Datum (mittig) oben, "+"/Sync unten links -->
     <LinearLayout
         android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:orientation="vertical">
+        android:layout_height="match_parent"
+        android:orientation="vertical"
+        android:gravity="center_horizontal">
 
         <TextClock
             android:id="@+id/fp_widget_weekday"
@@ -32,7 +32,7 @@
             android:format12Hour="d"
             android:format24Hour="d"
             android:textColor="#3E322A"
-            android:textSize="30sp"
+            android:textSize="42sp"
             android:textStyle="bold" />
 
         <TextClock
@@ -44,34 +44,42 @@
             android:textColor="#6B5B4D"
             android:textSize="12sp" />
 
+        <!-- Abstandshalter schiebt die Knöpfe nach unten -->
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="0dp"
+            android:layout_weight="1"
+            android:text="" />
+
         <LinearLayout
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
+            android:layout_gravity="start"
             android:orientation="horizontal"
-            android:layout_marginTop="8dp">
+            android:gravity="center_vertical">
 
             <TextView
                 android:id="@+id/fp_widget_add"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="＋"
-                android:textColor="#E8964F"
-                android:textSize="24sp"
+                android:textColor="#99E8964F"
+                android:textSize="17sp"
                 android:textStyle="bold"
-                android:paddingEnd="16dp" />
+                android:paddingEnd="14dp" />
 
             <TextView
                 android:id="@+id/fp_widget_sync"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="⟳"
-                android:textColor="#E8964F"
-                android:textSize="24sp"
+                android:textColor="#99E8964F"
+                android:textSize="17sp"
                 android:textStyle="bold" />
         </LinearLayout>
     </LinearLayout>
 
-    <!-- Vertikaler Strich (schmale TextView mit Hintergrundfarbe) -->
+    <!-- Vertikaler Strich -->
     <TextView
         android:layout_width="2dp"
         android:layout_height="match_parent"
@@ -88,7 +96,7 @@
         android:layout_weight="1"
         android:textColor="#3E322A"
         android:textSize="13sp"
-        android:lineSpacingExtra="3dp"
+        android:lineSpacingExtra="2dp"
         android:ellipsize="end"
         android:text="–" />
 </LinearLayout>

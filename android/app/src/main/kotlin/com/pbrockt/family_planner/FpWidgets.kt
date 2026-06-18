@@ -10,6 +10,7 @@ import android.net.Uri
 import android.text.SpannableStringBuilder
 import android.text.Spanned
 import android.text.style.ForegroundColorSpan
+import android.text.style.RelativeSizeSpan
 import android.text.style.StyleSpan
 import android.widget.RemoteViews
 import es.antonborri.home_widget.HomeWidgetLaunchIntent
@@ -56,7 +57,8 @@ private fun styledBody(raw: String, marker: String): CharSequence {
                 val st = sb.length
                 sb.append(line)
                 sb.setSpan(StyleSpan(Typeface.BOLD), st, sb.length, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
-                sb.setSpan(ForegroundColorSpan(FP_BROWN), st, sb.length, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+                sb.setSpan(RelativeSizeSpan(0.8f), st, sb.length, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+                sb.setSpan(ForegroundColorSpan(FP_BROWN_SOFT), st, sb.length, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
             } else {
                 val st = sb.length
                 sb.append(line)
