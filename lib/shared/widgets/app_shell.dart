@@ -9,6 +9,7 @@ import '../../core/auth/account_providers.dart';
 import '../../core/platform/platform_support.dart';
 import '../../features/calendar/event_editor_sheet.dart';
 import '../../features/calendar/event_providers.dart';
+import '../../features/study/study_planner_sheet.dart';
 import '../../features/tasks/task_editor_sheet.dart';
 import '../../features/tasks/task_providers.dart';
 import '../../features/update/update_prompt.dart';
@@ -158,12 +159,22 @@ class _AppShellState extends ConsumerState<AppShell> {
               title: const Text('Neue Aufgabe'),
               onTap: () => Navigator.pop(ctx, 'task'),
             ),
+            ListTile(
+              leading: const Icon(Icons.school_outlined),
+              title: const Text('Schularbeit (Lernplan)'),
+              subtitle: const Text(
+                'Arbeit eintragen, Lern-Tage automatisch planen',
+              ),
+              onTap: () => Navigator.pop(ctx, 'study'),
+            ),
           ],
         ),
       ),
     );
     if (!mounted || choice == null) return;
-    if (choice == 'event') {
+    if (choice == 'study') {
+      await showStudyPlannerSheet(context);
+    } else if (choice == 'event') {
       // Im Kalender-Tab den dort gewählten Tag vorbelegen (sonst heute).
       final onCalendar = widget.navigationShell.currentIndex == 1;
       final day = onCalendar ? ref.read(calendarSelectedDayProvider) : null;

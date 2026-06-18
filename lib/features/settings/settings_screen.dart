@@ -14,6 +14,7 @@ import '../calendar/event_templates.dart';
 import '../family/family_screen.dart';
 import '../home/dashboard_providers.dart';
 import '../members/member_settings.dart';
+import '../study/study_settings_screen.dart';
 import '../weather/weather_service.dart';
 import 'about_update_sheet.dart';
 import 'notification_providers.dart';
@@ -154,6 +155,17 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen>
               onTap: () => Navigator.of(
                 context,
               ).push(MaterialPageRoute(builder: (_) => const FamilyScreen())),
+            ),
+            ListTile(
+              leading: const Icon(Icons.school_outlined),
+              title: const Text('Lernen'),
+              subtitle: const Text(
+                'Lernzeiten & Lern-Kalender für Schularbeiten',
+              ),
+              trailing: const Icon(Icons.chevron_right),
+              onTap: () => Navigator.of(context).push(
+                MaterialPageRoute(builder: (_) => const StudySettingsScreen()),
+              ),
             ),
             const Divider(),
             _sectionHeader(context, 'Darstellung'),
