@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Wie fp_widget_upcoming: nur LinearLayout + zwei TextViews (RemoteViews-sicher). -->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/fp_widget_root"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:background="@drawable/fp_widget_bg"
+    android:padding="14dp">
+
+    <TextView
+        android:id="@+id/fp_widget_title"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:textColor="#E8964F"
+        android:textSize="15sp"
+        android:textStyle="bold"
+        android:maxLines="1"
+        android:ellipsize="end"
+        android:text="Nächste Termine" />
+
+    <TextView
+        android:id="@+id/fp_widget_body"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:layout_marginTop="6dp"
+        android:textColor="#3E322A"
+        android:textSize="13sp"
+        android:lineSpacingExtra="3dp"
+        android:ellipsize="end"
+        android:text="–" />
+</LinearLayout>
