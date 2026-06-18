@@ -1,6 +1,7 @@
 import 'package:home_widget/home_widget.dart';
 import 'package:intl/intl.dart';
 
+import '../../features/calendar/birthdays.dart';
 import '../../features/calendar/calendar_event.dart';
 import '../../features/members/member_settings.dart';
 import '../../features/tasks/task_item.dart';
@@ -91,6 +92,7 @@ class HomeWidgets {
   /// Kalender-Eintrags-Stil: Zeitspanne (von–bis); mehrtägige/ganztägige als
   /// „ganztägig".
   static String _calLine(CalendarEvent e) {
+    if (isBirthday(e)) return '${_colorHex(e)}$_kSep🎂  ${e.summary}';
     final String when;
     if (e.allDay || e.isMultiDay) {
       when = 'ganztägig';

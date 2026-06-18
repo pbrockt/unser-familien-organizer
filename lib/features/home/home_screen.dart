@@ -10,6 +10,7 @@ import '../../core/auth/account_providers.dart';
 import '../../core/auth/nextcloud_account.dart';
 import '../../core/sync/sync_status.dart';
 import '../../shared/widgets/blob_background.dart';
+import '../calendar/birthdays.dart';
 import '../calendar/calendar_event.dart';
 import '../calendar/calendar_presets.dart';
 import '../calendar/event_editor_sheet.dart';
@@ -74,6 +75,7 @@ class HomeScreen extends ConsumerWidget {
     // Liste gehängt, sichtbar beim Wischen nach links.
     final passedToday = _passedToday(homeEvents, now, today);
     final countdowns = countdownEvents(events, memberSettings, today);
+    final birthdays = upcomingBirthdays(events, today);
 
     // Tippen auf einen Termin/Countdown → in die Kalender-Tagesansicht springen.
     void openInCalendar(CalendarEvent e) {
@@ -149,6 +151,27 @@ class HomeScreen extends ConsumerWidget {
                         onOpen: openInCalendar,
                         onEdit: (e) => showEventEditor(context, existing: e),
                       ),
+                    if (birthdays.isNotEmpty) ...[
+                      const _SectionLabel('🎂 Geburtstage'),
+                      ...birthdays
+                          .take(5)
+                          .map(
+                            (b) => _BirthdayCard(
+                              birthday: b,
+                              onTap: () {
+                                ref
+                                    .read(calendarJumpProvider.notifier)
+                                    .set(
+                                      CalendarJumpTarget(
+                                        b.date,
+                                        openDay: false,
+                                      ),
+                                    );
+                                context.go('/calendar');
+                              },
+                            ),
+                          ),
+                    ],
                     const _SectionLabel('Überblick'),
                     ...countdowns.map(
                       (e) => _CountdownCard(
@@ -787,6 +810,86 @@ class _EventCard extends StatelessWidget {
                 ),
               ],
             ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// ---------- Geburtstags-Karte ----------
+
+class _BirthdayCard extends StatelessWidget {
+  const _BirthdayCard({required this.birthday, required this.onTap});
+  final UpcomingBirthday birthday;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final d = birthday.daysUntil;
+    final label = d == 0
+        ? 'Heute! 🎉'
+        : d == 1
+        ? 'Morgen'
+        : 'in $d Tagen';
+    final dateStr = DateFormat('EEE, d. MMM', 'de_DE').format(birthday.date);
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+      child: GestureDetector(
+        onTap: onTap,
+        child: Container(
+          padding: const EdgeInsets.all(10),
+          decoration: BoxDecoration(
+            color: Theme.of(context).cardColor,
+            borderRadius: BorderRadius.circular(16),
+            boxShadow: _softShadow(context),
+          ),
+          child: Row(
+            children: [
+              Container(
+                width: 40,
+                height: 40,
+                decoration: BoxDecoration(
+                  color: scheme.primary.withValues(alpha: 0.15),
+                  borderRadius: BorderRadius.circular(11),
+                ),
+                child: const Center(
+                  child: Text('🎂', style: TextStyle(fontSize: 20)),
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      birthday.event.summary,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontSize: 14.5,
+                        fontWeight: FontWeight.w700,
+                        color: scheme.onSurface,
+                      ),
+                    ),
+                    const SizedBox(height: 1),
+                    Text(
+                      '$label · $dateStr',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: scheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Icon(
+                Icons.chevron_right,
+                size: 20,
+                color: scheme.onSurfaceVariant,
+              ),
+            ],
           ),
         ),
       ),

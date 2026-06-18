@@ -6,6 +6,7 @@ import 'package:table_calendar/table_calendar.dart';
 import '../../core/auth/account_providers.dart';
 import '../members/member_settings.dart';
 import '../weather/weather_service.dart';
+import 'birthdays.dart';
 import 'calendar_event.dart';
 import 'calendar_presets.dart';
 import 'day_timeline.dart';
@@ -721,7 +722,7 @@ class _EventTile extends StatelessWidget {
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     Text(
-                      event.summary,
+                      isBirthday(event) ? '🎂 ${event.summary}' : event.summary,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: theme.textTheme.titleMedium?.copyWith(
