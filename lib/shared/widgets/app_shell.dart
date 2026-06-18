@@ -93,6 +93,13 @@ class _AppShellState extends ConsumerState<AppShell> {
       case 'home':
         widget.navigationShell.goBranch(0, initialLocation: false);
         break;
+      case 'sync':
+        ref.invalidate(eventsControllerProvider);
+        ref.invalidate(tasksControllerProvider);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Synchronisiere mit der Nextcloud…')),
+        );
+        break;
     }
   }
 

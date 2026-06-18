@@ -122,6 +122,45 @@ class NextEventsWidget : HomeWidgetProvider() {
 }
 
 /** „Countdown" – Liste aller aktiven Countdowns (farbiger Punkt ●). */
+/**
+ * Wendet das Design-Layout (Datums-Kopf, vertikaler Strich, Liste rechts,
+ * „+" und Sync) an. Drei Klick-Ziele: Karte → Kalender, „+" → neuer Termin,
+ * Sync → synchronisieren. Mit Klartext-Fallback.
+ */
+private fun applyDesign(
+    context: Context,
+    mgr: AppWidgetManager,
+    id: Int,
+    raw: String,
+    marker: String,
+) {
+    fun launch(route: String) = HomeWidgetLaunchIntent.getActivity(
+        context,
+        MainActivity::class.java,
+        Uri.parse("familyplanner://$route"),
+    )
+    fun build(styled: Boolean) =
+        RemoteViews(context.packageName, R.layout.fp_widget_design).apply {
+            setTextViewText(
+                R.id.fp_widget_body,
+                if (styled) styledBody(raw, marker) else plainBody(raw, marker),
+            )
+            setOnClickPendingIntent(R.id.fp_widget_root, launch("calendar"))
+            setOnClickPendingIntent(R.id.fp_widget_add, launch("newevent"))
+            setOnClickPendingIntent(R.id.fp_widget_sync, launch("sync"))
+        }
+    try {
+        mgr.updateAppWidget(id, build(true))
+    } catch (e: Throwable) {
+        try {
+            mgr.updateAppWidget(id, build(false))
+        } catch (e2: Throwable) {
+            // lieber keine Aktualisierung als ein Absturz
+        }
+    }
+}
+
+/** „Countdown" – im Design-Stil (Datums-Kopf, Strich, Liste, +/Sync). */
 class CountdownWidget : HomeWidgetProvider() {
     override fun onUpdate(
         context: Context,
@@ -131,16 +170,12 @@ class CountdownWidget : HomeWidgetProvider() {
     ) {
         val raw = widgetData.getString("countdown_body", "–") ?: "–"
         for (id in appWidgetIds) {
-            applyOne(context, appWidgetManager, id, raw, R.layout.fp_widget_countdown, "home", "●")
+            applyDesign(context, appWidgetManager, id, raw, "●")
         }
     }
 }
 
-/**
- * Experimentelles „Design"-Widget: gleicher Inhalt wie „Anstehende Termine",
- * aber mit transparenterem Hintergrund + schwarzem Rahmen, Datums-Kopf
- * (TextClock) und einem „+"-Knopf, der direkt den Termin-Editor öffnet.
- */
+/** „Termine (Design)" – Design-Stil, farbiger Balken ▌. */
 class DesignWidget : HomeWidgetProvider() {
     override fun onUpdate(
         context: Context,
@@ -149,30 +184,8 @@ class DesignWidget : HomeWidgetProvider() {
         widgetData: SharedPreferences,
     ) {
         val raw = widgetData.getString("next_body", "–") ?: "–"
-        fun launch(route: String) = HomeWidgetLaunchIntent.getActivity(
-            context,
-            MainActivity::class.java,
-            Uri.parse("familyplanner://$route"),
-        )
         for (id in appWidgetIds) {
-            fun build(styled: Boolean) =
-                RemoteViews(context.packageName, R.layout.fp_widget_design).apply {
-                    setTextViewText(
-                        R.id.fp_widget_body,
-                        if (styled) styledBody(raw, "▌") else plainBody(raw, "▌"),
-                    )
-                    setOnClickPendingIntent(R.id.fp_widget_root, launch("calendar"))
-                    setOnClickPendingIntent(R.id.fp_widget_add, launch("newevent"))
-                }
-            try {
-                appWidgetManager.updateAppWidget(id, build(true))
-            } catch (e: Throwable) {
-                try {
-                    appWidgetManager.updateAppWidget(id, build(false))
-                } catch (e2: Throwable) {
-                    // lieber keine Aktualisierung als ein Absturz
-                }
-            }
+            applyDesign(context, appWidgetManager, id, raw, "▌")
         }
     }
 }
