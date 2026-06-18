@@ -3,8 +3,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
 import '../calendar/event_providers.dart';
+import '../members/member_settings.dart';
 import 'study_planner.dart';
 import 'study_settings.dart';
+import 'study_windows_editor.dart';
 
 /// Öffnet das Formular „Schularbeit & Lernplan".
 Future<void> showStudyPlannerSheet(BuildContext context) {
@@ -32,6 +34,7 @@ class _StudyPlannerSheetState extends ConsumerState<_StudyPlannerSheet> {
   final _subject = TextEditingController();
   DateTime _date = DateTime.now().add(const Duration(days: 7));
   StudyIntensity _intensity = StudyIntensity.mittel;
+  String? _calHref; // gewählter Kalender (überschreibt den Standard)
   bool _busy = false;
 
   @override
@@ -52,7 +55,7 @@ class _StudyPlannerSheetState extends ConsumerState<_StudyPlannerSheet> {
     if (picked != null) setState(() => _date = picked);
   }
 
-  Future<void> _create() async {
+  Future<void> _create(String? calHref) async {
     final fach = _subject.text.trim();
     final messenger = ScaffoldMessenger.of(context);
     if (fach.isEmpty) {
@@ -61,43 +64,38 @@ class _StudyPlannerSheetState extends ConsumerState<_StudyPlannerSheet> {
       );
       return;
     }
-    final calHref = await ref.read(studyCalendarHrefProvider.future);
-    final windows = await ref.read(studyWindowsProvider.future);
-    if (!mounted) return;
     if (calHref == null) {
       messenger.showSnackBar(
-        const SnackBar(
-          content: Text(
-            'Bitte zuerst in Einstellungen → Lernen einen Lern-Kalender wählen.',
-          ),
-        ),
+        const SnackBar(content: Text('Bitte einen Kalender wählen.')),
       );
       return;
     }
+    final windows = await ref.read(studyWindowsProvider.future);
+    if (!mounted) return;
     if (!windows.any((w) => w.enabled)) {
       messenger.showSnackBar(
         const SnackBar(
           content: Text(
-            'Bitte zuerst Lernzeiten festlegen (Einstellungen → Lernen).',
+            'Bitte zuerst Lernzeiten festlegen (unten „Lernzeiten anpassen").',
           ),
         ),
       );
       return;
     }
 
-    final today = DateTime.now();
     final sessions = planStudySessions(
       examDay: _date,
       targetDays: studyDaysFor(_intensity),
       windows: windows,
-      notBefore: today,
+      notBefore: DateTime.now(),
     );
 
     setState(() => _busy = true);
+    // Gewählten Kalender als Standard merken (nur Vorauswahl beim nächsten Mal).
+    await ref.read(studyCalendarHrefProvider.notifier).set(calHref);
     final ctrl = ref.read(eventsControllerProvider.notifier);
     final dateStr = DateFormat('d. MMM', 'de_DE').format(_date);
     try {
-      // Die Arbeit selbst (ganztägig).
       await ctrl.createEvent(
         calendarHref: calHref,
         summary: '📝 Arbeit: $fach',
@@ -137,8 +135,17 @@ class _StudyPlannerSheetState extends ConsumerState<_StudyPlannerSheet> {
   @override
   Widget build(BuildContext context) {
     final dateStr = DateFormat('EEEE, d. MMMM y', 'de_DE').format(_date);
+    final calendars = ref
+        .watch(membersProvider)
+        .where((m) => m.supportsEvents)
+        .toList();
+    // Vorauswahl: zuletzt gewählter Kalender, sonst Standard aus den Einstellungen.
+    final defaultHref = ref.watch(studyCalendarHrefProvider).value;
+    final selected = _calHref ?? defaultHref;
+    final value = calendars.any((m) => m.href == selected) ? selected : null;
+
     return SafeArea(
-      child: Padding(
+      child: SingleChildScrollView(
         padding: const EdgeInsets.fromLTRB(20, 4, 20, 20),
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -150,8 +157,7 @@ class _StudyPlannerSheetState extends ConsumerState<_StudyPlannerSheet> {
             ),
             const SizedBox(height: 4),
             Text(
-              'Lege die Arbeit an – die Lern-Einheiten werden automatisch in '
-              'deinen Lernzeiten geplant.',
+              'Die Lern-Einheiten werden automatisch in deinen Lernzeiten geplant.',
               style: Theme.of(context).textTheme.bodySmall?.copyWith(
                 color: Theme.of(context).colorScheme.onSurfaceVariant,
               ),
@@ -166,6 +172,31 @@ class _StudyPlannerSheetState extends ConsumerState<_StudyPlannerSheet> {
                 hintText: 'z. B. Mathe – Bruchrechnen',
                 border: OutlineInputBorder(),
               ),
+            ),
+            const SizedBox(height: 12),
+            DropdownButtonFormField<String>(
+              initialValue: value,
+              isExpanded: true,
+              decoration: const InputDecoration(
+                labelText: 'Kalender (wohin wird gespeichert?)',
+                border: OutlineInputBorder(),
+              ),
+              items: [
+                for (final m in calendars)
+                  DropdownMenuItem(
+                    value: m.href,
+                    child: Row(
+                      children: [
+                        CircleAvatar(backgroundColor: m.color, radius: 7),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(m.name, overflow: TextOverflow.ellipsis),
+                        ),
+                      ],
+                    ),
+                  ),
+              ],
+              onChanged: (v) => setState(() => _calHref = v),
             ),
             const SizedBox(height: 12),
             ListTile(
@@ -197,18 +228,30 @@ class _StudyPlannerSheetState extends ConsumerState<_StudyPlannerSheet> {
               selected: {_intensity},
               onSelectionChanged: (s) => setState(() => _intensity = s.first),
             ),
-            const SizedBox(height: 6),
+            const SizedBox(height: 4),
             Text(
               '${studyDaysFor(_intensity)} Lern-Tage vor der Arbeit',
               style: Theme.of(context).textTheme.bodySmall?.copyWith(
                 color: Theme.of(context).colorScheme.onSurfaceVariant,
               ),
             ),
-            const SizedBox(height: 20),
+            const SizedBox(height: 8),
+            // Aufklappbares Menü: Lernzeiten direkt hier anpassen.
+            Card(
+              margin: EdgeInsets.zero,
+              child: ExpansionTile(
+                leading: const Icon(Icons.schedule),
+                title: const Text('Lernzeiten anpassen'),
+                subtitle: const Text('Wochentage & Uhrzeiten'),
+                childrenPadding: const EdgeInsets.only(bottom: 8),
+                children: const [StudyWindowsEditor()],
+              ),
+            ),
+            const SizedBox(height: 16),
             SizedBox(
               width: double.infinity,
               child: FilledButton.icon(
-                onPressed: _busy ? null : _create,
+                onPressed: _busy ? null : () => _create(value),
                 icon: _busy
                     ? const SizedBox(
                         width: 18,
