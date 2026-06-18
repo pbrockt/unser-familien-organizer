@@ -17,7 +17,7 @@
         android:textStyle="bold"
         android:maxLines="1"
         android:ellipsize="end"
-        android:text="Nächste Termine" />
+        android:text="Anstehende Termine" />
 
     <TextView
         android:id="@+id/fp_widget_body"

@@ -8,14 +8,14 @@ import '../../features/weather/weather_service.dart';
 import '../../shared/utils/hex_color.dart';
 import '../platform/platform_support.dart';
 
-/// Trenner zwischen Farb-Markierung (#RRGGBB) und Text einer Termin-Zeile.
+/// Trenner zwischen Farb-Markierung (#RRGGBB) und Text einer Zeile.
 /// Tab ist in der SharedPreferences-XML gültig (anders als z. B. U+001F) und
 /// kommt in Termintexten praktisch nicht vor. Die native Seite (FpWidgets.kt)
 /// macht daraus einen farbigen Punkt/Balken.
 const String _kSep = '\t';
 
-/// Aktualisiert die Android-Home-Screen-Widgets „Anstehende Termine" und
-/// „Nächste Termine". Speichert formatierten Text und stößt das native Update an.
+/// Aktualisiert die Android-Home-Screen-Widgets „Anstehende Termine"
+/// (Kalender-Stil) und „Countdown".
 class HomeWidgets {
   const HomeWidgets._();
 
@@ -32,70 +32,66 @@ class HomeWidgets {
     final today = DateTime(now.year, now.month, now.day);
 
     await HomeWidget.saveWidgetData<String>(
-      'upcoming_body',
-      _groupedBody(events, now, today, _homeLine),
+      'next_body',
+      _eventsBody(events, now, today),
     );
     await HomeWidget.saveWidgetData<String>(
-      'next_body',
-      _groupedBody(events, now, today, _calLine),
+      'countdown_body',
+      _countdownBody(events, memberSettings, today),
     );
-    await HomeWidget.updateWidget(qualifiedAndroidName: '$_pkg.UpcomingWidget');
     await HomeWidget.updateWidget(
       qualifiedAndroidName: '$_pkg.NextEventsWidget',
     );
+    await HomeWidget.updateWidget(
+      qualifiedAndroidName: '$_pkg.CountdownWidget',
+    );
   }
 
-  /// Anstehende Termine (ab heute, ~2 Wochen), gruppiert nach Tag mit relativen
-  /// Überschriften (HEUTE/MORGEN/Datum). [lineFn] formatiert eine Termin-Zeile.
-  static String _groupedBody(
+  /// Anstehende Termine (ab heute, ~2 Wochen), **pro Tag** aufgelöst – mehrtägige
+  /// Termine erscheinen an jedem Tag, den sie berühren. Gruppiert mit relativen
+  /// Überschriften (HEUTE/MORGEN/Datum).
+  static String _eventsBody(
     List<CalendarEvent> events,
     DateTime now,
     DateTime today,
-    String Function(CalendarEvent) lineFn,
   ) {
-    final horizon = today.add(const Duration(days: 14));
-    final upcoming = events.where((e) {
-      if (e.allDay) {
-        return !e.endDayInclusive.isBefore(today) &&
-            e.startDay.isBefore(horizon);
-      }
-      return !e.hasPassed(now) && e.start.isBefore(horizon);
-    }).toList()..sort((a, b) => a.start.compareTo(b.start));
-
     final lines = <String>[];
-    String? lastHeader;
-    for (final e in upcoming) {
-      if (lines.length >= 9) break;
-      final d = e.startDay.difference(today).inDays;
-      final header = d <= 0
-          ? 'HEUTE'
-          : d == 1
-          ? 'MORGEN'
-          : _fmt('EEE, d. MMM', e.start).toUpperCase();
-      if (header != lastHeader) {
-        lines.add(header);
-        lastHeader = header;
+    for (var d = 0; d <= 13 && lines.length < 12; d++) {
+      final day = today.add(Duration(days: d));
+      final dayEvents =
+          events.where((e) {
+            if (!e.occursOn(day)) return false;
+            // Heute: bereits vergangene (eintägige) Termine ausblenden.
+            if (d == 0 && !e.allDay && !e.isMultiDay && e.hasPassed(now)) {
+              return false;
+            }
+            return true;
+          }).toList()..sort((a, b) {
+            if (a.allDay != b.allDay) return a.allDay ? -1 : 1;
+            return a.start.compareTo(b.start);
+          });
+      if (dayEvents.isEmpty) continue;
+      lines.add(
+        d == 0
+            ? 'HEUTE'
+            : d == 1
+            ? 'MORGEN'
+            : _fmt('EEE, d. MMM', day).toUpperCase(),
+      );
+      for (final e in dayEvents) {
+        if (lines.length >= 12) break;
+        lines.add(_calLine(e));
       }
-      lines.add(lineFn(e));
     }
     return lines.isEmpty ? 'Keine anstehenden Termine 🎉' : lines.join('\n');
   }
 
-  /// Kalenderfarbe als #RRGGBB (oder gedämpftes Braun, falls keine gesetzt).
-  static String _colorHex(CalendarEvent e) =>
-      e.color != null ? toHexRgb(e.color!) : '#8C7F73';
-
-  /// Startseiten-Stil: nur Startzeit.
-  static String _homeLine(CalendarEvent e) {
-    final when = e.allDay ? 'Ganztägig' : _fmt('HH:mm', e.start);
-    return '${_colorHex(e)}$_kSep$when  ${e.summary}';
-  }
-
-  /// Kalender-Eintrags-Stil: Zeitspanne (von–bis), wie im Reiter Kalender.
+  /// Kalender-Eintrags-Stil: Zeitspanne (von–bis); mehrtägige/ganztägige als
+  /// „ganztägig".
   static String _calLine(CalendarEvent e) {
     final String when;
-    if (e.allDay) {
-      when = 'Ganztägig';
+    if (e.allDay || e.isMultiDay) {
+      when = 'ganztägig';
     } else {
       final end = e.end;
       when = end != null
@@ -104,6 +100,31 @@ class HomeWidgets {
     }
     return '${_colorHex(e)}$_kSep$when  ${e.summary}';
   }
+
+  /// Countdown-Termine als „Name · noch X Tage".
+  static String _countdownBody(
+    List<CalendarEvent> events,
+    Map<String, MemberSetting> settings,
+    DateTime today,
+  ) {
+    final cds = countdownEvents(events, settings, today);
+    if (cds.isEmpty) return 'Keine Countdowns aktiv';
+    final lines = <String>[];
+    for (final e in cds.take(9)) {
+      final days = e.startDay.difference(today).inDays;
+      final label = days <= 0
+          ? 'heute! 🎉'
+          : days == 1
+          ? 'morgen'
+          : 'noch $days Tage';
+      lines.add('${_colorHex(e)}$_kSep${e.summary} · $label');
+    }
+    return lines.join('\n');
+  }
+
+  /// Kalenderfarbe als #RRGGBB (oder gedämpftes Braun, falls keine gesetzt).
+  static String _colorHex(CalendarEvent e) =>
+      e.color != null ? toHexRgb(e.color!) : '#8C7F73';
 
   static String _fmt(String pattern, DateTime d) =>
       DateFormat(pattern, 'de_DE').format(d);

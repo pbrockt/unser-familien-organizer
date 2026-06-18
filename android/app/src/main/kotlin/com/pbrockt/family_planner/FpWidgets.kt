@@ -16,7 +16,7 @@ import es.antonborri.home_widget.HomeWidgetLaunchIntent
 import es.antonborri.home_widget.HomeWidgetPlugin
 import es.antonborri.home_widget.HomeWidgetProvider
 
-/** Trenner Farbe<->Text einer Termin-Zeile (siehe home_widgets.dart). Tab! */
+/** Trenner Farbe<->Text einer Zeile (siehe home_widgets.dart). Tab! */
 private const val SEP = '\t'
 private const val FP_BROWN = 0xFF3E322A.toInt()
 private const val FP_BROWN_SOFT = 0xFF8C7F73.toInt()
@@ -29,7 +29,7 @@ private fun plainBody(raw: String, marker: String): String =
     }
 
 /**
- * Formatierter Inhalt: Termin-Zeilen bekommen einen farbigen [marker]
+ * Formatierter Inhalt: Zeilen mit Markierung bekommen einen farbigen [marker]
  * (Kalenderfarbe), GROSSGESCHRIEBENE Zeilen werden fett. Nur Text-Spans –
  * keine exotischen View-Typen. Bei Problemen → Klartext.
  */
@@ -106,22 +106,7 @@ private fun applyOne(
     }
 }
 
-/** „Anstehende Termine" – Startseiten-Stil (farbiger Punkt ●). */
-class UpcomingWidget : HomeWidgetProvider() {
-    override fun onUpdate(
-        context: Context,
-        appWidgetManager: AppWidgetManager,
-        appWidgetIds: IntArray,
-        widgetData: SharedPreferences,
-    ) {
-        val raw = widgetData.getString("upcoming_body", "–") ?: "–"
-        for (id in appWidgetIds) {
-            applyOne(context, appWidgetManager, id, raw, R.layout.fp_widget_upcoming, "calendar", "●")
-        }
-    }
-}
-
-/** „Nächste Termine" – Kalender-Eintrags-Stil (farbiger Balken ▌). */
+/** „Anstehende Termine" – Kalender-Eintrags-Stil (farbiger Balken ▌). */
 class NextEventsWidget : HomeWidgetProvider() {
     override fun onUpdate(
         context: Context,
@@ -136,16 +121,30 @@ class NextEventsWidget : HomeWidgetProvider() {
     }
 }
 
+/** „Countdown" – Liste aller aktiven Countdowns (farbiger Punkt ●). */
+class CountdownWidget : HomeWidgetProvider() {
+    override fun onUpdate(
+        context: Context,
+        appWidgetManager: AppWidgetManager,
+        appWidgetIds: IntArray,
+        widgetData: SharedPreferences,
+    ) {
+        val raw = widgetData.getString("countdown_body", "–") ?: "–"
+        for (id in appWidgetIds) {
+            applyOne(context, appWidgetManager, id, raw, R.layout.fp_widget_countdown, "home", "●")
+        }
+    }
+}
+
 /**
  * Diagnose für den „Widget-Diagnose"-Knopf in den Einstellungen. Liefert harte
- * Fakten: platzierte Widgets, registrierte Provider, gespeicherte Daten und ob
- * das Anwenden der RemoteViews funktioniert.
+ * Fakten: platzierte Widgets, registrierte Provider und gespeicherte Daten.
  */
 fun widgetDiagnostics(context: Context): String {
     val sb = StringBuilder()
     val mgr = AppWidgetManager.getInstance(context)
 
-    for (cls in listOf(UpcomingWidget::class.java, NextEventsWidget::class.java)) {
+    for (cls in listOf(NextEventsWidget::class.java, CountdownWidget::class.java)) {
         val ids = try {
             mgr.getAppWidgetIds(ComponentName(context, cls))
         } catch (e: Throwable) {
@@ -165,7 +164,7 @@ fun widgetDiagnostics(context: Context): String {
     sb.append("Registrierte Provider: $providers\n")
 
     val data = HomeWidgetPlugin.getData(context)
-    for (key in listOf("upcoming_body", "next_body")) {
+    for (key in listOf("next_body", "countdown_body")) {
         val body = data.getString(key, null)
         if (body == null) {
             sb.append("'$key': NULL\n")

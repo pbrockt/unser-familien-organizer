@@ -55,21 +55,21 @@
         <!-- Home-Screen-Widget: Anstehende Termine.
              exported=true, damit das System onUpdate beim Platzieren selbst
              aufruft (sonst bleibt das Widget auf dem System-Platzhalter). -->
-        <receiver android:name=".UpcomingWidget" android:exported="true"
+        <receiver android:name=".NextEventsWidget" android:exported="true"
             android:label="Anstehende Termine">
             <intent-filter>
                 <action android:name="android.appwidget.action.APPWIDGET_UPDATE"/>
             </intent-filter>
             <meta-data android:name="android.appwidget.provider"
-                android:resource="@xml/fp_widget_upcoming"/>
+                android:resource="@xml/fp_widget_next"/>
         </receiver>
-        <receiver android:name=".NextEventsWidget" android:exported="true"
-            android:label="Nächste Termine (Kalender-Stil)">
+        <receiver android:name=".CountdownWidget" android:exported="true"
+            android:label="Countdown">
             <intent-filter>
                 <action android:name="android.appwidget.action.APPWIDGET_UPDATE"/>
             </intent-filter>
             <meta-data android:name="android.appwidget.provider"
-                android:resource="@xml/fp_widget_next"/>
+                android:resource="@xml/fp_widget_countdown"/>
         </receiver>
     </application>
     <!-- Required to query activities that can process text, see:
