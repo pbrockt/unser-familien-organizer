@@ -105,5 +105,25 @@ Die App meldet neue Versionen **beim Start** automatisch. Manuell:
 
 ---
 
+## 10. Lernplaner für Schularbeiten (mit Eltern-Freigabe)
+
+Damit Kinder Arbeiten eintragen und die App automatisch Lern-Tage einplant:
+
+1. **Lernzeiten festlegen:** Einstellungen → **„Lernen"** → pro Wochentag das
+   erlaubte Zeitfenster setzen (z. B. Mo 15:00–17:00; Tage ohne Lernen ausschalten).
+2. **Lern-Kalender wählen:** ebenfalls unter „Lernen" – am besten ein eigener
+   Kalender (z. B. „Schule"/„Lernen").
+3. **Mit Eltern teilen:** unter „Lernen" → **„Mit Eltern teilen"**. Empfehlung:
+   Lege in der **Nextcloud-Verwaltung einmal eine Gruppe „Eltern"** an und füge
+   die Eltern hinzu; teile den Lern-Kalender dann mit der Gruppe (im Suchfeld
+   „Eltern" eingeben). Neue Eltern später einfach in die Gruppe aufnehmen – kein
+   erneutes Teilen nötig. (Alternativ einzelne Eltern-Konten teilen.)
+4. **Arbeit eintragen:** unten auf **„+"** → **„Schularbeit (Lernplan)"** →
+   Fach, Datum und Intensität (kurz/mittel/viel) wählen. Die App legt die Arbeit
+   (📝) und die Lern-Einheiten (📚) automatisch in den erlaubten Zeitfenstern an –
+   und über den geteilten Kalender sehen die Eltern alles sofort.
+
+---
+
 Viel Freude mit dem Organizer! Bei Problemen hilft das Diagnose-Fenster
 (5× auf den Statuspunkt am Profilbild) weiter.

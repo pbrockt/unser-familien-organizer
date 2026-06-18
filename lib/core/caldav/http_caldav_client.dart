@@ -39,7 +39,8 @@ class HttpCalDavClient implements CalDavClient {
 
   @override
   Future<List<CalDavCollection>> listCollections(
-      NextcloudAccount account) async {
+    NextcloudAccount account,
+  ) async {
     final client = _clientFor(account);
     try {
       final request = http.Request('PROPFIND', Uri.parse(account.calendarHome))
@@ -63,7 +64,7 @@ class HttpCalDavClient implements CalDavClient {
       throw CalDavException(
         isLookup
             ? 'Server-Adresse nicht gefunden. Prüfe die Adresse und ob dein '
-                'Handy diesen Server erreichen kann (richtiges WLAN/Internet).'
+                  'Handy diesen Server erreichen kann (richtiges WLAN/Internet).'
             : 'Keine Verbindung zum Server: ${e.message}',
       );
     } on HttpException catch (e) {
@@ -81,16 +82,19 @@ class HttpCalDavClient implements CalDavClient {
 
   @override
   Future<String?> fetchCTag(
-      NextcloudAccount account, String collectionHref) async {
+    NextcloudAccount account,
+    String collectionHref,
+  ) async {
     final client = _clientFor(account);
     try {
-      final request = http.Request('PROPFIND', _resolve(account, collectionHref))
-        ..headers.addAll({
-          ..._authHeaders(account),
-          'Depth': '0',
-          'Content-Type': 'application/xml; charset=utf-8',
-        })
-        ..body = _propfindCTagBody;
+      final request =
+          http.Request('PROPFIND', _resolve(account, collectionHref))
+            ..headers.addAll({
+              ..._authHeaders(account),
+              'Depth': '0',
+              'Content-Type': 'application/xml; charset=utf-8',
+            })
+            ..body = _propfindCTagBody;
 
       final streamed = await client.send(request);
       final response = await http.Response.fromStream(streamed);
@@ -106,7 +110,9 @@ class HttpCalDavClient implements CalDavClient {
 
   @override
   Future<List<CalDavObject>> listObjects(
-      NextcloudAccount account, String collectionHref) async {
+    NextcloudAccount account,
+    String collectionHref,
+  ) async {
     final client = _clientFor(account);
     try {
       final request = http.Request('REPORT', _resolve(account, collectionHref))
@@ -166,10 +172,7 @@ class HttpCalDavClient implements CalDavClient {
     try {
       final response = await client.delete(
         _resolve(account, objectHref),
-        headers: {
-          ..._authHeaders(account),
-          'If-Match': ?ifMatchEtag,
-        },
+        headers: {..._authHeaders(account), 'If-Match': ?ifMatchEtag},
       );
       if (response.statusCode != 200 &&
           response.statusCode != 204 &&
@@ -200,7 +203,8 @@ class HttpCalDavClient implements CalDavClient {
       final colorXml = (color == null || color.isEmpty)
           ? ''
           : '\n      <ic:calendar-color>${_xml(color)}</ic:calendar-color>';
-      final body = '''
+      final body =
+          '''
 <?xml version="1.0" encoding="utf-8" ?>
 <c:mkcalendar xmlns:d="DAV:" xmlns:c="urn:ietf:params:xml:ns:caldav"
               xmlns:ic="http://apple.com/ns/ical/">
@@ -227,13 +231,18 @@ class HttpCalDavClient implements CalDavClient {
 
   @override
   Future<void> renameCalendar(
-      NextcloudAccount account, String collectionHref, String displayName) async {
+    NextcloudAccount account,
+    String collectionHref,
+    String displayName,
+  ) async {
     final client = _clientFor(account);
     try {
-      final request = http.Request('PROPPATCH', _resolve(account, collectionHref))
-        ..headers.addAll(_authHeaders(account))
-        ..headers['content-type'] = 'application/xml; charset=utf-8'
-        ..body = '''
+      final request =
+          http.Request('PROPPATCH', _resolve(account, collectionHref))
+            ..headers.addAll(_authHeaders(account))
+            ..headers['content-type'] = 'application/xml; charset=utf-8'
+            ..body =
+                '''
 <?xml version="1.0" encoding="utf-8" ?>
 <d:propertyupdate xmlns:d="DAV:">
   <d:set>
@@ -252,7 +261,9 @@ class HttpCalDavClient implements CalDavClient {
 
   @override
   Future<void> deleteCalendar(
-      NextcloudAccount account, String collectionHref) async {
+    NextcloudAccount account,
+    String collectionHref,
+  ) async {
     final client = _clientFor(account);
     try {
       final response = await client.delete(
@@ -273,19 +284,47 @@ class HttpCalDavClient implements CalDavClient {
 
   @override
   Future<List<Principal>> searchPrincipals(
-      NextcloudAccount account, String query) async {
+    NextcloudAccount account,
+    String query,
+  ) async {
     final q = query.trim();
     if (q.isEmpty) return const [];
+    final users = await _searchPrincipalsAt(
+      account,
+      '/remote.php/dav/principals/users/',
+      q,
+      isGroup: false,
+    );
+    // Gruppen-Suche zusätzlich (z. B. „Eltern"); optional – Fehler ignorieren,
+    // da nicht jeder Server/jede Rechtelage Gruppen-Principal-Suche erlaubt.
+    var groups = const <Principal>[];
+    try {
+      groups = await _searchPrincipalsAt(
+        account,
+        '/remote.php/dav/principals/groups/',
+        q,
+        isGroup: true,
+      );
+    } catch (_) {}
+    return [...groups, ...users]; // Gruppen zuerst anzeigen.
+  }
+
+  Future<List<Principal>> _searchPrincipalsAt(
+    NextcloudAccount account,
+    String path,
+    String q, {
+    required bool isGroup,
+  }) async {
     final client = _clientFor(account);
     try {
-      final request = http.Request(
-          'REPORT', _resolve(account, '/remote.php/dav/principals/users/'))
+      final request = http.Request('REPORT', _resolve(account, path))
         ..headers.addAll({
           ..._authHeaders(account),
           'Depth': '0',
           'Content-Type': 'application/xml; charset=utf-8',
         })
-        ..body = '''
+        ..body =
+            '''
 <?xml version="1.0" encoding="utf-8" ?>
 <d:principal-property-search xmlns:d="DAV:">
   <d:property-search>
@@ -299,7 +338,7 @@ class HttpCalDavClient implements CalDavClient {
       if (response.statusCode != 207 && response.statusCode != 200) {
         throw CalDavException.fromStatus(response.statusCode);
       }
-      return _parsePrincipals(response.body, account);
+      return _parsePrincipals(response.body, account, isGroup: isGroup);
     } on SocketException catch (e) {
       throw CalDavException('Keine Verbindung zum Server: ${e.message}');
     } finally {
@@ -309,16 +348,19 @@ class HttpCalDavClient implements CalDavClient {
 
   @override
   Future<List<CollectionShare>> listShares(
-      NextcloudAccount account, String collectionHref) async {
+    NextcloudAccount account,
+    String collectionHref,
+  ) async {
     final client = _clientFor(account);
     try {
-      final request = http.Request('PROPFIND', _resolve(account, collectionHref))
-        ..headers.addAll({
-          ..._authHeaders(account),
-          'Depth': '0',
-          'Content-Type': 'application/xml; charset=utf-8',
-        })
-        ..body = '''
+      final request =
+          http.Request('PROPFIND', _resolve(account, collectionHref))
+            ..headers.addAll({
+              ..._authHeaders(account),
+              'Depth': '0',
+              'Content-Type': 'application/xml; charset=utf-8',
+            })
+            ..body = '''
 <?xml version="1.0" encoding="utf-8" ?>
 <d:propfind xmlns:d="DAV:" xmlns:oc="http://owncloud.org/ns">
   <d:prop><oc:invite/></d:prop>
@@ -344,7 +386,8 @@ class HttpCalDavClient implements CalDavClient {
     // Nextcloud-Format: <oc:set> mit href; <oc:read-write/> nur bei Schreibrecht
     // (Fehlen = nur lesen).
     final rw = readWrite ? '\n    <oc:read-write/>' : '';
-    final body = '''
+    final body =
+        '''
 <?xml version="1.0" encoding="utf-8"?>
 <oc:share xmlns:d="DAV:" xmlns:oc="http://owncloud.org/ns">
   <oc:set>
@@ -360,7 +403,8 @@ class HttpCalDavClient implements CalDavClient {
     String collectionHref, {
     required String shareHref,
   }) {
-    final body = '''
+    final body =
+        '''
 <?xml version="1.0" encoding="utf-8"?>
 <oc:share xmlns:d="DAV:" xmlns:oc="http://owncloud.org/ns">
   <oc:remove>
@@ -371,7 +415,10 @@ class HttpCalDavClient implements CalDavClient {
   }
 
   Future<void> _postSharing(
-      NextcloudAccount account, String collectionHref, String body) async {
+    NextcloudAccount account,
+    String collectionHref,
+    String body,
+  ) async {
     final client = _clientFor(account);
     try {
       final request = http.Request('POST', _resolve(account, collectionHref))
@@ -406,22 +453,36 @@ class HttpCalDavClient implements CalDavClient {
     return 'principal:$p';
   }
 
-  List<Principal> _parsePrincipals(String body, NextcloudAccount account) {
+  List<Principal> _parsePrincipals(
+    String body,
+    NextcloudAccount account, {
+    required bool isGroup,
+  }) {
     final doc = XmlDocument.parse(body);
     final me = account.username.toLowerCase();
+    final marker = isGroup ? '/principals/groups/' : '/principals/users/';
     final seen = <String>{};
     final result = <Principal>[];
     for (final resp in _allLocal(doc.rootElement, 'response')) {
       final href = _firstLocal(resp, 'href')?.innerText.trim();
-      if (href == null || !href.contains('/principals/users/')) continue;
+      if (href == null || !href.contains(marker)) continue;
+      // Teil nach dem Marker = ID (leer = Wurzel-Collection → überspringen).
+      final after = href
+          .substring(href.indexOf(marker) + marker.length)
+          .replaceAll(RegExp(r'/+$'), '');
+      if (after.isEmpty) continue;
       final shareHref = _principalShareHref(href);
-      final uid = shareHref.split('/').last.toLowerCase();
-      if (uid == me || !seen.add(shareHref)) continue;
+      final id = after.toLowerCase();
+      if (!isGroup && id == me) continue;
+      if (!seen.add(shareHref)) continue;
       final name = _firstLocal(resp, 'displayname')?.innerText.trim();
-      result.add(Principal(
-        shareHref: shareHref,
-        displayName: (name == null || name.isEmpty) ? uid : name,
-      ));
+      result.add(
+        Principal(
+          shareHref: shareHref,
+          displayName: (name == null || name.isEmpty) ? id : name,
+          isGroup: isGroup,
+        ),
+      );
     }
     return result;
   }
@@ -433,11 +494,13 @@ class HttpCalDavClient implements CalDavClient {
       final href = _firstLocal(user, 'href')?.innerText.trim();
       if (href == null) continue;
       final name = _firstLocal(user, 'common-name')?.innerText.trim();
-      result.add(CollectionShare(
-        shareHref: href,
-        displayName: (name == null || name.isEmpty) ? _hrefName(href) : name,
-        readWrite: _allLocal(user, 'read-write').isNotEmpty,
-      ));
+      result.add(
+        CollectionShare(
+          shareHref: href,
+          displayName: (name == null || name.isEmpty) ? _hrefName(href) : name,
+          readWrite: _allLocal(user, 'read-write').isNotEmpty,
+        ),
+      );
     }
     return result;
   }
@@ -460,7 +523,8 @@ class HttpCalDavClient implements CalDavClient {
       if (href == null) continue;
 
       final resourceType = _firstLocal(response, 'resourcetype');
-      final isCalendar = resourceType != null &&
+      final isCalendar =
+          resourceType != null &&
           _allLocal(resourceType, 'calendar').isNotEmpty;
       if (!isCalendar) continue; // Home-Collection & Sonstiges überspringen.
 
@@ -469,20 +533,25 @@ class HttpCalDavClient implements CalDavClient {
           .whereType<String>()
           .toSet();
 
-      final displayName = _firstLocal(response, 'displayname')?.innerText.trim();
+      final displayName = _firstLocal(
+        response,
+        'displayname',
+      )?.innerText.trim();
       final color = _firstLocal(response, 'calendar-color')?.innerText.trim();
       final ctag = _firstLocal(response, 'getctag')?.innerText.trim();
 
-      result.add(CalDavCollection(
-        href: href,
-        displayName: (displayName == null || displayName.isEmpty)
-            ? _hrefName(href)
-            : displayName,
-        color: (color == null || color.isEmpty) ? null : color,
-        ctag: ctag,
-        supportsEvents: comps.contains('VEVENT'),
-        supportsTodos: comps.contains('VTODO'),
-      ));
+      result.add(
+        CalDavCollection(
+          href: href,
+          displayName: (displayName == null || displayName.isEmpty)
+              ? _hrefName(href)
+              : displayName,
+          color: (color == null || color.isEmpty) ? null : color,
+          ctag: ctag,
+          supportsEvents: comps.contains('VEVENT'),
+          supportsTodos: comps.contains('VTODO'),
+        ),
+      );
     }
     return result;
   }
@@ -506,8 +575,10 @@ class HttpCalDavClient implements CalDavClient {
     return parts.isEmpty ? href : parts.last;
   }
 
-  Iterable<XmlElement> _allLocal(XmlElement root, String local) =>
-      root.descendants.whereType<XmlElement>().where((e) => e.name.local == local);
+  Iterable<XmlElement> _allLocal(XmlElement root, String local) => root
+      .descendants
+      .whereType<XmlElement>()
+      .where((e) => e.name.local == local);
 
   XmlElement? _firstLocal(XmlElement root, String local) {
     for (final e in root.descendants.whereType<XmlElement>()) {

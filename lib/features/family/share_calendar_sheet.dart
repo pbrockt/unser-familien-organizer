@@ -112,8 +112,12 @@ class _ShareSheetState extends ConsumerState<_ShareSheet> {
     if (account == null) return;
     setState(() => _busy = true);
     try {
-      await _client.setShare(account, _href,
-          shareHref: p.shareHref, readWrite: readWrite);
+      await _client.setShare(
+        account,
+        _href,
+        shareHref: p.shareHref,
+        readWrite: readWrite,
+      );
       _searchCtrl.clear();
       _results = const [];
       await _loadShares();
@@ -124,8 +128,9 @@ class _ShareSheetState extends ConsumerState<_ShareSheet> {
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text('Freigabe fehlgeschlagen: $e')));
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Freigabe fehlgeschlagen: $e')));
       }
     } finally {
       if (mounted) setState(() => _busy = false);
@@ -141,8 +146,9 @@ class _ShareSheetState extends ConsumerState<_ShareSheet> {
       await _loadShares();
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text('Entfernen fehlgeschlagen: $e')));
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Entfernen fehlgeschlagen: $e')));
       }
     } finally {
       if (mounted) setState(() => _busy = false);
@@ -190,8 +196,10 @@ class _ShareSheetState extends ConsumerState<_ShareSheet> {
                 const Icon(Icons.group_add_outlined),
                 const SizedBox(width: 12),
                 Expanded(
-                  child: Text('Freigeben: ${widget.collection.displayName}',
-                      style: theme.textTheme.titleLarge),
+                  child: Text(
+                    'Freigeben: ${widget.collection.displayName}',
+                    style: theme.textTheme.titleLarge,
+                  ),
                 ),
               ],
             ),
@@ -201,17 +209,17 @@ class _ShareSheetState extends ConsumerState<_ShareSheet> {
               autocorrect: false,
               onChanged: _onSearchChanged,
               decoration: InputDecoration(
-                labelText: 'Benutzer suchen',
-                hintText: 'Name oder Benutzername',
+                labelText: 'Benutzer oder Gruppe suchen',
+                hintText: 'z. B. Name, Benutzername oder „Eltern"',
                 prefixIcon: const Icon(Icons.search),
                 suffixIcon: _searching
                     ? const Padding(
                         padding: EdgeInsets.all(12),
                         child: SizedBox(
-                            width: 16,
-                            height: 16,
-                            child:
-                                CircularProgressIndicator(strokeWidth: 2)),
+                          width: 16,
+                          height: 16,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        ),
                       )
                     : null,
                 border: const OutlineInputBorder(),
@@ -227,11 +235,18 @@ class _ShareSheetState extends ConsumerState<_ShareSheet> {
                     for (final p in _results)
                       ListTile(
                         leading: CircleAvatar(
-                            child: Text(p.displayName.isNotEmpty
-                                ? p.displayName[0].toUpperCase()
-                                : '?')),
+                          child: p.isGroup
+                              ? const Icon(Icons.group, size: 20)
+                              : Text(
+                                  p.displayName.isNotEmpty
+                                      ? p.displayName[0].toUpperCase()
+                                      : '?',
+                                ),
+                        ),
                         title: Text(p.displayName),
-                        subtitle: p.email == null ? null : Text(p.email!),
+                        subtitle: Text(
+                          p.isGroup ? 'Gruppe' : (p.email ?? 'Benutzer'),
+                        ),
                         trailing: const Icon(Icons.add),
                         onTap: _busy ? null : () => _pickAccessAndShare(p),
                       ),
@@ -250,14 +265,18 @@ class _ShareSheetState extends ConsumerState<_ShareSheet> {
             else if (_error != null)
               Padding(
                 padding: const EdgeInsets.all(8),
-                child: Text(_error!,
-                    style: TextStyle(color: theme.colorScheme.error)),
+                child: Text(
+                  _error!,
+                  style: TextStyle(color: theme.colorScheme.error),
+                ),
               )
             else if (_shares.isEmpty)
               Padding(
                 padding: const EdgeInsets.all(12),
-                child: Text('Noch nicht freigegeben.',
-                    style: TextStyle(color: theme.colorScheme.onSurfaceVariant)),
+                child: Text(
+                  'Noch nicht freigegeben.',
+                  style: TextStyle(color: theme.colorScheme.onSurfaceVariant),
+                ),
               )
             else
               for (final s in _shares)

@@ -4,13 +4,17 @@ class Principal {
     required this.shareHref,
     required this.displayName,
     this.email,
+    this.isGroup = false,
   });
 
   /// Href zum Freigeben im sabre/dav-Format, z.B.
-  /// `principal:principals/users/bob`.
+  /// `principal:principals/users/bob` oder `principal:principals/groups/eltern`.
   final String shareHref;
   final String displayName;
   final String? email;
+
+  /// `true` = Nextcloud-Gruppe (statt Einzelnutzer).
+  final bool isGroup;
 }
 
 /// Eine bestehende Freigabe einer Collection.
