@@ -5,12 +5,7 @@ import '../../features/calendar/calendar_event.dart';
 import '../../features/members/member_settings.dart';
 import '../../features/tasks/task_item.dart';
 import '../../features/weather/weather_service.dart';
-import '../../shared/utils/hex_color.dart';
 import '../platform/platform_support.dart';
-
-/// Trenner zwischen Farb-Markierung und Text einer Termin-Zeile. Die native
-/// Widget-Seite (FpWidgets.kt) zeichnet daraus einen farbigen Punkt.
-const String _kColorSep = '\u001F';
 
 /// Aktualisiert das Android-Home-Screen-Widget „Anstehende Termine".
 /// Schiebt den formatierten Text in die Widget-Daten und stößt das native
@@ -77,9 +72,8 @@ class HomeWidgets {
 
   static String _eventLine(CalendarEvent e) {
     final when = e.allDay ? 'Ganztägig' : _fmt('HH:mm', e.start);
-    final line = '$when  ${e.summary}';
-    final color = e.color;
-    // Farb-Markierung voranstellen → native Seite zeichnet einen farbigen Punkt.
-    return color == null ? line : '${toHexRgb(color)}$_kColorSep$line';
+    // Reiner Text (keine Steuerzeichen!): U+001F & Co. sind in der
+    // SharedPreferences-XML ungültig und verhindern das Speichern der Daten.
+    return '•  $when  ${e.summary}';
   }
 }
