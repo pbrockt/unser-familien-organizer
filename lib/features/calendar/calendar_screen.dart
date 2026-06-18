@@ -5,6 +5,7 @@ import 'package:table_calendar/table_calendar.dart';
 
 import '../../core/auth/account_providers.dart';
 import '../members/member_settings.dart';
+import '../search/search_screen.dart';
 import '../weather/weather_service.dart';
 import 'birthdays.dart';
 import 'calendar_event.dart';
@@ -419,6 +420,13 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
         actions: [
           _viewToggle(),
           const SizedBox(width: 4),
+          IconButton(
+            tooltip: 'Suchen',
+            icon: const Icon(Icons.search),
+            onPressed: () => Navigator.of(
+              context,
+            ).push(MaterialPageRoute(builder: (_) => const SearchScreen())),
+          ),
           IconButton(
             tooltip: 'Aktualisieren',
             icon: const Icon(Icons.refresh),

@@ -17,6 +17,7 @@ import '../calendar/event_editor_sheet.dart';
 import '../calendar/event_providers.dart';
 import '../family/family_screen.dart';
 import '../members/member_settings.dart';
+import '../search/search_screen.dart';
 import '../settings/settings_screen.dart';
 import '../tasks/task_item.dart';
 import '../tasks/task_providers.dart';
@@ -246,6 +247,23 @@ class _TopBar extends StatelessWidget {
           const SizedBox(width: 12),
           // Begrüßung + Datum/Uhrzeit direkt neben dem Avatar (spart Platz).
           Expanded(child: _Greeting(account: account)),
+          const SizedBox(width: 8),
+          Material(
+            color: Theme.of(context).cardColor,
+            shape: const CircleBorder(),
+            elevation: 2,
+            shadowColor: Colors.black26,
+            child: InkWell(
+              customBorder: const CircleBorder(),
+              onTap: () => Navigator.of(
+                context,
+              ).push(MaterialPageRoute(builder: (_) => const SearchScreen())),
+              child: Padding(
+                padding: const EdgeInsets.all(9),
+                child: Icon(Icons.search, color: scheme.onSurface),
+              ),
+            ),
+          ),
           const SizedBox(width: 8),
           Material(
             color: Theme.of(context).cardColor,
