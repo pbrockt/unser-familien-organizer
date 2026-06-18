@@ -200,50 +200,120 @@ class _AppShellState extends ConsumerState<AppShell> {
       onPopInvokedWithResult: (didPop, _) {
         if (!didPop) _handleBack();
       },
-      child: Scaffold(
-        body: widget.navigationShell,
-        bottomNavigationBar: NavigationBar(
-          selectedIndex: widget.navigationShell.currentIndex,
-          onDestinationSelected: _onDestination,
-          destinations: [
-            const NavigationDestination(
-              icon: Icon(Icons.home_outlined),
-              selectedIcon: Icon(Icons.home),
-              label: 'Start',
-            ),
-            const NavigationDestination(
-              icon: Icon(Icons.calendar_month_outlined),
-              selectedIcon: Icon(Icons.calendar_month),
-              label: 'Kalender',
-            ),
-            const NavigationDestination(
-              icon: Icon(Icons.check_circle_outline),
-              selectedIcon: Icon(Icons.check_circle),
-              label: 'Aufgaben',
-            ),
-            const NavigationDestination(
-              icon: Icon(Icons.shopping_cart_outlined),
-              selectedIcon: Icon(Icons.shopping_cart),
-              label: 'Einkauf',
-            ),
-            NavigationDestination(
-              icon: Container(
-                width: 38,
-                height: 38,
-                decoration: BoxDecoration(
-                  color: Theme.of(context).colorScheme.primary,
-                  shape: BoxShape.circle,
-                ),
-                child: Icon(
-                  Icons.add,
-                  color: Theme.of(context).colorScheme.onPrimary,
-                ),
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          // Breite Fenster (Desktop/Tablet, Material „expanded"): seitliche
+          // NavigationRail statt Bottom-Bar; Inhalt mittig auf angenehme Breite
+          // begrenzen.
+          if (constraints.maxWidth >= 840) {
+            return Scaffold(
+              body: Row(
+                children: [
+                  _buildRail(context),
+                  const VerticalDivider(width: 1),
+                  Expanded(
+                    child: Align(
+                      alignment: Alignment.topCenter,
+                      child: ConstrainedBox(
+                        constraints: const BoxConstraints(maxWidth: 1100),
+                        child: widget.navigationShell,
+                      ),
+                    ),
+                  ),
+                ],
               ),
-              label: 'Neu',
+            );
+          }
+          return Scaffold(
+            body: widget.navigationShell,
+            bottomNavigationBar: _buildBottomBar(context),
+          );
+        },
+      ),
+    );
+  }
+
+  /// Bottom-Navigation für schmale Fenster (Handy).
+  Widget _buildBottomBar(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return NavigationBar(
+      selectedIndex: widget.navigationShell.currentIndex,
+      onDestinationSelected: _onDestination,
+      destinations: [
+        const NavigationDestination(
+          icon: Icon(Icons.home_outlined),
+          selectedIcon: Icon(Icons.home),
+          label: 'Start',
+        ),
+        const NavigationDestination(
+          icon: Icon(Icons.calendar_month_outlined),
+          selectedIcon: Icon(Icons.calendar_month),
+          label: 'Kalender',
+        ),
+        const NavigationDestination(
+          icon: Icon(Icons.check_circle_outline),
+          selectedIcon: Icon(Icons.check_circle),
+          label: 'Aufgaben',
+        ),
+        const NavigationDestination(
+          icon: Icon(Icons.shopping_cart_outlined),
+          selectedIcon: Icon(Icons.shopping_cart),
+          label: 'Einkauf',
+        ),
+        NavigationDestination(
+          icon: Container(
+            width: 38,
+            height: 38,
+            decoration: BoxDecoration(
+              color: scheme.primary,
+              shape: BoxShape.circle,
             ),
-          ],
+            child: Icon(Icons.add, color: scheme.onPrimary),
+          ),
+          label: 'Neu',
+        ),
+      ],
+    );
+  }
+
+  /// Seiten-Navigation für breite Fenster (Desktop/Tablet). „Neu" sitzt als
+  /// FAB oben; die vier Bereiche darunter.
+  Widget _buildRail(BuildContext context) {
+    return NavigationRail(
+      selectedIndex: widget.navigationShell.currentIndex,
+      onDestinationSelected: _onDestination,
+      labelType: NavigationRailLabelType.all,
+      leading: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 10),
+        child: FloatingActionButton(
+          tooltip: 'Neu',
+          elevation: 1,
+          onPressed: () => _onDestination(_plusIndex),
+          child: const Icon(Icons.add),
         ),
       ),
+      destinations: const [
+        NavigationRailDestination(
+          icon: Icon(Icons.home_outlined),
+          selectedIcon: Icon(Icons.home),
+          label: Text('Start'),
+        ),
+        NavigationRailDestination(
+          icon: Icon(Icons.calendar_month_outlined),
+          selectedIcon: Icon(Icons.calendar_month),
+          label: Text('Kalender'),
+        ),
+        NavigationRailDestination(
+          icon: Icon(Icons.check_circle_outline),
+          selectedIcon: Icon(Icons.check_circle),
+          label: Text('Aufgaben'),
+        ),
+        NavigationRailDestination(
+          icon: Icon(Icons.shopping_cart_outlined),
+          selectedIcon: Icon(Icons.shopping_cart),
+          label: Text('Einkauf'),
+        ),
+      ],
     );
   }
 }
