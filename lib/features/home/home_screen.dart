@@ -476,6 +476,7 @@ class _TwoWeekCalendar extends StatelessWidget {
     // Beginn bei Montag der aktuellen Woche, damit die Spalten zu den
     // Wochentagen passen.
     final start = today.subtract(Duration(days: today.weekday - 1));
+    final now = DateTime.now();
     const labels = ['Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa', 'So'];
 
     Widget cell(DateTime day) {
@@ -530,9 +531,12 @@ class _TwoWeekCalendar extends StatelessWidget {
                           margin: const EdgeInsets.symmetric(horizontal: 1),
                           decoration: BoxDecoration(
                             shape: BoxShape.circle,
-                            // Vergangene Tage: Punkte nur noch schwach sichtbar.
+                            // Vergangene Tage – und heute bereits erledigte
+                            // Termine – nur noch schwach sichtbar.
                             color: (e.color ?? scheme.primary).withValues(
-                              alpha: isPast ? 0.3 : 1,
+                              alpha: (isPast || (isToday && e.hasPassed(now)))
+                                  ? 0.3
+                                  : 1,
                             ),
                           ),
                         ),
