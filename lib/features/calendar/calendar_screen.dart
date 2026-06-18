@@ -107,8 +107,10 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
   /// Ist [p] aktuell aktiv? (Sichtbare Kalender = Preset-Kalender, bezogen auf
   /// die existierenden Event-Kalender.)
   bool _presetActive(CalendarPreset p, List<Member> calendars) {
-    final visibleNow =
-        calendars.where((m) => !m.hidden).map((m) => m.href).toSet();
+    final visibleNow = calendars
+        .where((m) => !m.hidden)
+        .map((m) => m.href)
+        .toSet();
     final presetVisible = p.visibleHrefs
         .where((h) => calendars.any((m) => m.href == h))
         .toSet();
@@ -117,8 +119,7 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
   }
 
   /// Wendet ein Preset an: blendet alle nicht enthaltenen Kalender aus.
-  Future<void> _applyPreset(
-      CalendarPreset p, List<Member> calendars) async {
+  Future<void> _applyPreset(CalendarPreset p, List<Member> calendars) async {
     final notifier = ref.read(memberSettingsProvider.notifier);
     for (final m in calendars) {
       await notifier.setHidden(m.href, !p.visibleHrefs.contains(m.href));
@@ -215,7 +216,9 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
                           onChanged: (v) =>
                               setS(() => selected[m.href] = v ?? false),
                           secondary: CircleAvatar(
-                              backgroundColor: m.color, radius: 8),
+                            backgroundColor: m.color,
+                            radius: 8,
+                          ),
                           title: Text(m.name),
                         ),
                     ],
@@ -242,13 +245,15 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
       if (name.isEmpty) return;
       final visible = {
         for (final e in selected.entries)
-          if (e.value) e.key
+          if (e.value) e.key,
       };
       await ref
           .read(calendarPresetsProvider.notifier)
           .addOrUpdate(name, visible);
       await _applyPreset(
-          CalendarPreset(name: name, visibleHrefs: visible), calendars);
+        CalendarPreset(name: name, visibleHrefs: visible),
+        calendars,
+      );
     }
   }
 
@@ -289,11 +294,14 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
       children: [
         Icon(weatherIcon(w.code), size: 18, color: scheme.primary),
         const SizedBox(width: 4),
-        Text('${w.tempMax.round()}° / ${w.tempMin.round()}°',
-            style: TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.w600,
-                color: scheme.onSurfaceVariant)),
+        Text(
+          '${w.tempMax.round()}° / ${w.tempMin.round()}°',
+          style: TextStyle(
+            fontSize: 12,
+            fontWeight: FontWeight.w600,
+            color: scheme.onSurfaceVariant,
+          ),
+        ),
       ],
     );
   }
@@ -336,16 +344,19 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
             icon: const Icon(Icons.chevron_left),
             tooltip: 'Vorheriger Tag',
             onPressed: () => _dayPager.previousPage(
-                duration: const Duration(milliseconds: 250),
-                curve: Curves.easeOut),
+              duration: const Duration(milliseconds: 250),
+              curve: Curves.easeOut,
+            ),
           ),
           Expanded(
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Text(label,
-                    textAlign: TextAlign.center,
-                    style: Theme.of(context).textTheme.titleMedium),
+                Text(
+                  label,
+                  textAlign: TextAlign.center,
+                  style: Theme.of(context).textTheme.titleMedium,
+                ),
                 _weatherBadge(_selectedDay),
               ],
             ),
@@ -354,8 +365,9 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
             icon: const Icon(Icons.chevron_right),
             tooltip: 'Nächster Tag',
             onPressed: () => _dayPager.nextPage(
-                duration: const Duration(milliseconds: 250),
-                curve: Curves.easeOut),
+              duration: const Duration(milliseconds: 250),
+              curve: Curves.easeOut,
+            ),
           ),
           TextButton(
             onPressed: isToday
@@ -433,8 +445,7 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
                         const Center(child: CircularProgressIndicator()),
                     error: (e, _) => _ErrorView(
                       message: '$e',
-                      onRetry: () =>
-                          ref.invalidate(eventsControllerProvider),
+                      onRetry: () => ref.invalidate(eventsControllerProvider),
                     ),
                     data: (_) => PageView.builder(
                       // Key an den Controller binden: bei _enterDay wird ein
@@ -453,10 +464,11 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
                       },
                       itemBuilder: (context, index) {
                         final date = _dateOf(index);
-                        final dayEvents = eventsByDay[_dayKey(date)] ??
+                        final dayEvents =
+                            eventsByDay[_dayKey(date)] ??
                             const <CalendarEvent>[];
-                        final focus = (_focusTime != null &&
-                                isSameDay(date, _focusTime!))
+                        final focus =
+                            (_focusTime != null && isSameDay(date, _focusTime!))
                             ? _focusTime
                             : null;
                         return DayTimeline(
@@ -465,115 +477,129 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
                           focusTime: focus,
                           onEventLongPress: (e) =>
                               showEventActions(context, ref, e),
-                          onCreateAt: (start) => showEventEditor(context,
-                              initialStart: start),
+                          onCreateAt: (start) =>
+                              showEventEditor(context, initialStart: start),
                         );
                       },
                     ),
                   ),
                 ),
               ] else ...[
-              TableCalendar<CalendarEvent>(
-                firstDay: DateTime.utc(2020, 1, 1),
-                lastDay: DateTime.utc(2035, 12, 31),
-                focusedDay: _focusedDay,
-                locale: 'de_DE',
-                startingDayOfWeek: StartingDayOfWeek.monday,
-                calendarFormat: _format,
-                availableCalendarFormats: const {
-                  CalendarFormat.month: 'Monat',
-                  CalendarFormat.twoWeeks: '2 Wochen',
-                  CalendarFormat.week: 'Woche',
-                },
-                selectedDayPredicate: (d) => isSameDay(d, _selectedDay),
-                eventLoader: loader,
-                onFormatChanged: (f) => setState(() => _format = f),
-                onPageChanged: (day) => _focusedDay = day,
-                onDaySelected: (selected, focused) {
-                  setState(() {
-                    _selectedDay = selected;
-                    _focusedDay = focused;
-                  });
-                  ref
-                      .read(calendarSelectedDayProvider.notifier)
-                      .set(selected);
-                },
-                calendarStyle: CalendarStyle(
-                  markersMaxCount: 4,
-                  // Tage des aktuellen Monats leicht hinterlegen, Tage außerhalb
-                  // klar abgesetzt (blasser, ohne Hintergrund).
-                  defaultDecoration: BoxDecoration(
-                    color: Theme.of(context)
-                        .colorScheme
-                        .primary
-                        .withValues(alpha: 0.035),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  weekendDecoration: BoxDecoration(
-                    color: Theme.of(context)
-                        .colorScheme
-                        .primary
-                        .withValues(alpha: 0.035),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  outsideDecoration: const BoxDecoration(
-                    color: Colors.transparent,
-                  ),
-                  outsideTextStyle: TextStyle(
-                    color: Theme.of(context)
-                        .colorScheme
-                        .onSurface
-                        .withValues(alpha: 0.32),
-                  ),
-                  todayDecoration: BoxDecoration(
-                    color: Theme.of(context).colorScheme.primaryContainer,
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  todayTextStyle: TextStyle(
-                    color: Theme.of(context).colorScheme.onPrimaryContainer,
-                  ),
-                  selectedDecoration: BoxDecoration(
-                    color: Theme.of(context).colorScheme.primary,
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                ),
-                calendarBuilders: CalendarBuilders<CalendarEvent>(
-                  markerBuilder: (context, day, events) {
-                    if (events.isEmpty) return null;
-                    return Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: events.take(4).map((e) {
-                        return Container(
-                          width: 6,
-                          height: 6,
-                          margin: const EdgeInsets.symmetric(horizontal: 1),
-                          decoration: BoxDecoration(
-                            shape: BoxShape.circle,
-                            color: e.color ??
-                                Theme.of(context).colorScheme.primary,
+                // Kalender + Terminliste scrollen gemeinsam als eine Seite
+                // (der Kalender scrollt mit nach oben weg).
+                Expanded(
+                  child: ListView(
+                    children: [
+                      TableCalendar<CalendarEvent>(
+                        firstDay: DateTime.utc(2020, 1, 1),
+                        lastDay: DateTime.utc(2035, 12, 31),
+                        focusedDay: _focusedDay,
+                        locale: 'de_DE',
+                        startingDayOfWeek: StartingDayOfWeek.monday,
+                        calendarFormat: _format,
+                        availableCalendarFormats: const {
+                          CalendarFormat.month: 'Monat',
+                          CalendarFormat.twoWeeks: '2 Wochen',
+                          CalendarFormat.week: 'Woche',
+                        },
+                        selectedDayPredicate: (d) => isSameDay(d, _selectedDay),
+                        eventLoader: loader,
+                        onFormatChanged: (f) => setState(() => _format = f),
+                        onPageChanged: (day) => _focusedDay = day,
+                        onDaySelected: (selected, focused) {
+                          setState(() {
+                            _selectedDay = selected;
+                            _focusedDay = focused;
+                          });
+                          ref
+                              .read(calendarSelectedDayProvider.notifier)
+                              .set(selected);
+                        },
+                        calendarStyle: CalendarStyle(
+                          markersMaxCount: 4,
+                          // Tage des aktuellen Monats leicht hinterlegen, Tage außerhalb
+                          // klar abgesetzt (blasser, ohne Hintergrund).
+                          defaultDecoration: BoxDecoration(
+                            color: Theme.of(
+                              context,
+                            ).colorScheme.primary.withValues(alpha: 0.035),
+                            borderRadius: BorderRadius.circular(8),
                           ),
-                        );
-                      }).toList(),
-                    );
-                  },
-                ),
-              ),
-              Expanded(
-                child: eventsAsync.when(
-                  loading: () =>
-                      const Center(child: CircularProgressIndicator()),
-                  error: (e, _) => _ErrorView(
-                    message: '$e',
-                    onRetry: () => ref.invalidate(eventsControllerProvider),
+                          weekendDecoration: BoxDecoration(
+                            color: Theme.of(
+                              context,
+                            ).colorScheme.primary.withValues(alpha: 0.035),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          outsideDecoration: const BoxDecoration(
+                            color: Colors.transparent,
+                          ),
+                          outsideTextStyle: TextStyle(
+                            color: Theme.of(
+                              context,
+                            ).colorScheme.onSurface.withValues(alpha: 0.32),
+                          ),
+                          todayDecoration: BoxDecoration(
+                            color: Theme.of(
+                              context,
+                            ).colorScheme.primaryContainer,
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          todayTextStyle: TextStyle(
+                            color: Theme.of(
+                              context,
+                            ).colorScheme.onPrimaryContainer,
+                          ),
+                          selectedDecoration: BoxDecoration(
+                            color: Theme.of(context).colorScheme.primary,
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                        ),
+                        calendarBuilders: CalendarBuilders<CalendarEvent>(
+                          markerBuilder: (context, day, events) {
+                            if (events.isEmpty) return null;
+                            return Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: events.take(4).map((e) {
+                                return Container(
+                                  width: 6,
+                                  height: 6,
+                                  margin: const EdgeInsets.symmetric(
+                                    horizontal: 1,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    shape: BoxShape.circle,
+                                    color:
+                                        e.color ??
+                                        Theme.of(context).colorScheme.primary,
+                                  ),
+                                );
+                              }).toList(),
+                            );
+                          },
+                        ),
+                      ),
+                      eventsAsync.when(
+                        loading: () => const Padding(
+                          padding: EdgeInsets.all(32),
+                          child: Center(child: CircularProgressIndicator()),
+                        ),
+                        error: (e, _) => _ErrorView(
+                          message: '$e',
+                          onRetry: () =>
+                              ref.invalidate(eventsControllerProvider),
+                        ),
+                        data: (_) => _DayEventList(
+                          day: _selectedDay,
+                          events: selectedEvents,
+                          weather: _weatherBadge(_selectedDay),
+                          onEventLongPress: (e) =>
+                              showEventActions(context, ref, e),
+                        ),
+                      ),
+                    ],
                   ),
-                  data: (_) => _DayEventList(
-                    day: _selectedDay,
-                    events: selectedEvents,
-                    weather: _weatherBadge(_selectedDay),
-                    onEventLongPress: (e) => showEventActions(context, ref, e),
-                  ),
                 ),
-              ),
               ],
             ],
           );
@@ -600,14 +626,18 @@ class _DayEventList extends StatelessWidget {
     final header = DateFormat('EEEE, d. MMMM', 'de_DE').format(day);
     if (events.isEmpty) {
       return ListView(
+        shrinkWrap: true,
+        physics: const NeverScrollableScrollPhysics(),
         children: [
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
             child: Row(
               children: [
                 Expanded(
-                  child: Text(header,
-                      style: Theme.of(context).textTheme.titleSmall),
+                  child: Text(
+                    header,
+                    style: Theme.of(context).textTheme.titleSmall,
+                  ),
                 ),
                 weather,
               ],
@@ -621,19 +651,21 @@ class _DayEventList extends StatelessWidget {
       );
     }
     return ListView.builder(
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
       itemCount: events.length + 1,
       itemBuilder: (context, index) {
         if (index == 0) {
           return Padding(
             padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
-            child: Text(header,
-                style: Theme.of(context).textTheme.titleSmall),
+            child: Text(header, style: Theme.of(context).textTheme.titleSmall),
           );
         }
         final e = events[index - 1];
         // Am heutigen Tag bereits beendete Termine eingeklappt + transparent
         // zeigen (statt ausblenden).
-        final passed = isSameDay(day, DateTime.now()) && e.hasPassed(DateTime.now());
+        final passed =
+            isSameDay(day, DateTime.now()) && e.hasPassed(DateTime.now());
         return _EventTile(
           event: e,
           passed: passed,
@@ -660,8 +692,7 @@ class _EventTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final color = event.color ?? theme.colorScheme.primary;
-    final hasLocation =
-        event.location != null && event.location!.isNotEmpty;
+    final hasLocation = event.location != null && event.location!.isNotEmpty;
 
     if (passed) return _buildPassed(context, theme, color);
 
@@ -693,25 +724,35 @@ class _EventTile extends StatelessWidget {
                       event.summary,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: theme.textTheme.titleMedium
-                          ?.copyWith(fontWeight: FontWeight.w600),
+                      style: theme.textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.w600,
+                      ),
                     ),
                     if (event.isMultiDay)
-                      Text(_rangeLabel(),
-                          style: theme.textTheme.bodySmall?.copyWith(
-                              color: theme.colorScheme.onSurfaceVariant)),
+                      Text(
+                        _rangeLabel(),
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: theme.colorScheme.onSurfaceVariant,
+                        ),
+                      ),
                     if (hasLocation)
-                      Text('📍 ${event.location}',
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: theme.textTheme.bodySmall?.copyWith(
-                              color: theme.colorScheme.onSurfaceVariant)),
+                      Text(
+                        '📍 ${event.location}',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: theme.colorScheme.onSurfaceVariant,
+                        ),
+                      ),
                   ],
                 ),
               ),
               if (event.isRecurring)
-                Icon(Icons.repeat,
-                    size: 16, color: theme.colorScheme.onSurfaceVariant),
+                Icon(
+                  Icons.repeat,
+                  size: 16,
+                  color: theme.colorScheme.onSurfaceVariant,
+                ),
             ],
           ),
         ),
@@ -735,9 +776,12 @@ class _EventTile extends StatelessWidget {
             children: [
               SizedBox(
                 width: 42,
-                child: Text(timeLabel,
-                    style: theme.textTheme.labelMedium
-                        ?.copyWith(color: theme.colorScheme.onSurfaceVariant)),
+                child: Text(
+                  timeLabel,
+                  style: theme.textTheme.labelMedium?.copyWith(
+                    color: theme.colorScheme.onSurfaceVariant,
+                  ),
+                ),
               ),
               Container(
                 width: 3,
@@ -757,8 +801,11 @@ class _EventTile extends StatelessWidget {
                 ),
               ),
               if (event.isRecurring)
-                Icon(Icons.repeat,
-                    size: 14, color: theme.colorScheme.onSurfaceVariant),
+                Icon(
+                  Icons.repeat,
+                  size: 14,
+                  color: theme.colorScheme.onSurfaceVariant,
+                ),
             ],
           ),
         ),
@@ -773,9 +820,12 @@ class _EventTile extends StatelessWidget {
         children: [
           Icon(Icons.event, size: 20, color: color),
           const SizedBox(height: 2),
-          Text('ganztags',
-              style: theme.textTheme.labelSmall?.copyWith(
-                  color: theme.colorScheme.onSurfaceVariant)),
+          Text(
+            'ganztags',
+            style: theme.textTheme.labelSmall?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
+          ),
         ],
       );
     }
@@ -783,13 +833,19 @@ class _EventTile extends StatelessWidget {
       mainAxisAlignment: MainAxisAlignment.center,
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(DateFormat('HH:mm').format(event.start),
-            style: theme.textTheme.titleSmall
-                ?.copyWith(fontWeight: FontWeight.w700)),
+        Text(
+          DateFormat('HH:mm').format(event.start),
+          style: theme.textTheme.titleSmall?.copyWith(
+            fontWeight: FontWeight.w700,
+          ),
+        ),
         if (event.end != null)
-          Text(DateFormat('HH:mm').format(event.end!),
-              style: theme.textTheme.bodySmall?.copyWith(
-                  color: theme.colorScheme.onSurfaceVariant)),
+          Text(
+            DateFormat('HH:mm').format(event.end!),
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
+          ),
       ],
     );
   }
@@ -812,8 +868,11 @@ class _ConnectPrompt extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.cloud_off_outlined,
-                size: 64, color: theme.colorScheme.primary),
+            Icon(
+              Icons.cloud_off_outlined,
+              size: 64,
+              color: theme.colorScheme.primary,
+            ),
             const SizedBox(height: 16),
             Text('Nicht verbunden', style: theme.textTheme.titleLarge),
             const SizedBox(height: 8),
