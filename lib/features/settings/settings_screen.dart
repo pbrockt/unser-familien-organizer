@@ -1,10 +1,14 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 
 import '../../core/background/background_sync.dart';
 import '../../core/platform/battery_optimization.dart';
 import '../../core/platform/platform_support.dart';
+import '../../core/widgets/home_widgets.dart';
+import '../../core/widgets/widget_diagnostics.dart';
+import '../calendar/event_providers.dart';
 import '../../shared/theme/app_theme.dart';
 import '../calendar/event_templates.dart';
 import '../family/family_screen.dart';
@@ -73,8 +77,10 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen>
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
-              content: Text('Berechtigung nicht erteilt. Erinnerungen brauchen '
-                  'die Benachrichtigungs-Berechtigung.'),
+              content: Text(
+                'Berechtigung nicht erteilt. Erinnerungen brauchen '
+                'die Benachrichtigungs-Berechtigung.',
+              ),
             ),
           );
         }
@@ -119,8 +125,10 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen>
   Widget build(BuildContext context) {
     final settingsAsync = ref.watch(notificationSettingsProvider);
     final themeMode = ref.watch(themeModeProvider).value ?? ThemeMode.system;
-    final calendars =
-        ref.watch(membersProvider).where((m) => m.supportsEvents).toList();
+    final calendars = ref
+        .watch(membersProvider)
+        .where((m) => m.supportsEvents)
+        .toList();
     final accent = ref.watch(accentColorProvider).value ?? AppTheme.orange;
     final templatesEnabled = ref.watch(templatesEnabledProvider).value ?? true;
     final weatherPlz = ref.watch(weatherPlzProvider).value ?? '';
@@ -139,12 +147,13 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen>
             ListTile(
               leading: const Icon(Icons.people_outline),
               title: const Text('Familie & Verbindung'),
-              subtitle:
-                  const Text('Nextcloud, Kalender, Mitglieder & Freigaben'),
-              trailing: const Icon(Icons.chevron_right),
-              onTap: () => Navigator.of(context).push(
-                MaterialPageRoute(builder: (_) => const FamilyScreen()),
+              subtitle: const Text(
+                'Nextcloud, Kalender, Mitglieder & Freigaben',
               ),
+              trailing: const Icon(Icons.chevron_right),
+              onTap: () => Navigator.of(
+                context,
+              ).push(MaterialPageRoute(builder: (_) => const FamilyScreen())),
             ),
             const Divider(),
             _sectionHeader(context, 'Darstellung'),
@@ -153,17 +162,20 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen>
               child: SegmentedButton<ThemeMode>(
                 segments: const [
                   ButtonSegment(
-                      value: ThemeMode.system,
-                      icon: Icon(Icons.brightness_auto),
-                      label: Text('System')),
+                    value: ThemeMode.system,
+                    icon: Icon(Icons.brightness_auto),
+                    label: Text('System'),
+                  ),
                   ButtonSegment(
-                      value: ThemeMode.light,
-                      icon: Icon(Icons.light_mode),
-                      label: Text('Hell')),
+                    value: ThemeMode.light,
+                    icon: Icon(Icons.light_mode),
+                    label: Text('Hell'),
+                  ),
                   ButtonSegment(
-                      value: ThemeMode.dark,
-                      icon: Icon(Icons.dark_mode),
-                      label: Text('Dunkel')),
+                    value: ThemeMode.dark,
+                    icon: Icon(Icons.dark_mode),
+                    label: Text('Dunkel'),
+                  ),
                 ],
                 selected: {themeMode},
                 onSelectionChanged: (s) =>
@@ -172,9 +184,12 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen>
             ),
             Padding(
               padding: const EdgeInsets.fromLTRB(16, 4, 16, 4),
-              child: Text('Akzentfarbe',
-                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      color: Theme.of(context).colorScheme.onSurfaceVariant)),
+              child: Text(
+                'Akzentfarbe',
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                ),
+              ),
             ),
             Padding(
               padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
@@ -200,8 +215,11 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen>
                           ),
                         ),
                         child: c.toARGB32() == accent.toARGB32()
-                            ? const Icon(Icons.check,
-                                size: 18, color: Colors.white)
+                            ? const Icon(
+                                Icons.check,
+                                size: 18,
+                                color: Colors.white,
+                              )
                             : null,
                       ),
                     ),
@@ -210,88 +228,94 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen>
             ),
             const Divider(),
             if (isAndroid) ...[
-            _sectionHeader(context, 'Erinnerungen'),
-            SwitchListTile(
-              secondary: const Icon(Icons.notifications_active_outlined),
-              title: const Text('Erinnerungen aktivieren'),
-              subtitle: const Text(
-                  'Benachrichtigung vor Terminen und bei fälligen Aufgaben'),
-              value: settings.enabled,
-              onChanged: _toggleEnabled,
-            ),
-            if (settings.enabled)
-              Padding(
-                padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
-                child: Text(
-                  'Die Vorlaufzeit (5 Min … 1 Std) stellst du pro Termin im '
-                  'Termin-Editor ein – standardmäßig ist sie aus.',
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: Theme.of(context).colorScheme.onSurfaceVariant),
+              _sectionHeader(context, 'Erinnerungen'),
+              SwitchListTile(
+                secondary: const Icon(Icons.notifications_active_outlined),
+                title: const Text('Erinnerungen aktivieren'),
+                subtitle: const Text(
+                  'Benachrichtigung vor Terminen und bei fälligen Aufgaben',
                 ),
+                value: settings.enabled,
+                onChanged: _toggleEnabled,
               ),
-            const Divider(),
-            _sectionHeader(context, 'Berechtigungen'),
-            ListTile(
-              leading: Icon(
-                _permissionGranted == true
-                    ? Icons.check_circle
-                    : Icons.error_outline,
-                color: _permissionGranted == true
-                    ? Colors.green
-                    : Theme.of(context).colorScheme.error,
-              ),
-              title: const Text('Benachrichtigungen'),
-              subtitle: Text(_permissionGranted == null
-                  ? 'Status wird geprüft…'
-                  : _permissionGranted!
-                      ? 'Erlaubt'
-                      : 'Nicht erlaubt – für Erinnerungen nötig'),
-              trailing: _permissionGranted == true
-                  ? null
-                  : TextButton(
-                      onPressed: () async {
-                        await ref
-                            .read(notificationServiceProvider)
-                            .requestPermission();
-                        await _refreshPermission();
-                      },
-                      child: const Text('Erlauben'),
+              if (settings.enabled)
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+                  child: Text(
+                    'Die Vorlaufzeit (5 Min … 1 Std) stellst du pro Termin im '
+                    'Termin-Editor ein – standardmäßig ist sie aus.',
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
                     ),
-            ),
-            ListTile(
-              leading: const Icon(Icons.notifications_none),
-              title: const Text('Test-Benachrichtigung senden'),
-              onTap: () async {
-                await ref.read(notificationServiceProvider).showTest();
-              },
-            ),
-            ListTile(
-              leading: Icon(
-                _batteryIgnored == true
-                    ? Icons.battery_charging_full
-                    : Icons.battery_alert,
-                color: _batteryIgnored == true
-                    ? Colors.green
-                    : Theme.of(context).colorScheme.error,
+                  ),
+                ),
+              const Divider(),
+              _sectionHeader(context, 'Berechtigungen'),
+              ListTile(
+                leading: Icon(
+                  _permissionGranted == true
+                      ? Icons.check_circle
+                      : Icons.error_outline,
+                  color: _permissionGranted == true
+                      ? Colors.green
+                      : Theme.of(context).colorScheme.error,
+                ),
+                title: const Text('Benachrichtigungen'),
+                subtitle: Text(
+                  _permissionGranted == null
+                      ? 'Status wird geprüft…'
+                      : _permissionGranted!
+                      ? 'Erlaubt'
+                      : 'Nicht erlaubt – für Erinnerungen nötig',
+                ),
+                trailing: _permissionGranted == true
+                    ? null
+                    : TextButton(
+                        onPressed: () async {
+                          await ref
+                              .read(notificationServiceProvider)
+                              .requestPermission();
+                          await _refreshPermission();
+                        },
+                        child: const Text('Erlauben'),
+                      ),
               ),
-              title: const Text('Hintergrund-Aktualisierung'),
-              subtitle: Text(_batteryIgnored == null
-                  ? 'Status wird geprüft…'
-                  : _batteryIgnored!
+              ListTile(
+                leading: const Icon(Icons.notifications_none),
+                title: const Text('Test-Benachrichtigung senden'),
+                onTap: () async {
+                  await ref.read(notificationServiceProvider).showTest();
+                },
+              ),
+              ListTile(
+                leading: Icon(
+                  _batteryIgnored == true
+                      ? Icons.battery_charging_full
+                      : Icons.battery_alert,
+                  color: _batteryIgnored == true
+                      ? Colors.green
+                      : Theme.of(context).colorScheme.error,
+                ),
+                title: const Text('Hintergrund-Aktualisierung'),
+                subtitle: Text(
+                  _batteryIgnored == null
+                      ? 'Status wird geprüft…'
+                      : _batteryIgnored!
                       ? 'Akku-Optimierung aus – Erinnerungen kommen zuverlässig'
                       : 'Akku-Optimierung aktiv – Erinnerungen können verspätet '
-                          'kommen oder ausbleiben'),
-              trailing: _batteryIgnored == true
-                  ? null
-                  : TextButton(
-                      onPressed: () async {
-                        await BatteryOptimization.request();
-                        await _refreshBattery();
-                      },
-                      child: const Text('Erlauben'),
-                    ),
-            ),
-            const Divider(),
+                            'kommen oder ausbleiben',
+                ),
+                trailing: _batteryIgnored == true
+                    ? null
+                    : TextButton(
+                        onPressed: () async {
+                          await BatteryOptimization.request();
+                          await _refreshBattery();
+                        },
+                        child: const Text('Erlauben'),
+                      ),
+              ),
+              const Divider(),
             ],
             if (calendars.isNotEmpty) ...[
               _sectionHeader(context, 'Startseite'),
@@ -301,7 +325,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen>
                   'Welche Kalender unter „Anstehende Termine" erscheinen, '
                   'stellst du direkt auf der Startseite über den Filter ein.',
                   style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: Theme.of(context).colorScheme.onSurfaceVariant),
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  ),
                 ),
               ),
               Padding(
@@ -318,8 +343,9 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen>
               ListTile(
                 leading: const Icon(Icons.date_range_outlined),
                 title: const Text('Anstehende Termine: Vorschau'),
-                subtitle:
-                    const Text('Wie viele Tage im Voraus auf der Startseite?'),
+                subtitle: const Text(
+                  'Wie viele Tage im Voraus auf der Startseite?',
+                ),
                 trailing: DropdownButton<int>(
                   value: daysValue,
                   items: const [
@@ -344,8 +370,9 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen>
               secondary: const Icon(Icons.bookmark_outline),
               title: const Text('Termin-Vorlagen'),
               subtitle: const Text(
-                  'Beim Tippen Vorschläge zeigen und Termine als Vorlage '
-                  'speichern können'),
+                'Beim Tippen Vorschläge zeigen und Termine als Vorlage '
+                'speichern können',
+              ),
               value: templatesEnabled,
               onChanged: (v) =>
                   ref.read(templatesEnabledProvider.notifier).set(v),
@@ -355,9 +382,11 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen>
             ListTile(
               leading: const Icon(Icons.wb_sunny_outlined),
               title: const Text('Wetter im Kalender'),
-              subtitle: Text(weatherPlz.isEmpty
-                  ? 'Aus – Postleitzahl eingeben zum Aktivieren'
-                  : 'PLZ $weatherPlz'),
+              subtitle: Text(
+                weatherPlz.isEmpty
+                    ? 'Aus – Postleitzahl eingeben zum Aktivieren'
+                    : 'PLZ $weatherPlz',
+              ),
               trailing: const Icon(Icons.chevron_right),
               onTap: () => _editPlz(weatherPlz),
             ),
@@ -369,6 +398,16 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen>
               subtitle: const Text('Neueste Version von GitHub laden'),
               onTap: () => showAboutUpdateSheet(context),
             ),
+            if (isAndroid)
+              ListTile(
+                leading: const Icon(Icons.widgets_outlined),
+                title: const Text('Widget-Diagnose'),
+                subtitle: const Text(
+                  'Prüft das „Anstehende Termine"-Widget und zeigt einen '
+                  'Bericht',
+                ),
+                onTap: _widgetDiagnose,
+              ),
             FutureBuilder<PackageInfo>(
               future: PackageInfo.fromPlatform(),
               builder: (context, snapshot) {
@@ -376,9 +415,11 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen>
                 return ListTile(
                   leading: const Icon(Icons.info_outline),
                   title: const Text('Version'),
-                  subtitle: Text(info == null
-                      ? '…'
-                      : '${info.version} (${info.buildNumber})'),
+                  subtitle: Text(
+                    info == null
+                        ? '…'
+                        : '${info.version} (${info.buildNumber})',
+                  ),
                   onTap: _onVersionTap,
                 );
               },
@@ -389,16 +430,59 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen>
     );
   }
 
+  /// Widget-Diagnose: befüllt das Widget neu und zeigt einen nativen Bericht
+  /// (platzierte Widgets, registrierte Provider, gespeicherte Daten, Rendern).
+  Future<void> _widgetDiagnose() async {
+    final messenger = ScaffoldMessenger.of(context);
+    String push;
+    try {
+      final events = ref.read(visibleEventsProvider);
+      await HomeWidgets.update(events: events);
+      push = 'Befüllen (HomeWidgets.update): OK';
+    } catch (e) {
+      push = 'Befüllen FEHLER: $e';
+    }
+    final report = await widgetDiagnostics();
+    final info = await PackageInfo.fromPlatform();
+    if (!mounted) return;
+    final text =
+        'App-Version: ${info.version} (${info.buildNumber})\n$push\n\n$report';
+    await showDialog<void>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('🔍 Widget-Diagnose'),
+        content: SingleChildScrollView(child: SelectableText(text)),
+        actions: [
+          TextButton(
+            onPressed: () {
+              Clipboard.setData(ClipboardData(text: text));
+              messenger.showSnackBar(
+                const SnackBar(content: Text('Bericht kopiert')),
+              );
+            },
+            child: const Text('Kopieren'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Schließen'),
+          ),
+        ],
+      ),
+    );
+  }
+
   /// Countdown-Popup: pro Kalender an/aus + „alle Termine" oder „nur nächster".
   Future<void> _pickCountdownCalendars() async {
-    final calendars =
-        ref.read(membersProvider).where((m) => m.supportsEvents).toList();
+    final calendars = ref
+        .read(membersProvider)
+        .where((m) => m.supportsEvents)
+        .toList();
     final cur = ref.read(memberSettingsProvider).value ?? const {};
     final enabled = {
-      for (final m in calendars) m.href: cur[m.href]?.countdown ?? false
+      for (final m in calendars) m.href: cur[m.href]?.countdown ?? false,
     };
     final allMode = {
-      for (final m in calendars) m.href: cur[m.href]?.countdownAll ?? false
+      for (final m in calendars) m.href: cur[m.href]?.countdownAll ?? false,
     };
     final ok = await showDialog<bool>(
       context: context,
@@ -413,10 +497,11 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen>
                 for (final m in calendars) ...[
                   CheckboxListTile(
                     value: enabled[m.href] ?? false,
-                    onChanged: (v) =>
-                        setS(() => enabled[m.href] = v ?? false),
-                    secondary:
-                        CircleAvatar(backgroundColor: m.color, radius: 8),
+                    onChanged: (v) => setS(() => enabled[m.href] = v ?? false),
+                    secondary: CircleAvatar(
+                      backgroundColor: m.color,
+                      radius: 8,
+                    ),
                     title: Text(m.name),
                   ),
                   if (enabled[m.href] ?? false)
@@ -496,12 +581,12 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen>
   }
 
   Widget _sectionHeader(BuildContext context, String text) => Padding(
-        padding: const EdgeInsets.fromLTRB(16, 16, 16, 4),
-        child: Text(
-          text,
-          style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                color: Theme.of(context).colorScheme.primary,
-              ),
-        ),
-      );
+    padding: const EdgeInsets.fromLTRB(16, 16, 16, 4),
+    child: Text(
+      text,
+      style: Theme.of(context).textTheme.titleSmall?.copyWith(
+        color: Theme.of(context).colorScheme.primary,
+      ),
+    ),
+  );
 }

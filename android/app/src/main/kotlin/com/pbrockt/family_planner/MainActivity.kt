@@ -12,6 +12,7 @@ import io.flutter.plugin.common.MethodChannel
 
 class MainActivity : FlutterActivity() {
     private val batteryChannel = "com.pbrockt.family_planner/battery"
+    private val widgetChannel = "com.pbrockt.family_planner/widget"
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
@@ -22,6 +23,20 @@ class MainActivity : FlutterActivity() {
                         result.success(isIgnoringBatteryOptimizations())
                     "requestIgnoreBatteryOptimizations" ->
                         result.success(requestIgnoreBatteryOptimizations())
+                    else -> result.notImplemented()
+                }
+            }
+        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, widgetChannel)
+            .setMethodCallHandler { call, result ->
+                when (call.method) {
+                    "diagnose" ->
+                        result.success(
+                            try {
+                                widgetDiagnostics(applicationContext)
+                            } catch (e: Throwable) {
+                                "Diagnose-Ausnahme: $e"
+                            },
+                        )
                     else -> result.notImplemented()
                 }
             }
