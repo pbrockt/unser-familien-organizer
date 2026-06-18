@@ -1,0 +1,80 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Experimentelles Design-Widget. RemoteViews-sicher: nur LinearLayout,
+     TextView, TextClock (kein <View>). Schwarzer Rahmen kommt aus dem
+     Hintergrund-Drawable (isoliert – falls es zickt, bleibt der Rest heil). -->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/fp_widget_root"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:background="@drawable/fp_widget_design_bg"
+    android:padding="12dp">
+
+    <!-- Kopfzeile: Datum links, "+"-Knopf rechts -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="center_vertical">
+
+        <LinearLayout
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:orientation="vertical">
+
+            <TextClock
+                android:id="@+id/fp_widget_weekday"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:format12Hour="EEEE"
+                android:format24Hour="EEEE"
+                android:textColor="#6B5B4D"
+                android:textSize="13sp" />
+
+            <TextClock
+                android:id="@+id/fp_widget_day"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:format12Hour="d"
+                android:format24Hour="d"
+                android:textColor="#3E322A"
+                android:textSize="30sp"
+                android:textStyle="bold" />
+
+            <TextClock
+                android:id="@+id/fp_widget_month"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:format12Hour="MMMM"
+                android:format24Hour="MMMM"
+                android:textColor="#6B5B4D"
+                android:textSize="13sp" />
+        </LinearLayout>
+
+        <TextView
+            android:id="@+id/fp_widget_add"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="＋"
+            android:textColor="#E8964F"
+            android:textSize="30sp"
+            android:textStyle="bold"
+            android:paddingStart="12dp"
+            android:paddingEnd="6dp"
+            android:paddingTop="2dp"
+            android:paddingBottom="2dp" />
+    </LinearLayout>
+
+    <TextView
+        android:id="@+id/fp_widget_body"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:layout_marginTop="8dp"
+        android:textColor="#3E322A"
+        android:textSize="13sp"
+        android:lineSpacingExtra="3dp"
+        android:ellipsize="end"
+        android:text="–" />
+</LinearLayout>

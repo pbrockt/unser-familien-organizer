@@ -137,6 +137,47 @@ class CountdownWidget : HomeWidgetProvider() {
 }
 
 /**
+ * Experimentelles „Design"-Widget: gleicher Inhalt wie „Anstehende Termine",
+ * aber mit transparenterem Hintergrund + schwarzem Rahmen, Datums-Kopf
+ * (TextClock) und einem „+"-Knopf, der direkt den Termin-Editor öffnet.
+ */
+class DesignWidget : HomeWidgetProvider() {
+    override fun onUpdate(
+        context: Context,
+        appWidgetManager: AppWidgetManager,
+        appWidgetIds: IntArray,
+        widgetData: SharedPreferences,
+    ) {
+        val raw = widgetData.getString("next_body", "–") ?: "–"
+        fun launch(route: String) = HomeWidgetLaunchIntent.getActivity(
+            context,
+            MainActivity::class.java,
+            Uri.parse("familyplanner://$route"),
+        )
+        for (id in appWidgetIds) {
+            fun build(styled: Boolean) =
+                RemoteViews(context.packageName, R.layout.fp_widget_design).apply {
+                    setTextViewText(
+                        R.id.fp_widget_body,
+                        if (styled) styledBody(raw, "▌") else plainBody(raw, "▌"),
+                    )
+                    setOnClickPendingIntent(R.id.fp_widget_root, launch("calendar"))
+                    setOnClickPendingIntent(R.id.fp_widget_add, launch("newevent"))
+                }
+            try {
+                appWidgetManager.updateAppWidget(id, build(true))
+            } catch (e: Throwable) {
+                try {
+                    appWidgetManager.updateAppWidget(id, build(false))
+                } catch (e2: Throwable) {
+                    // lieber keine Aktualisierung als ein Absturz
+                }
+            }
+        }
+    }
+}
+
+/**
  * Diagnose für den „Widget-Diagnose"-Knopf in den Einstellungen. Liefert harte
  * Fakten: platzierte Widgets, registrierte Provider und gespeicherte Daten.
  */

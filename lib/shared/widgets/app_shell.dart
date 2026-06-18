@@ -1,6 +1,9 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:home_widget/home_widget.dart';
 
 import '../../core/auth/account_providers.dart';
 import '../../core/platform/platform_support.dart';
@@ -27,6 +30,7 @@ class AppShell extends ConsumerStatefulWidget {
 class _AppShellState extends ConsumerState<AppShell> {
   final List<int> _history = [];
   bool _updateChecked = false;
+  StreamSubscription<Uri?>? _widgetSub;
 
   /// Index der „+"-Schaltfläche (keine echte Seite, sondern eine Aktion).
   static const int _plusIndex = 4;
@@ -37,11 +41,65 @@ class _AppShellState extends ConsumerState<AppShell> {
     // Beim Start einmalig auf eine neue Version prüfen. Hier (im Navigator)
     // gibt es einen gültigen Context für den Update-Dialog.
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (_updateChecked || !mounted) return;
-      _updateChecked = true;
-      if (!isAndroid) return;
-      runUpdateCheck(context, ref, silentIfNone: true);
+      if (!mounted) return;
+      if (!_updateChecked && isAndroid) {
+        _updateChecked = true;
+        runUpdateCheck(context, ref, silentIfNone: true);
+      }
+      _handleInitialWidgetLaunch();
     });
+    // Klicks aus Widgets, während die App schon läuft.
+    if (isAndroid) {
+      _widgetSub = HomeWidget.widgetClicked.listen((uri) {
+        if (mounted) _handleWidgetUri(uri);
+      });
+    }
+  }
+
+  @override
+  void dispose() {
+    _widgetSub?.cancel();
+    super.dispose();
+  }
+
+  /// Wurde die App über ein Widget gestartet? Dann passend reagieren.
+  Future<void> _handleInitialWidgetLaunch() async {
+    if (!isAndroid) return;
+    try {
+      final uri = await HomeWidget.initiallyLaunchedFromHomeWidget();
+      if (mounted) _handleWidgetUri(uri);
+    } catch (_) {}
+  }
+
+  /// `familyplanner://newevent` → Termin-Editor; sonst passenden Tab öffnen.
+  void _handleWidgetUri(Uri? uri) {
+    if (uri == null || !mounted) return;
+    final target = uri.host.isNotEmpty
+        ? uri.host
+        : uri.path.replaceAll('/', '');
+    switch (target) {
+      case 'newevent':
+        _openNewEvent();
+        break;
+      case 'calendar':
+        widget.navigationShell.goBranch(1, initialLocation: false);
+        break;
+      case 'tasks':
+        widget.navigationShell.goBranch(2, initialLocation: false);
+        break;
+      case 'shopping':
+        widget.navigationShell.goBranch(3, initialLocation: false);
+        break;
+      case 'home':
+        widget.navigationShell.goBranch(0, initialLocation: false);
+        break;
+    }
+  }
+
+  Future<void> _openNewEvent() async {
+    final account = ref.read(accountProvider).value;
+    if (account == null || !mounted) return;
+    await showEventEditor(context, initialDay: DateTime.now());
   }
 
   void _onDestination(int index) {
@@ -66,10 +124,14 @@ class _AppShellState extends ConsumerState<AppShell> {
   Future<void> _showCreateMenu() async {
     final account = ref.read(accountProvider).value;
     if (account == null) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-        content: Text('Erst mit Nextcloud verbinden '
-            '(Einstellungen → Familie).'),
-      ));
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Erst mit Nextcloud verbinden '
+            '(Einstellungen → Familie).',
+          ),
+        ),
+      );
       return;
     }
     final choice = await showModalBottomSheet<String>(
@@ -97,17 +159,20 @@ class _AppShellState extends ConsumerState<AppShell> {
     if (choice == 'event') {
       // Im Kalender-Tab den dort gewählten Tag vorbelegen (sonst heute).
       final onCalendar = widget.navigationShell.currentIndex == 1;
-      final day =
-          onCalendar ? ref.read(calendarSelectedDayProvider) : null;
+      final day = onCalendar ? ref.read(calendarSelectedDayProvider) : null;
       await showEventEditor(context, initialDay: day);
     } else {
       final lists = ref.read(tasksControllerProvider).value ?? const [];
       if (lists.isEmpty) {
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-            content: Text('Keine Aufgabenliste vorhanden. Lege zuerst eine an '
-                '(Einstellungen → Familie).'),
-          ));
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text(
+                'Keine Aufgabenliste vorhanden. Lege zuerst eine an '
+                '(Einstellungen → Familie).',
+              ),
+            ),
+          );
         }
         return;
       }
@@ -162,8 +227,10 @@ class _AppShellState extends ConsumerState<AppShell> {
                   color: Theme.of(context).colorScheme.primary,
                   shape: BoxShape.circle,
                 ),
-                child: Icon(Icons.add,
-                    color: Theme.of(context).colorScheme.onPrimary),
+                child: Icon(
+                  Icons.add,
+                  color: Theme.of(context).colorScheme.onPrimary,
+                ),
               ),
               label: 'Neu',
             ),

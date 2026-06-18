@@ -45,6 +45,8 @@ class HomeWidgets {
     await HomeWidget.updateWidget(
       qualifiedAndroidName: '$_pkg.CountdownWidget',
     );
+    // Design-Widget nutzt dieselben Termin-Daten (next_body).
+    await HomeWidget.updateWidget(qualifiedAndroidName: '$_pkg.DesignWidget');
   }
 
   /// Anstehende Termine (ab heute, ~2 Wochen), **pro Tag** aufgelöst – mehrtägige
