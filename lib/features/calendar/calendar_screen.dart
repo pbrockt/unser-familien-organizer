@@ -567,9 +567,16 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
                         calendarBuilders: CalendarBuilders<CalendarEvent>(
                           markerBuilder: (context, day, events) {
                             if (events.isEmpty) return null;
+                            final now = DateTime.now();
+                            final past = day.isBefore(
+                              DateTime(now.year, now.month, now.day),
+                            );
                             return Row(
                               mainAxisAlignment: MainAxisAlignment.center,
                               children: events.take(4).map((e) {
+                                final base =
+                                    e.color ??
+                                    Theme.of(context).colorScheme.primary;
                                 return Container(
                                   width: 6,
                                   height: 6,
@@ -578,9 +585,10 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
                                   ),
                                   decoration: BoxDecoration(
                                     shape: BoxShape.circle,
-                                    color:
-                                        e.color ??
-                                        Theme.of(context).colorScheme.primary,
+                                    // Vergangene Tage: Punkte nur noch schwach.
+                                    color: base.withValues(
+                                      alpha: past ? 0.3 : 1,
+                                    ),
                                   ),
                                 );
                               }).toList(),

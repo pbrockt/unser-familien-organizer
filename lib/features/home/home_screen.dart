@@ -498,8 +498,11 @@ class _TwoWeekCalendar extends StatelessWidget {
                   height: 30,
                   alignment: Alignment.center,
                   decoration: BoxDecoration(
-                    color: isToday ? scheme.primary : Colors.transparent,
-                    shape: BoxShape.circle,
+                    // Dezenter Tages-Hintergrund wie im Kalender-Reiter.
+                    color: isToday
+                        ? scheme.primary
+                        : scheme.primary.withValues(alpha: 0.035),
+                    borderRadius: BorderRadius.circular(8),
                   ),
                   child: Text(
                     '${day.day}',
@@ -527,7 +530,10 @@ class _TwoWeekCalendar extends StatelessWidget {
                           margin: const EdgeInsets.symmetric(horizontal: 1),
                           decoration: BoxDecoration(
                             shape: BoxShape.circle,
-                            color: e.color ?? scheme.primary,
+                            // Vergangene Tage: Punkte nur noch schwach sichtbar.
+                            color: (e.color ?? scheme.primary).withValues(
+                              alpha: isPast ? 0.3 : 1,
+                            ),
                           ),
                         ),
                     ],
