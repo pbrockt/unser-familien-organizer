@@ -36,7 +36,8 @@ class IcalBuilder {
     return calendar.toString();
   }
 
-  /// Baut ein neues VEVENT (Termin).
+  /// Baut ein neues VEVENT (Termin). [rrule] = Wiederholungsregel ohne Präfix,
+  /// z. B. `FREQ=WEEKLY` (null = Einzeltermin).
   String buildEvent({
     required String uid,
     required String summary,
@@ -46,6 +47,7 @@ class IcalBuilder {
     String? description,
     String? location,
     int? reminderMinutes,
+    String? rrule,
   }) {
     final calendar = VCalendar()
       ..version = '2.0'
@@ -53,7 +55,8 @@ class IcalBuilder {
     final event = VEvent(parent: calendar);
     calendar.children.add(event);
 
-    final effectiveEnd = end ??
+    final effectiveEnd =
+        end ??
         (allDay
             ? start.add(const Duration(days: 1))
             : start.add(const Duration(hours: 1)));
@@ -73,7 +76,16 @@ class IcalBuilder {
 
     final text = calendar.toString();
     final withDay = allDay ? _applyAllDay(text, start, effectiveEnd) : text;
-    return _withAlarm(withDay, reminderMinutes, summary);
+    final withRrule = _withRrule(withDay, rrule);
+    return _withAlarm(withRrule, reminderMinutes, summary);
+  }
+
+  /// Fügt eine `RRULE:`-Zeile vor dem ersten `END:VEVENT` ein (Serientermin).
+  String _withRrule(String text, String? rrule) {
+    if (rrule == null || rrule.isEmpty) return text;
+    final idx = text.indexOf('END:VEVENT');
+    if (idx < 0) return text;
+    return '${text.substring(0, idx)}RRULE:$rrule\r\n${text.substring(idx)}';
   }
 
   /// Ändert ein bestehendes VEVENT und behält den Rest (z.B. RRULE) erhalten.
@@ -89,7 +101,8 @@ class IcalBuilder {
   }) {
     final root = VComponent.parse(rawIcal);
     final components = root is VCalendar ? root.children : [root];
-    final effectiveEnd = end ??
+    final effectiveEnd =
+        end ??
         (allDay
             ? start.add(const Duration(days: 1))
             : start.add(const Duration(hours: 1)));
@@ -100,10 +113,10 @@ class IcalBuilder {
           ..summary = summary
           ..start = start
           ..end = effectiveEnd
-          ..description =
-              (description == null || description.isEmpty) ? null : description
-          ..location =
-              (location == null || location.isEmpty) ? null : location
+          ..description = (description == null || description.isEmpty)
+              ? null
+              : description
+          ..location = (location == null || location.isEmpty) ? null : location
           ..timeStamp = DateTime.now();
       }
     }
@@ -121,7 +134,8 @@ class IcalBuilder {
     );
     if (minutes == null || minutes <= 0) return cleaned;
     final desc = _escapeText(summary.isEmpty ? 'Erinnerung' : summary);
-    final block = 'BEGIN:VALARM\r\n'
+    final block =
+        'BEGIN:VALARM\r\n'
         'ACTION:DISPLAY\r\n'
         'DESCRIPTION:$desc\r\n'
         'TRIGGER:-PT${minutes}M\r\n'
@@ -168,12 +182,15 @@ class IcalBuilder {
     uid ??= newUid();
 
     // Bestehenden Override mit gleicher RECURRENCE-ID ersetzen.
-    root.children.removeWhere((c) =>
-        c is VEvent &&
-        c.recurrenceId != null &&
-        _sameDay(c.recurrenceId!, recurrenceId));
+    root.children.removeWhere(
+      (c) =>
+          c is VEvent &&
+          c.recurrenceId != null &&
+          _sameDay(c.recurrenceId!, recurrenceId),
+    );
 
-    final effectiveEnd = end ??
+    final effectiveEnd =
+        end ??
         (allDay
             ? start.add(const Duration(days: 1))
             : start.add(const Duration(hours: 1)));
@@ -219,10 +236,12 @@ class IcalBuilder {
 
     // Override-Instanz mit passender RECURRENCE-ID entfernen.
     if (root is VCalendar) {
-      root.children.removeWhere((c) =>
-          c is VEvent &&
-          c.recurrenceId != null &&
-          _sameDay(c.recurrenceId!, occurrenceDate));
+      root.children.removeWhere(
+        (c) =>
+            c is VEvent &&
+            c.recurrenceId != null &&
+            _sameDay(c.recurrenceId!, occurrenceDate),
+      );
     }
 
     final components = root is VCalendar ? root.children : [root];
@@ -230,8 +249,9 @@ class IcalBuilder {
       if (c is VEvent && c.recurrenceRule != null) {
         final existing =
             c.excludingRecurrenceDates ?? const <DateTimeOrDuration>[];
-        final already = existing.any((d) =>
-            d.dateTime != null && _sameDay(d.dateTime!, occurrenceDate));
+        final already = existing.any(
+          (d) => d.dateTime != null && _sameDay(d.dateTime!, occurrenceDate),
+        );
         if (!already) {
           c.excludingRecurrenceDates = [
             ...existing,
@@ -245,17 +265,14 @@ class IcalBuilder {
     var text = root.toString();
     if (allDay) {
       // Ganztags-Serien: EXDATE als reines Datum (VALUE=DATE) schreiben.
-      text = text.replaceAllMapped(
-        RegExp(r'EXDATE[^:\r\n]*:([^\r\n]+)'),
-        (m) {
-          final values = m
-              .group(1)!
-              .split(',')
-              .map((v) => v.length >= 8 ? v.substring(0, 8) : v)
-              .join(',');
-          return 'EXDATE;VALUE=DATE:$values';
-        },
-      );
+      text = text.replaceAllMapped(RegExp(r'EXDATE[^:\r\n]*:([^\r\n]+)'), (m) {
+        final values = m
+            .group(1)!
+            .split(',')
+            .map((v) => v.length >= 8 ? v.substring(0, 8) : v)
+            .join(',');
+        return 'EXDATE;VALUE=DATE:$values';
+      });
     }
     return text;
   }
@@ -271,7 +288,10 @@ class IcalBuilder {
         '${x.month.toString().padLeft(2, '0')}'
         '${x.day.toString().padLeft(2, '0')}';
     return text
-        .replaceAll(RegExp(r'DTSTART[^\r\n]*'), 'DTSTART;VALUE=DATE:${d(start)}')
+        .replaceAll(
+          RegExp(r'DTSTART[^\r\n]*'),
+          'DTSTART;VALUE=DATE:${d(start)}',
+        )
         .replaceAll(RegExp(r'DTEND[^\r\n]*'), 'DTEND;VALUE=DATE:${d(end)}');
   }
 
@@ -294,8 +314,9 @@ class IcalBuilder {
         } else if (due != null) {
           c.due = due;
         }
-        c.description =
-            (description == null || description.isEmpty) ? null : description;
+        c.description = (description == null || description.isEmpty)
+            ? null
+            : description;
         c.timeStamp = DateTime.now();
       }
     }

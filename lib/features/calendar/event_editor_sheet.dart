@@ -66,9 +66,23 @@ class _EventEditorSheetState extends ConsumerState<_EventEditorSheet> {
 
   /// Erinnerung in Minuten vor Beginn (`null` = aus). Standard: aus.
   int? _reminderMinutes;
+
+  /// Wiederholung (nur beim Anlegen): 'none'/'DAILY'/'WEEKLY'/'BIWEEKLY'/
+  /// 'MONTHLY'/'YEARLY'.
+  String _repeat = 'none';
   bool _busy = false;
 
   bool get _isEdit => widget.existing != null;
+
+  /// Übersetzt die Auswahl in eine RRULE (ohne Präfix); `null` = Einzeltermin.
+  String? _rruleFor(String r) => switch (r) {
+    'DAILY' => 'FREQ=DAILY',
+    'WEEKLY' => 'FREQ=WEEKLY',
+    'BIWEEKLY' => 'FREQ=WEEKLY;INTERVAL=2',
+    'MONTHLY' => 'FREQ=MONTHLY',
+    'YEARLY' => 'FREQ=YEARLY',
+    _ => null,
+  };
 
   @override
   void initState() {
@@ -98,8 +112,13 @@ class _EventEditorSheetState extends ConsumerState<_EventEditorSheet> {
       _endTime = TimeOfDay(hour: (start.hour + 1) % 24, minute: start.minute);
     } else {
       final base = widget.initialDay ?? DateTime.now();
-      final start = DateTime(base.year, base.month, base.day,
-          DateTime.now().hour + 1, 0);
+      final start = DateTime(
+        base.year,
+        base.month,
+        base.day,
+        DateTime.now().hour + 1,
+        0,
+      );
       _startDate = DateTime(start.year, start.month, start.day);
       _startTime = TimeOfDay(hour: start.hour, minute: 0);
       _endDate = _startDate;
@@ -131,8 +150,9 @@ class _EventEditorSheetState extends ConsumerState<_EventEditorSheet> {
         // Startuhrzeit aus der Vorlage übernehmen (Datum bleibt der gewählte Tag).
         if (t.startMinuteOfDay != null) {
           _startTime = TimeOfDay(
-              hour: t.startMinuteOfDay! ~/ 60,
-              minute: t.startMinuteOfDay! % 60);
+            hour: t.startMinuteOfDay! ~/ 60,
+            minute: t.startMinuteOfDay! % 60,
+          );
         }
         if (t.durationMinutes != null) {
           final start = _combine(_startDate, _startTime);
@@ -186,8 +206,11 @@ class _EventEditorSheetState extends ConsumerState<_EventEditorSheet> {
     if (_allDay) {
       final start = DateTime(_startDate.year, _startDate.month, _startDate.day);
       // DTEND ist exklusiv → letzter Tag + 1.
-      final end = DateTime(_endDate.year, _endDate.month, _endDate.day)
-          .add(const Duration(days: 1));
+      final end = DateTime(
+        _endDate.year,
+        _endDate.month,
+        _endDate.day,
+      ).add(const Duration(days: 1));
       if (end.isBefore(start)) return null;
       return (start: start, end: end);
     }
@@ -226,18 +249,22 @@ class _EventEditorSheetState extends ConsumerState<_EventEditorSheet> {
         builder: (ctx) => AlertDialog(
           title: const Text('Serientermin ändern'),
           content: const Text(
-              'Möchtest du nur diesen einen Termin oder die ganze Serie '
-              'ändern?'),
+            'Möchtest du nur diesen einen Termin oder die ganze Serie '
+            'ändern?',
+          ),
           actions: [
             TextButton(
-                onPressed: () => Navigator.pop(ctx, 'cancel'),
-                child: const Text('Abbrechen')),
+              onPressed: () => Navigator.pop(ctx, 'cancel'),
+              child: const Text('Abbrechen'),
+            ),
             TextButton(
-                onPressed: () => Navigator.pop(ctx, 'series'),
-                child: const Text('Ganze Serie')),
+              onPressed: () => Navigator.pop(ctx, 'series'),
+              child: const Text('Ganze Serie'),
+            ),
             FilledButton(
-                onPressed: () => Navigator.pop(ctx, 'this'),
-                child: const Text('Nur diesen')),
+              onPressed: () => Navigator.pop(ctx, 'this'),
+              child: const Text('Nur diesen'),
+            ),
           ],
         ),
       );
@@ -262,6 +289,7 @@ class _EventEditorSheetState extends ConsumerState<_EventEditorSheet> {
             location: location,
             description: desc,
             reminderMinutes: _reminderMinutes,
+            rrule: _rruleFor(_repeat),
           );
         } else if (editOnlyThis) {
           await notifier.updateOccurrence(
@@ -326,26 +354,34 @@ class _EventEditorSheetState extends ConsumerState<_EventEditorSheet> {
     if (ok) {
       if (_saveAsTemplate &&
           (ref.read(templatesEnabledProvider).value ?? true)) {
-        final existed = (ref.read(eventTemplatesProvider).value ??
-                const <EventTemplate>[])
-            .any((t) => t.summary.toLowerCase() == summary.toLowerCase());
-        await ref.read(eventTemplatesProvider.notifier).save(EventTemplate(
-              summary: summary,
-              location: location.isEmpty ? null : location,
-              description: desc.isEmpty ? null : desc,
-              allDay: _allDay,
-              startMinuteOfDay: _allDay
-                  ? null
-                  : times.start.hour * 60 + times.start.minute,
-              durationMinutes:
-                  _allDay ? null : times.end.difference(times.start).inMinutes,
-              calendarHref: calHref,
-            ));
+        final existed =
+            (ref.read(eventTemplatesProvider).value ?? const <EventTemplate>[])
+                .any((t) => t.summary.toLowerCase() == summary.toLowerCase());
+        await ref
+            .read(eventTemplatesProvider.notifier)
+            .save(
+              EventTemplate(
+                summary: summary,
+                location: location.isEmpty ? null : location,
+                description: desc.isEmpty ? null : desc,
+                allDay: _allDay,
+                startMinuteOfDay: _allDay
+                    ? null
+                    : times.start.hour * 60 + times.start.minute,
+                durationMinutes: _allDay
+                    ? null
+                    : times.end.difference(times.start).inMinutes,
+                calendarHref: calHref,
+              ),
+            );
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-            content:
-                Text(existed ? 'Vorlage aktualisiert' : 'Vorlage gespeichert'),
-          ));
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                existed ? 'Vorlage aktualisiert' : 'Vorlage gespeichert',
+              ),
+            ),
+          );
         }
       }
       if (!mounted) return;
@@ -367,18 +403,22 @@ class _EventEditorSheetState extends ConsumerState<_EventEditorSheet> {
         builder: (ctx) => AlertDialog(
           title: const Text('Serientermin löschen'),
           content: const Text(
-              'Möchtest du nur diesen einen Termin oder die ganze Serie '
-              'löschen?'),
+            'Möchtest du nur diesen einen Termin oder die ganze Serie '
+            'löschen?',
+          ),
           actions: [
             TextButton(
-                onPressed: () => Navigator.pop(ctx, 'cancel'),
-                child: const Text('Abbrechen')),
+              onPressed: () => Navigator.pop(ctx, 'cancel'),
+              child: const Text('Abbrechen'),
+            ),
             TextButton(
-                onPressed: () => Navigator.pop(ctx, 'series'),
-                child: const Text('Ganze Serie')),
+              onPressed: () => Navigator.pop(ctx, 'series'),
+              child: const Text('Ganze Serie'),
+            ),
             FilledButton(
-                onPressed: () => Navigator.pop(ctx, 'this'),
-                child: const Text('Nur diesen')),
+              onPressed: () => Navigator.pop(ctx, 'this'),
+              child: const Text('Nur diesen'),
+            ),
           ],
         ),
       );
@@ -393,14 +433,14 @@ class _EventEditorSheetState extends ConsumerState<_EventEditorSheet> {
       title: deleteOnlyThis
           ? 'Diesen Termin löschen?'
           : isSeriesInstance
-              ? 'Ganze Serie löschen?'
-              : 'Termin löschen?',
+          ? 'Ganze Serie löschen?'
+          : 'Termin löschen?',
       message: deleteOnlyThis
           ? '„${ev.summary}" am $dateLabel wird aus der Serie entfernt.'
           : isSeriesInstance
-              ? '„${ev.summary}" – die gesamte Serie wird gelöscht. Diese '
-                  'Aktion kann nicht rückgängig gemacht werden.'
-              : '„${ev.summary}" wird endgültig aus der Nextcloud gelöscht.',
+          ? '„${ev.summary}" – die gesamte Serie wird gelöscht. Diese '
+                'Aktion kann nicht rückgängig gemacht werden.'
+          : '„${ev.summary}" wird endgültig aus der Nextcloud gelöscht.',
     );
     if (!ok) return;
 
@@ -443,8 +483,7 @@ class _EventEditorSheetState extends ConsumerState<_EventEditorSheet> {
   }
 
   void _snack(String msg) {
-    ScaffoldMessenger.of(context)
-        .showSnackBar(SnackBar(content: Text(msg)));
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
   }
 
   @override
@@ -467,8 +506,10 @@ class _EventEditorSheetState extends ConsumerState<_EventEditorSheet> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Text(_isEdit ? 'Termin bearbeiten' : 'Neuer Termin',
-                style: theme.textTheme.titleLarge),
+            Text(
+              _isEdit ? 'Termin bearbeiten' : 'Neuer Termin',
+              style: theme.textTheme.titleLarge,
+            ),
             const SizedBox(height: 16),
             RawAutocomplete<EventTemplate>(
               textEditingController: _summaryCtrl,
@@ -478,33 +519,37 @@ class _EventEditorSheetState extends ConsumerState<_EventEditorSheet> {
                   return const Iterable<EventTemplate>.empty();
                 }
                 final q = v.text.toLowerCase();
-                return templates.where((t) =>
-                    t.summary.toLowerCase().contains(q) &&
-                    t.summary.toLowerCase() != q);
+                return templates.where(
+                  (t) =>
+                      t.summary.toLowerCase().contains(q) &&
+                      t.summary.toLowerCase() != q,
+                );
               },
               displayStringForOption: (t) => t.summary,
               onSelected: _applyTemplate,
               fieldViewBuilder: (context, controller, focusNode, onSubmit) =>
                   TextField(
-                controller: controller,
-                focusNode: focusNode,
-                autofocus: !_isEdit,
-                textCapitalization: TextCapitalization.sentences,
-                onSubmitted: (_) => onSubmit(),
-                decoration: const InputDecoration(
-                  labelText: 'Titel',
-                  prefixIcon: Icon(Icons.event),
-                  border: OutlineInputBorder(),
-                ),
-              ),
+                    controller: controller,
+                    focusNode: focusNode,
+                    autofocus: !_isEdit,
+                    textCapitalization: TextCapitalization.sentences,
+                    onSubmitted: (_) => onSubmit(),
+                    decoration: const InputDecoration(
+                      labelText: 'Titel',
+                      prefixIcon: Icon(Icons.event),
+                      border: OutlineInputBorder(),
+                    ),
+                  ),
               optionsViewBuilder: (context, onSelected, options) => Align(
                 alignment: Alignment.topLeft,
                 child: Material(
                   elevation: 4,
                   borderRadius: BorderRadius.circular(12),
                   child: ConstrainedBox(
-                    constraints:
-                        const BoxConstraints(maxHeight: 220, maxWidth: 420),
+                    constraints: const BoxConstraints(
+                      maxHeight: 220,
+                      maxWidth: 420,
+                    ),
                     child: ListView.builder(
                       shrinkWrap: true,
                       padding: EdgeInsets.zero,
@@ -517,8 +562,8 @@ class _EventEditorSheetState extends ConsumerState<_EventEditorSheet> {
                           title: Text(t.summary),
                           subtitle:
                               (t.location != null && t.location!.isNotEmpty)
-                                  ? Text(t.location!)
-                                  : null,
+                              ? Text(t.location!)
+                              : null,
                           onTap: () => onSelected(t),
                         );
                       },
@@ -594,10 +639,34 @@ class _EventEditorSheetState extends ConsumerState<_EventEditorSheet> {
                 DropdownMenuItem(value: 30, child: Text('30 Minuten vorher')),
                 DropdownMenuItem(value: 60, child: Text('1 Stunde vorher')),
               ],
-              onChanged: (v) =>
-                  setState(() => _reminderMinutes = (v == null || v == 0) ? null : v),
+              onChanged: (v) => setState(
+                () => _reminderMinutes = (v == null || v == 0) ? null : v,
+              ),
             ),
             const SizedBox(height: 12),
+            if (!_isEdit) ...[
+              DropdownButtonFormField<String>(
+                initialValue: _repeat,
+                decoration: const InputDecoration(
+                  labelText: 'Wiederholen (Serientermin)',
+                  prefixIcon: Icon(Icons.repeat),
+                  border: OutlineInputBorder(),
+                ),
+                items: const [
+                  DropdownMenuItem(value: 'none', child: Text('Nie')),
+                  DropdownMenuItem(value: 'DAILY', child: Text('Täglich')),
+                  DropdownMenuItem(value: 'WEEKLY', child: Text('Wöchentlich')),
+                  DropdownMenuItem(
+                    value: 'BIWEEKLY',
+                    child: Text('Alle 2 Wochen'),
+                  ),
+                  DropdownMenuItem(value: 'MONTHLY', child: Text('Monatlich')),
+                  DropdownMenuItem(value: 'YEARLY', child: Text('Jährlich')),
+                ],
+                onChanged: (v) => setState(() => _repeat = v ?? 'none'),
+              ),
+              const SizedBox(height: 12),
+            ],
             if (calendars.length > 1)
               Padding(
                 padding: const EdgeInsets.only(bottom: 12),
@@ -609,24 +678,27 @@ class _EventEditorSheetState extends ConsumerState<_EventEditorSheet> {
                     border: OutlineInputBorder(),
                   ),
                   items: calendars
-                      .map((c) => DropdownMenuItem(
-                            value: c.href,
-                            child: Row(
-                              children: [
-                                Container(
-                                  width: 12,
-                                  height: 12,
-                                  margin: const EdgeInsets.only(right: 8),
-                                  decoration: BoxDecoration(
-                                    shape: BoxShape.circle,
-                                    color: parseHexColor(c.color) ??
-                                        theme.colorScheme.primary,
-                                  ),
+                      .map(
+                        (c) => DropdownMenuItem(
+                          value: c.href,
+                          child: Row(
+                            children: [
+                              Container(
+                                width: 12,
+                                height: 12,
+                                margin: const EdgeInsets.only(right: 8),
+                                decoration: BoxDecoration(
+                                  shape: BoxShape.circle,
+                                  color:
+                                      parseHexColor(c.color) ??
+                                      theme.colorScheme.primary,
                                 ),
-                                Flexible(child: Text(c.displayName)),
-                              ],
-                            ),
-                          ))
+                              ),
+                              Flexible(child: Text(c.displayName)),
+                            ],
+                          ),
+                        ),
+                      )
                       .toList(),
                   onChanged: (v) => setState(() => _calendarHref = v),
                 ),
@@ -699,8 +771,7 @@ class _DateTimeRow extends StatelessWidget {
         children: [
           SizedBox(
             width: 64,
-            child: Text(label,
-                style: Theme.of(context).textTheme.bodyMedium),
+            child: Text(label, style: Theme.of(context).textTheme.bodyMedium),
           ),
           Expanded(
             child: OutlinedButton.icon(

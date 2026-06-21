@@ -50,8 +50,8 @@ final calendarSelectedDayProvider =
 /// Basis-Instanz angezeigt; die volle RRULE-Expansion folgt.
 final eventsControllerProvider =
     AsyncNotifierProvider<EventsController, List<CalendarEvent>>(
-  EventsController.new,
-);
+      EventsController.new,
+    );
 
 class EventsController extends AsyncNotifier<List<CalendarEvent>> {
   static const _builder = IcalBuilder();
@@ -110,7 +110,9 @@ class EventsController extends AsyncNotifier<List<CalendarEvent>> {
   }
 
   Future<void> _backgroundRefresh(
-      NextcloudAccount account, CalDavRepository repo) async {
+    NextcloudAccount account,
+    CalDavRepository repo,
+  ) async {
     _setSyncing();
     try {
       final fresh = await repo.sync(account);
@@ -142,11 +144,12 @@ class EventsController extends AsyncNotifier<List<CalendarEvent>> {
     _setOnline();
   }
 
-
   /// Löscht nur eine einzelne Serien-Instanz: setzt ein EXDATE und schreibt
   /// das Objekt zurück (statt die ganze Serie zu löschen).
-  Future<void> deleteOccurrence(CalendarEvent event,
-      {bool force = false}) async {
+  Future<void> deleteOccurrence(
+    CalendarEvent event, {
+    bool force = false,
+  }) async {
     final date = event.recurrenceDate;
     if (date == null) return deleteEvent(event, force: force);
 
@@ -178,6 +181,7 @@ class EventsController extends AsyncNotifier<List<CalendarEvent>> {
     String? description,
     String? location,
     int? reminderMinutes,
+    String? rrule,
   }) async {
     final account = await ref.read(accountProvider.future);
     if (account == null) return;
@@ -193,6 +197,7 @@ class EventsController extends AsyncNotifier<List<CalendarEvent>> {
       description: description,
       location: location,
       reminderMinutes: reminderMinutes,
+      rrule: rrule,
     );
     await repo.putObject(account, _objectHref(calendarHref, uid), ical);
     await _refresh(account);
@@ -248,14 +253,16 @@ class EventsController extends AsyncNotifier<List<CalendarEvent>> {
     final recurrenceId = event.recurrenceDate;
     if (recurrenceId == null) {
       // Kein Serien-Kontext → normale Aktualisierung.
-      return updateEvent(event,
-          summary: summary,
-          start: start,
-          end: end,
-          allDay: allDay,
-          description: description,
-          location: location,
-          force: force);
+      return updateEvent(
+        event,
+        summary: summary,
+        start: start,
+        end: end,
+        allDay: allDay,
+        description: description,
+        location: location,
+        force: force,
+      );
     }
 
     final account = await ref.read(accountProvider.future);
@@ -346,8 +353,9 @@ class EventsController extends AsyncNotifier<List<CalendarEvent>> {
   }
 
   String _objectHref(String collectionHref, String uid) {
-    final base =
-        collectionHref.endsWith('/') ? collectionHref : '$collectionHref/';
+    final base = collectionHref.endsWith('/')
+        ? collectionHref
+        : '$collectionHref/';
     return '$base$uid.ics';
   }
 }
@@ -363,18 +371,18 @@ final visibleEventsProvider = Provider.autoDispose<List<CalendarEvent>>((ref) {
 /// Termine gruppiert nach Tag – praktisch als `eventLoader` für table_calendar.
 final eventsByDayProvider =
     Provider.autoDispose<Map<DateTime, List<CalendarEvent>>>((ref) {
-  final visible = ref.watch(visibleEventsProvider);
-  final map = <DateTime, List<CalendarEvent>>{};
-  for (final e in visible) {
-    // Mehrtägige Termine an jedem Tag eintragen (mit Sicherheitskappe).
-    var day = e.startDay;
-    final last = e.endDayInclusive;
-    var guard = 0;
-    while (!day.isAfter(last) && guard < 90) {
-      map.putIfAbsent(day, () => []).add(e);
-      day = day.add(const Duration(days: 1));
-      guard++;
-    }
-  }
-  return map;
-});
+      final visible = ref.watch(visibleEventsProvider);
+      final map = <DateTime, List<CalendarEvent>>{};
+      for (final e in visible) {
+        // Mehrtägige Termine an jedem Tag eintragen (mit Sicherheitskappe).
+        var day = e.startDay;
+        final last = e.endDayInclusive;
+        var guard = 0;
+        while (!day.isAfter(last) && guard < 90) {
+          map.putIfAbsent(day, () => []).add(e);
+          day = day.add(const Duration(days: 1));
+          guard++;
+        }
+      }
+      return map;
+    });

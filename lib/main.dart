@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/date_symbol_data_local.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
 import 'app.dart';
@@ -19,18 +18,13 @@ Future<void> main() async {
     databaseFactory = databaseFactoryFfi;
   }
 
-  // Hintergrund-Sync (workmanager) gibt es nur auf Android.
+  // Hintergrund-Sync (workmanager) gibt es nur auf Android. Immer registrieren,
+  // damit sich die Home-Widgets auch ohne aktive Benachrichtigungen regelmäßig
+  // aktualisieren (Erinnerungen werden im Task nur bei Bedarf geplant).
   if (isAndroid) {
     await initBackgroundSync();
-    final prefs = await SharedPreferences.getInstance();
-    if (prefs.getBool('notif_enabled') ?? false) {
-      await registerBackgroundSync();
-    }
+    await registerBackgroundSync();
   }
 
-  runApp(
-    const ProviderScope(
-      child: FamilyPlannerApp(),
-    ),
-  );
+  runApp(const ProviderScope(child: FamilyPlannerApp()));
 }

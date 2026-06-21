@@ -89,11 +89,13 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen>
       }
     }
     await ref.read(notificationSettingsProvider.notifier).setEnabled(value);
-    // Hintergrund-Sync entsprechend starten/stoppen.
+    // Der periodische Hintergrund-Sync läuft unabhängig weiter (für die
+    // Home-Widgets). Beim Deaktivieren nur die geplanten Erinnerungen löschen –
+    // der Task plant ohnehin nur Erinnerungen, wenn aktiviert.
     if (value) {
       await registerBackgroundSync();
     } else {
-      await cancelBackgroundSync();
+      await service.cancelAll();
     }
   }
 

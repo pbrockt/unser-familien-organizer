@@ -28,11 +28,14 @@ void callbackDispatcher() {
       // Frisch synchronisieren (Delta).
       final repo = container.read(caldavRepositoryProvider);
       final snapshot = await repo.sync(account);
-      final memberSettings =
-          await container.read(memberSettingsProvider.future);
+      final memberSettings = await container.read(
+        memberSettingsProvider.future,
+      );
 
       final events = filterVisibleEvents(
-          buildEventsFromSnapshot(snapshot), memberSettings);
+        buildEventsFromSnapshot(snapshot),
+        memberSettings,
+      );
       final lists = buildTaskListsFromSnapshot(snapshot, memberSettings);
 
       // Wetter (falls PLZ gesetzt) für das Überblick-Widget; Fehler ignorieren.
@@ -50,14 +53,12 @@ void callbackDispatcher() {
       );
 
       // Erinnerungen nur, wenn aktiviert.
-      final settings =
-          await container.read(notificationSettingsProvider.future);
+      final settings = await container.read(
+        notificationSettingsProvider.future,
+      );
       final service = container.read(notificationServiceProvider);
       if (settings.enabled && await service.areNotificationsEnabled()) {
-        await service.schedule(planReminders(
-          events: events,
-          taskLists: lists,
-        ));
+        await service.schedule(planReminders(events: events, taskLists: lists));
       }
       return true;
     } catch (_) {
@@ -74,13 +75,14 @@ Future<void> initBackgroundSync() async {
   await Workmanager().initialize(callbackDispatcher);
 }
 
-/// Plant den periodischen Hintergrund-Sync (alle ~2 Stunden, nur mit Netz).
+/// Plant den periodischen Hintergrund-Sync (etwa stündlich, nur mit Netz).
+/// Aktualisiert die Home-Widgets und plant – falls aktiv – Erinnerungen neu.
 Future<void> registerBackgroundSync() async {
   if (!isAndroid) return;
   await Workmanager().registerPeriodicTask(
     _uniqueName,
     _taskName,
-    frequency: const Duration(hours: 2),
+    frequency: const Duration(hours: 1),
     constraints: Constraints(networkType: NetworkType.connected),
     existingWorkPolicy: ExistingPeriodicWorkPolicy.update,
   );
