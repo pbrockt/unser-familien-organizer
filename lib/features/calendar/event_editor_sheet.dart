@@ -67,22 +67,46 @@ class _EventEditorSheetState extends ConsumerState<_EventEditorSheet> {
   /// Erinnerung in Minuten vor Beginn (`null` = aus). Standard: aus.
   int? _reminderMinutes;
 
-  /// Wiederholung (nur beim Anlegen): 'none'/'DAILY'/'WEEKLY'/'BIWEEKLY'/
-  /// 'MONTHLY'/'YEARLY'.
+  /// Wiederholung: 'none'/'DAILY'/'WEEKLY'/'BIWEEKLY'/'MONTHLY'/'YEARLY'.
   String _repeat = 'none';
+
+  /// Serien-Ende: 'never' (endlos) / 'until' (bis Datum) / 'count' (Anzahl).
+  String _repeatEnd = 'never';
+  DateTime? _repeatUntil;
+  int _repeatCount = 10;
   bool _busy = false;
 
   bool get _isEdit => widget.existing != null;
 
-  /// Übersetzt die Auswahl in eine RRULE (ohne Präfix); `null` = Einzeltermin.
-  String? _rruleFor(String r) => switch (r) {
-    'DAILY' => 'FREQ=DAILY',
-    'WEEKLY' => 'FREQ=WEEKLY',
-    'BIWEEKLY' => 'FREQ=WEEKLY;INTERVAL=2',
-    'MONTHLY' => 'FREQ=MONTHLY',
-    'YEARLY' => 'FREQ=YEARLY',
-    _ => null,
-  };
+  /// Übersetzt die Auswahl inkl. Serien-Ende in eine RRULE (ohne Präfix);
+  /// `null` = Einzeltermin.
+  String? _rruleFor(String r) {
+    final base = switch (r) {
+      'DAILY' => 'FREQ=DAILY',
+      'WEEKLY' => 'FREQ=WEEKLY',
+      'BIWEEKLY' => 'FREQ=WEEKLY;INTERVAL=2',
+      'MONTHLY' => 'FREQ=MONTHLY',
+      'YEARLY' => 'FREQ=YEARLY',
+      _ => null,
+    };
+    if (base == null) return null;
+    if (_repeatEnd == 'until' && _repeatUntil != null) {
+      return '$base;UNTIL=${_untilValue(_repeatUntil!)}';
+    }
+    if (_repeatEnd == 'count') {
+      return '$base;COUNT=${_repeatCount < 1 ? 1 : _repeatCount}';
+    }
+    return base;
+  }
+
+  /// UNTIL-Wert: Ganztägig als DATE (YYYYMMDD), sonst DATE-TIME in UTC.
+  String _untilValue(DateTime date) {
+    String two(int n) => n.toString().padLeft(2, '0');
+    final d =
+        '${date.year.toString().padLeft(4, '0')}'
+        '${two(date.month)}${two(date.day)}';
+    return _allDay ? d : '${d}T235959Z';
+  }
 
   /// Liest die Wiederholung aus einem vorhandenen iCal-Text (für die Vorauswahl
   /// beim Bearbeiten).
@@ -101,6 +125,37 @@ class _EventEditorSheetState extends ConsumerState<_EventEditorSheet> {
     };
   }
 
+  /// Liest das Serien-Ende (COUNT/UNTIL) aus einem vorhandenen iCal-Text.
+  void _repeatEndFromIcal(String raw) {
+    final m = RegExp(r'RRULE:([^\r\n]*)').firstMatch(raw);
+    if (m == null) return;
+    final rule = m.group(1)!.toUpperCase();
+    final count = RegExp(r'COUNT=(\d+)').firstMatch(rule)?.group(1);
+    final until = RegExp(r'UNTIL=(\d{8})').firstMatch(rule)?.group(1);
+    if (count != null) {
+      _repeatEnd = 'count';
+      _repeatCount = int.tryParse(count) ?? 10;
+    } else if (until != null) {
+      _repeatEnd = 'until';
+      _repeatUntil = DateTime(
+        int.parse(until.substring(0, 4)),
+        int.parse(until.substring(4, 6)),
+        int.parse(until.substring(6, 8)),
+      );
+    }
+  }
+
+  Future<void> _pickRepeatUntil() async {
+    final base = _repeatUntil ?? _startDate.add(const Duration(days: 30));
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: base,
+      firstDate: _startDate,
+      lastDate: DateTime(_startDate.year + 10),
+    );
+    if (picked != null) setState(() => _repeatUntil = picked);
+  }
+
   @override
   void initState() {
     super.initState();
@@ -113,6 +168,7 @@ class _EventEditorSheetState extends ConsumerState<_EventEditorSheet> {
     if (e != null) {
       _allDay = e.allDay;
       _repeat = _repeatFromIcal(e.rawIcal);
+      _repeatEndFromIcal(e.rawIcal);
       _startDate = DateTime(e.start.year, e.start.month, e.start.day);
       _startTime = TimeOfDay.fromDateTime(e.start);
       final end = e.end ?? e.start.add(const Duration(hours: 1));
@@ -688,6 +744,66 @@ class _EventEditorSheetState extends ConsumerState<_EventEditorSheet> {
               onChanged: (v) => setState(() => _repeat = v ?? 'none'),
             ),
             const SizedBox(height: 12),
+            if (_repeat != 'none') ...[
+              DropdownButtonFormField<String>(
+                initialValue: _repeatEnd,
+                decoration: const InputDecoration(
+                  labelText: 'Serie endet',
+                  prefixIcon: Icon(Icons.event_busy),
+                  border: OutlineInputBorder(),
+                ),
+                items: const [
+                  DropdownMenuItem(value: 'never', child: Text('Endlos')),
+                  DropdownMenuItem(
+                    value: 'until',
+                    child: Text('An einem Datum'),
+                  ),
+                  DropdownMenuItem(value: 'count', child: Text('Nach Anzahl')),
+                ],
+                onChanged: (v) => setState(() => _repeatEnd = v ?? 'never'),
+              ),
+              if (_repeatEnd == 'until') ...[
+                const SizedBox(height: 8),
+                OutlinedButton.icon(
+                  icon: const Icon(Icons.event),
+                  label: Text(
+                    _repeatUntil == null
+                        ? 'Enddatum wählen'
+                        : 'Bis ${DateFormat('d. MMM y', 'de_DE').format(_repeatUntil!)}',
+                  ),
+                  onPressed: _pickRepeatUntil,
+                ),
+              ],
+              if (_repeatEnd == 'count') ...[
+                const SizedBox(height: 8),
+                Row(
+                  children: [
+                    const Text('Anzahl Termine:'),
+                    const SizedBox(width: 12),
+                    IconButton(
+                      icon: const Icon(Icons.remove_circle_outline),
+                      onPressed: _repeatCount > 1
+                          ? () => setState(() => _repeatCount--)
+                          : null,
+                    ),
+                    Text(
+                      '$_repeatCount',
+                      style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.add_circle_outline),
+                      onPressed: _repeatCount < 999
+                          ? () => setState(() => _repeatCount++)
+                          : null,
+                    ),
+                  ],
+                ),
+              ],
+              const SizedBox(height: 12),
+            ],
             if (calendars.length > 1)
               Padding(
                 padding: const EdgeInsets.only(bottom: 12),
