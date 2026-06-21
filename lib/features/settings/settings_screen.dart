@@ -8,6 +8,7 @@ import '../../core/platform/battery_optimization.dart';
 import '../../core/platform/platform_support.dart';
 import '../../core/widgets/home_widgets.dart';
 import '../../core/widgets/widget_diagnostics.dart';
+import '../calendar/birthdays.dart';
 import '../calendar/event_providers.dart';
 import '../../shared/theme/app_theme.dart';
 import '../calendar/event_templates.dart';
@@ -136,6 +137,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen>
     final templatesEnabled = ref.watch(templatesEnabledProvider).value ?? true;
     final weatherPlz = ref.watch(weatherPlzProvider).value ?? '';
     final upcomingDays = ref.watch(upcomingDaysProvider).value ?? 2;
+    final birthdayCfg =
+        ref.watch(birthdayConfigProvider).value ?? const BirthdayConfig();
     const dayChoices = [1, 2, 3, 5, 7, 14];
     final daysValue = dayChoices.contains(upcomingDays) ? upcomingDays : 2;
 
@@ -379,6 +382,38 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen>
               ),
               const Divider(),
             ],
+            if (calendars.isNotEmpty) ...[
+              _sectionHeader(context, 'Geburtstage'),
+              ListTile(
+                leading: const Icon(Icons.cake_outlined),
+                title: const Text('Geburtstags-Kalender'),
+                subtitle: Text(
+                  birthdayCfg.calendarHref == null
+                      ? 'Keiner gewählt'
+                      : calendars
+                            .firstWhere(
+                              (m) => m.href == birthdayCfg.calendarHref,
+                              orElse: () => calendars.first,
+                            )
+                            .name,
+                ),
+                trailing: const Icon(Icons.chevron_right),
+                onTap: () => _pickBirthdayCalendar(calendars, birthdayCfg),
+              ),
+              SwitchListTile(
+                secondary: const Icon(Icons.contacts_outlined),
+                title: const Text('Auch aus anderen Quellen erkennen'),
+                subtitle: const Text(
+                  'Geburtstage zusätzlich am Namen erkennen (z. B. Kontakte-'
+                  'Geburtstage oder Einträge mit „Geburtstag")',
+                ),
+                value: birthdayCfg.useHeuristic,
+                onChanged: (v) => ref
+                    .read(birthdayConfigProvider.notifier)
+                    .setUseHeuristic(v),
+              ),
+              const Divider(),
+            ],
             _sectionHeader(context, 'Vorlagen'),
             SwitchListTile(
               secondary: const Icon(Icons.bookmark_outline),
@@ -483,6 +518,40 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen>
         ],
       ),
     );
+  }
+
+  /// Auswahl des Geburtstags-Kalenders („Keiner" möglich).
+  Future<void> _pickBirthdayCalendar(
+    List<Member> calendars,
+    BirthdayConfig cfg,
+  ) async {
+    final href = await showDialog<String>(
+      context: context,
+      builder: (ctx) => SimpleDialog(
+        title: const Text('Geburtstags-Kalender'),
+        children: [
+          ListTile(
+            leading: const Icon(Icons.block),
+            title: const Text('Keiner'),
+            trailing: cfg.calendarHref == null ? const Icon(Icons.check) : null,
+            onTap: () => Navigator.pop(ctx, '__none__'),
+          ),
+          for (final m in calendars)
+            ListTile(
+              leading: CircleAvatar(backgroundColor: m.color, radius: 8),
+              title: Text(m.name),
+              trailing: m.href == cfg.calendarHref
+                  ? const Icon(Icons.check)
+                  : null,
+              onTap: () => Navigator.pop(ctx, m.href),
+            ),
+        ],
+      ),
+    );
+    if (href == null) return;
+    await ref
+        .read(birthdayConfigProvider.notifier)
+        .setCalendar(href == '__none__' ? null : href);
   }
 
   /// Countdown-Popup: pro Kalender an/aus + „alle Termine" oder „nur nächster".

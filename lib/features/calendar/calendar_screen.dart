@@ -413,6 +413,8 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
         eventsByDay[_dayKey(day)] ?? const [];
 
     final selectedEvents = loader(_selectedDay);
+    final birthdayCfg =
+        ref.watch(birthdayConfigProvider).value ?? const BirthdayConfig();
 
     return Scaffold(
       appBar: AppBar(
@@ -590,7 +592,7 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
                                     pastDay ||
                                     (dayOnly == today && e.hasPassed(now));
                                 // Geburtstage als Krone statt Punkt.
-                                if (isBirthday(e)) {
+                                if (isBirthday(e, birthdayCfg)) {
                                   return Opacity(
                                     opacity: faint ? 0.3 : 1,
                                     child: const Text(
@@ -634,6 +636,7 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
                           day: _selectedDay,
                           events: selectedEvents,
                           weather: _weatherBadge(_selectedDay),
+                          birthdayConfig: birthdayCfg,
                           onEventLongPress: (e) =>
                               showEventActions(context, ref, e),
                         ),
@@ -655,11 +658,13 @@ class _DayEventList extends StatelessWidget {
     required this.day,
     required this.events,
     required this.onEventLongPress,
+    required this.birthdayConfig,
     this.weather = const SizedBox.shrink(),
   });
   final DateTime day;
   final List<CalendarEvent> events;
   final void Function(CalendarEvent event) onEventLongPress;
+  final BirthdayConfig birthdayConfig;
   final Widget weather;
 
   @override
@@ -710,6 +715,7 @@ class _DayEventList extends StatelessWidget {
         return _EventTile(
           event: e,
           passed: passed,
+          birthdayConfig: birthdayConfig,
           onLongPress: () => onEventLongPress(e),
         );
       },
@@ -721,10 +727,12 @@ class _EventTile extends StatelessWidget {
   const _EventTile({
     required this.event,
     required this.onLongPress,
+    required this.birthdayConfig,
     this.passed = false,
   });
   final CalendarEvent event;
   final VoidCallback onLongPress;
+  final BirthdayConfig birthdayConfig;
 
   /// Bereits beendeter Termin (heute) → eingeklappt + leicht durchsichtig.
   final bool passed;
@@ -747,7 +755,7 @@ class _EventTile extends StatelessWidget {
           child: Row(
             children: [
               SizedBox(width: 52, child: _timeBlock(theme, color)),
-              if (isBirthday(event))
+              if (isBirthday(event, birthdayConfig))
                 const Padding(
                   padding: EdgeInsets.symmetric(horizontal: 8),
                   child: Text('👑', style: TextStyle(fontSize: 22)),

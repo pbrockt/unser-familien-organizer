@@ -27,8 +27,10 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
     super.dispose();
   }
 
-  String _eventWhen(CalendarEvent e) {
-    if (isBirthday(e)) return DateFormat('d. MMM', 'de_DE').format(e.start);
+  String _eventWhen(CalendarEvent e, BirthdayConfig cfg) {
+    if (isBirthday(e, cfg)) {
+      return DateFormat('d. MMM', 'de_DE').format(e.start);
+    }
     if (e.allDay) {
       return '${DateFormat('EEE, d. MMM', 'de_DE').format(e.start)} · Ganztägig';
     }
@@ -52,6 +54,8 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     final q = _query.trim().toLowerCase();
+    final bcfg =
+        ref.watch(birthdayConfigProvider).value ?? const BirthdayConfig();
     final events = ref.watch(visibleEventsProvider);
     final taskLists =
         ref.watch(tasksControllerProvider).value ?? const <TaskList>[];
@@ -115,11 +119,11 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                       backgroundColor: e.color ?? scheme.primary,
                     ),
                     title: Text(
-                      isBirthday(e) ? '👑 ${e.summary}' : e.summary,
+                      isBirthday(e, bcfg) ? '👑 ${e.summary}' : e.summary,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),
-                    subtitle: Text(_eventWhen(e)),
+                    subtitle: Text(_eventWhen(e, bcfg)),
                     onTap: () => _openEvent(e),
                   ),
                 ),

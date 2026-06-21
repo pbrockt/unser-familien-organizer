@@ -76,8 +76,10 @@ class HomeScreen extends ConsumerWidget {
     // Liste gehängt, sichtbar beim Wischen nach links.
     final passedToday = _passedToday(homeEvents, now, today);
     final countdowns = countdownEvents(events, memberSettings, today);
+    final birthdayCfg =
+        ref.watch(birthdayConfigProvider).value ?? const BirthdayConfig();
     // Geburtstage auf der Startseite nur eine Woche im Voraus.
-    final birthdays = upcomingBirthdays(events, today, horizon: 7);
+    final birthdays = upcomingBirthdays(events, today, birthdayCfg, horizon: 7);
 
     // Tippen auf einen Termin/Countdown → in die Kalender-Tagesansicht springen.
     void openInCalendar(CalendarEvent e) {
@@ -140,6 +142,7 @@ class HomeScreen extends ConsumerWidget {
                     _TwoWeekCalendar(
                       today: today,
                       events: homeEvents,
+                      birthdayConfig: birthdayCfg,
                       onTapDay: openDay,
                     ),
                     const _SectionLabel('Anstehende Termine'),
@@ -465,10 +468,12 @@ class _TwoWeekCalendar extends StatelessWidget {
   const _TwoWeekCalendar({
     required this.today,
     required this.events,
+    required this.birthdayConfig,
     required this.onTapDay,
   });
   final DateTime today;
   final List<CalendarEvent> events;
+  final BirthdayConfig birthdayConfig;
   final void Function(DateTime day) onTapDay;
 
   @override
@@ -521,26 +526,40 @@ class _TwoWeekCalendar extends StatelessWidget {
                 ),
                 const SizedBox(height: 3),
                 SizedBox(
-                  height: 6,
+                  height: 11,
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
                       for (final e in dayEvents.take(3))
-                        Container(
-                          width: 5,
-                          height: 5,
-                          margin: const EdgeInsets.symmetric(horizontal: 1),
-                          decoration: BoxDecoration(
-                            shape: BoxShape.circle,
-                            // Vergangene Tage – und heute bereits erledigte
-                            // Termine – nur noch schwach sichtbar.
-                            color: (e.color ?? scheme.primary).withValues(
-                              alpha: (isPast || (isToday && e.hasPassed(now)))
-                                  ? 0.3
-                                  : 1,
+                        // Vergangene Tage – und heute bereits erledigte
+                        // Termine – nur noch schwach sichtbar.
+                        if (isBirthday(e, birthdayConfig))
+                          Opacity(
+                            opacity: (isPast || (isToday && e.hasPassed(now)))
+                                ? 0.3
+                                : 1,
+                            child: const Padding(
+                              padding: EdgeInsets.symmetric(horizontal: 1),
+                              child: Text(
+                                '👑',
+                                style: TextStyle(fontSize: 9, height: 1),
+                              ),
+                            ),
+                          )
+                        else
+                          Container(
+                            width: 5,
+                            height: 5,
+                            margin: const EdgeInsets.symmetric(horizontal: 1),
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              color: (e.color ?? scheme.primary).withValues(
+                                alpha: (isPast || (isToday && e.hasPassed(now)))
+                                    ? 0.3
+                                    : 1,
+                              ),
                             ),
                           ),
-                        ),
                     ],
                   ),
                 ),

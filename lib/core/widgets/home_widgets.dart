@@ -1,5 +1,6 @@
 import 'package:home_widget/home_widget.dart';
 import 'package:intl/intl.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../features/calendar/birthdays.dart';
 import '../../features/calendar/calendar_event.dart';
@@ -32,9 +33,16 @@ class HomeWidgets {
     final now = DateTime.now();
     final today = DateTime(now.year, now.month, now.day);
 
+    // Geburtstags-Einstellungen (auch im Hintergrund-Isolate) aus den Prefs.
+    final prefs = await SharedPreferences.getInstance();
+    final birthdayCfg = BirthdayConfig(
+      calendarHref: prefs.getString(BirthdayConfigController.kCalKey),
+      useHeuristic: prefs.getBool(BirthdayConfigController.kHeurKey) ?? true,
+    );
+
     await HomeWidget.saveWidgetData<String>(
       'next_body',
-      _eventsBody(events, now, today),
+      _eventsBody(events, now, today, birthdayCfg),
     );
     await HomeWidget.saveWidgetData<String>(
       'countdown_body',
@@ -57,6 +65,7 @@ class HomeWidgets {
     List<CalendarEvent> events,
     DateTime now,
     DateTime today,
+    BirthdayConfig birthdayCfg,
   ) {
     final lines = <String>[];
     for (var d = 0; d <= 13 && lines.length < 12; d++) {
@@ -83,7 +92,7 @@ class HomeWidgets {
       );
       for (final e in dayEvents) {
         if (lines.length >= 12) break;
-        lines.add(_calLine(e));
+        lines.add(_calLine(e, birthdayCfg));
       }
     }
     return lines.isEmpty ? 'Keine anstehenden Termine 🎉' : lines.join('\n');
@@ -91,8 +100,10 @@ class HomeWidgets {
 
   /// Kalender-Eintrags-Stil: Zeitspanne (von–bis); mehrtägige/ganztägige als
   /// „ganztägig".
-  static String _calLine(CalendarEvent e) {
-    if (isBirthday(e)) return '${_colorHex(e)}$_kSep👑  ${e.summary}';
+  static String _calLine(CalendarEvent e, BirthdayConfig birthdayCfg) {
+    if (isBirthday(e, birthdayCfg)) {
+      return '${_colorHex(e)}$_kSep👑  ${e.summary}';
+    }
     final String when;
     if (e.allDay || e.isMultiDay) {
       when = 'ganztägig';
