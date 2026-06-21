@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 import 'package:table_calendar/table_calendar.dart';
 
 import '../../core/auth/account_providers.dart';
+import '../../shared/widgets/running_badge.dart';
 import '../members/member_settings.dart';
 import '../search/search_screen.dart';
 import '../weather/weather_service.dart';
@@ -723,6 +724,7 @@ class _DayEventList extends StatelessWidget {
             isSameDay(day, DateTime.now()) && e.hasPassed(DateTime.now());
         return _EventTile(
           event: e,
+          day: day,
           passed: passed,
           birthdayConfig: birthdayConfig,
           onLongPress: () => onEventLongPress(e),
@@ -735,11 +737,15 @@ class _DayEventList extends StatelessWidget {
 class _EventTile extends StatelessWidget {
   const _EventTile({
     required this.event,
+    required this.day,
     required this.onLongPress,
     required this.birthdayConfig,
     this.passed = false,
   });
   final CalendarEvent event;
+
+  /// Tag, an dem dieser Eintrag in der Liste steht (für mehrtägige Termine).
+  final DateTime day;
   final VoidCallback onLongPress;
   final BirthdayConfig birthdayConfig;
 
@@ -794,6 +800,11 @@ class _EventTile extends StatelessWidget {
                         style: theme.textTheme.bodySmall?.copyWith(
                           color: theme.colorScheme.onSurfaceVariant,
                         ),
+                      ),
+                    if (event.isRunning(DateTime.now()))
+                      const Padding(
+                        padding: EdgeInsets.only(top: 3),
+                        child: RunningBadge(),
                       ),
                     if (hasLocation)
                       Text(
@@ -886,6 +897,43 @@ class _EventTile extends StatelessWidget {
               color: theme.colorScheme.onSurfaceVariant,
             ),
           ),
+        ],
+      );
+    }
+    // Mehrtägiger Termin mit Uhrzeit: je nach Tag „ab …" / „bis …" / „läuft".
+    if (event.isMultiDay) {
+      final muted = theme.textTheme.labelSmall?.copyWith(
+        color: theme.colorScheme.onSurfaceVariant,
+      );
+      final strong = theme.textTheme.titleSmall?.copyWith(
+        fontWeight: FontWeight.w700,
+      );
+      if (event.isFirstDay(day)) {
+        return Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('ab', style: muted),
+            Text(DateFormat('HH:mm').format(event.start), style: strong),
+          ],
+        );
+      }
+      if (event.isLastDay(day) && event.end != null) {
+        return Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('bis', style: muted),
+            Text(DateFormat('HH:mm').format(event.end!), style: strong),
+          ],
+        );
+      }
+      return Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(Icons.more_horiz, size: 20, color: color),
+          const SizedBox(height: 2),
+          Text('läuft', style: muted),
         ],
       );
     }

@@ -10,6 +10,7 @@ import '../../core/auth/account_providers.dart';
 import '../../core/auth/nextcloud_account.dart';
 import '../../core/sync/sync_status.dart';
 import '../../shared/widgets/blob_background.dart';
+import '../../shared/widgets/running_badge.dart';
 import '../calendar/birthdays.dart';
 import '../calendar/calendar_event.dart';
 import '../calendar/calendar_presets.dart';
@@ -770,7 +771,10 @@ class _EventCard extends StatelessWidget {
                     color: scheme.onSurface,
                   ),
                 ),
-                if (soon != null) ...[
+                if (event.isRunning(now)) ...[
+                  const SizedBox(height: 4),
+                  const RunningBadge(compact: true),
+                ] else if (soon != null) ...[
                   const SizedBox(height: 3),
                   Text(
                     soon,

@@ -134,6 +134,25 @@ class CalendarEvent {
   bool occursOn(DateTime day) =>
       !day.isBefore(startDay) && !day.isAfter(endDayInclusive);
 
+  /// Läuft der Termin gerade (jetzt zwischen Start und Ende)?
+  /// Ganztägig/mehrtägig ganztägig: heute liegt im Zeitraum.
+  bool isRunning(DateTime now) {
+    if (allDay) {
+      final today = DateTime(now.year, now.month, now.day);
+      return !startDay.isAfter(today) && !endDayInclusive.isBefore(today);
+    }
+    final e = end ?? start.add(const Duration(hours: 1));
+    return !now.isBefore(start) && now.isBefore(e);
+  }
+
+  /// Ist [day] der erste Tag des Termins?
+  bool isFirstDay(DateTime day) =>
+      DateTime(day.year, day.month, day.day) == startDay;
+
+  /// Ist [day] der letzte Tag des Termins?
+  bool isLastDay(DateTime day) =>
+      DateTime(day.year, day.month, day.day) == endDayInclusive;
+
   /// Ist der Termin bereits vorbei (zum Ausblenden in Listen)?
   /// Ganztägig (auch mehrtägig ganztägig): der letzte Tag liegt vor heute.
   /// Zeitgebunden (auch mehrtägig mit Uhrzeit): das Ende (oder der Start, falls

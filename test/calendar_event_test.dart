@@ -68,6 +68,27 @@ void main() {
     expect(e.hasPassed(DateTime(2026, 6, 12, 19)), isTrue);
   });
 
+  test('isRunning: zeitgebundener Termin nur zwischen Start und Ende', () {
+    final e = _ev(
+      start: DateTime(2026, 6, 10, 10),
+      end: DateTime(2026, 6, 10, 12),
+    );
+    expect(e.isRunning(DateTime(2026, 6, 10, 9)), isFalse);
+    expect(e.isRunning(DateTime(2026, 6, 10, 11)), isTrue);
+    expect(e.isRunning(DateTime(2026, 6, 10, 12)), isFalse);
+  });
+
+  test('isRunning: mehrtägig mit Uhrzeit läuft auch am Zwischentag', () {
+    final e = _ev(
+      start: DateTime(2026, 6, 10, 18),
+      end: DateTime(2026, 6, 12, 9),
+    );
+    expect(e.isRunning(DateTime(2026, 6, 11, 3)), isTrue);
+    expect(e.isFirstDay(DateTime(2026, 6, 10)), isTrue);
+    expect(e.isLastDay(DateTime(2026, 6, 12)), isTrue);
+    expect(e.isFirstDay(DateTime(2026, 6, 11)), isFalse);
+  });
+
   test('mehrtägiger Ganztags-Termin: vorbei erst nach letztem Tag', () {
     final e = _ev(
       start: DateTime(2026, 6, 10),
