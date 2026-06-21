@@ -41,9 +41,36 @@ class _TaskEditorSheetState extends ConsumerState<_TaskEditorSheet> {
   late final TextEditingController _descCtrl;
   DateTime? _due;
   late String _listHref;
+  String _repeat = 'none';
   bool _busy = false;
 
   bool get _isEdit => widget.existing != null;
+
+  /// Übersetzt die Auswahl in eine RRULE (ohne Präfix); `null` = einmalig.
+  String? _rruleFor(String r) => switch (r) {
+    'DAILY' => 'FREQ=DAILY',
+    'WEEKLY' => 'FREQ=WEEKLY',
+    'BIWEEKLY' => 'FREQ=WEEKLY;INTERVAL=2',
+    'MONTHLY' => 'FREQ=MONTHLY',
+    'YEARLY' => 'FREQ=YEARLY',
+    _ => null,
+  };
+
+  /// Liest die Wiederholung aus einem vorhandenen iCal-Text (Vorauswahl).
+  String _repeatFromIcal(String raw) {
+    final m = RegExp(r'RRULE:([^\r\n]*)').firstMatch(raw);
+    if (m == null) return 'none';
+    final rule = m.group(1)!.toUpperCase();
+    final freq = RegExp(r'FREQ=([A-Z]+)').firstMatch(rule)?.group(1);
+    final interval = RegExp(r'INTERVAL=(\d+)').firstMatch(rule)?.group(1);
+    return switch (freq) {
+      'DAILY' => 'DAILY',
+      'WEEKLY' => interval == '2' ? 'BIWEEKLY' : 'WEEKLY',
+      'MONTHLY' => 'MONTHLY',
+      'YEARLY' => 'YEARLY',
+      _ => 'none',
+    };
+  }
 
   @override
   void initState() {
@@ -52,6 +79,7 @@ class _TaskEditorSheetState extends ConsumerState<_TaskEditorSheet> {
     _summaryCtrl = TextEditingController(text: e?.summary ?? '');
     _descCtrl = TextEditingController(text: e?.description ?? '');
     _due = e?.due;
+    if (e != null) _repeat = _repeatFromIcal(e.rawIcal);
     _listHref = widget.lists.isNotEmpty ? widget.lists.first.href : '';
   }
 
@@ -93,6 +121,8 @@ class _TaskEditorSheetState extends ConsumerState<_TaskEditorSheet> {
             due: _due,
             clearDue: _due == null,
             description: desc,
+            rrule: _rruleFor(_repeat),
+            updateRrule: true,
             force: force,
           );
         } else {
@@ -101,6 +131,7 @@ class _TaskEditorSheetState extends ConsumerState<_TaskEditorSheet> {
             summary: summary,
             due: _due,
             description: desc,
+            rrule: _rruleFor(_repeat),
           );
         }
         return true;
@@ -132,16 +163,18 @@ class _TaskEditorSheetState extends ConsumerState<_TaskEditorSheet> {
     }
   }
 
-  void _snack(String msg) => ScaffoldMessenger.of(context)
-      .showSnackBar(SnackBar(content: Text(msg)));
+  void _snack(String msg) =>
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
 
   Future<void> _delete() async {
     final ok = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('Aufgabe löschen?'),
-        content: Text('„${widget.existing!.summary}" wird in der Nextcloud '
-            'gelöscht.'),
+        content: Text(
+          '„${widget.existing!.summary}" wird in der Nextcloud '
+          'gelöscht.',
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
@@ -238,10 +271,10 @@ class _TaskEditorSheetState extends ConsumerState<_TaskEditorSheet> {
                   border: OutlineInputBorder(),
                 ),
                 items: widget.lists
-                    .map((l) => DropdownMenuItem(
-                          value: l.href,
-                          child: Text(l.name),
-                        ))
+                    .map(
+                      (l) =>
+                          DropdownMenuItem(value: l.href, child: Text(l.name)),
+                    )
                     .toList(),
                 onChanged: (v) => setState(() => _listHref = v ?? _listHref),
               ),
@@ -252,11 +285,16 @@ class _TaskEditorSheetState extends ConsumerState<_TaskEditorSheet> {
               margin: EdgeInsets.zero,
               child: ListTile(
                 leading: const Icon(Icons.event),
-                title: Text(_due == null
-                    ? 'Keine Fälligkeit'
-                    : 'Fällig: ${DateFormat('d. MMM y', 'de_DE').format(_due!)}'),
+                title: Text(
+                  _due == null
+                      ? 'Keine Fälligkeit'
+                      : 'Fällig: ${DateFormat('d. MMM y', 'de_DE').format(_due!)}',
+                ),
                 trailing: _due == null
-                    ? TextButton(onPressed: _pickDue, child: const Text('Datum'))
+                    ? TextButton(
+                        onPressed: _pickDue,
+                        child: const Text('Datum'),
+                      )
                     : Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
@@ -273,6 +311,38 @@ class _TaskEditorSheetState extends ConsumerState<_TaskEditorSheet> {
                 onTap: _pickDue,
               ),
             ),
+            const SizedBox(height: 12),
+            // Wiederholung (wiederkehrende Aufgabe)
+            DropdownButtonFormField<String>(
+              initialValue: _repeat,
+              decoration: const InputDecoration(
+                labelText: 'Wiederholen',
+                prefixIcon: Icon(Icons.repeat),
+                border: OutlineInputBorder(),
+              ),
+              items: const [
+                DropdownMenuItem(value: 'none', child: Text('Nie')),
+                DropdownMenuItem(value: 'DAILY', child: Text('Täglich')),
+                DropdownMenuItem(value: 'WEEKLY', child: Text('Wöchentlich')),
+                DropdownMenuItem(
+                  value: 'BIWEEKLY',
+                  child: Text('Alle 2 Wochen'),
+                ),
+                DropdownMenuItem(value: 'MONTHLY', child: Text('Monatlich')),
+                DropdownMenuItem(value: 'YEARLY', child: Text('Jährlich')),
+              ],
+              onChanged: (v) => setState(() => _repeat = v ?? 'none'),
+            ),
+            if (_repeat != 'none')
+              Padding(
+                padding: const EdgeInsets.only(top: 6),
+                child: Text(
+                  'Beim Abhaken springt die Aufgabe auf den nächsten Termin.',
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  ),
+                ),
+              ),
             const SizedBox(height: 20),
             Row(
               children: [

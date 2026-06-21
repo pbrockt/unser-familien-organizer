@@ -37,6 +37,9 @@ class TaskItem {
   /// Listenfarbe (aus der CalDAV-Collection).
   final Color? color;
 
+  /// Wiederkehrende Aufgabe (VTODO mit RRULE)?
+  bool get isRecurring => rawIcal.contains('RRULE:');
+
   factory TaskItem.fromParsed(
     ParsedTodo t, {
     required String objectHref,

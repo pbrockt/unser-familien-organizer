@@ -74,8 +74,10 @@ class _TaskListsView extends ConsumerWidget {
           if (list.items.isEmpty)
             Padding(
               padding: const EdgeInsets.fromLTRB(16, 2, 16, 10),
-              child: Text('Keine Aufgaben',
-                  style: TextStyle(color: scheme.onSurfaceVariant)),
+              child: Text(
+                'Keine Aufgaben',
+                style: TextStyle(color: scheme.onSurfaceVariant),
+              ),
             )
           else
             _ReorderableTasks(
@@ -87,7 +89,6 @@ class _TaskListsView extends ConsumerWidget {
       ],
     );
   }
-
 }
 
 /// Aufgaben einer Liste mit Drag&Drop-Sortierung (gerätelokal gespeichert).
@@ -102,14 +103,17 @@ class _ReorderableTasks extends ConsumerWidget {
   final List<TaskList> allLists;
 
   Future<void> _toggle(
-      BuildContext context, WidgetRef ref, TaskItem item) async {
+    BuildContext context,
+    WidgetRef ref,
+    TaskItem item,
+  ) async {
     try {
       await ref.read(tasksControllerProvider.notifier).toggle(item);
     } catch (e) {
       if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Konnte nicht speichern: $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Konnte nicht speichern: $e')));
       }
     }
   }
@@ -161,10 +165,12 @@ class _ListHeader extends StatelessWidget {
           const SizedBox(width: 8),
           Text(list.name, style: Theme.of(context).textTheme.titleMedium),
           const SizedBox(width: 8),
-          Text('${list.openCount} offen',
-              style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: Theme.of(context).colorScheme.onSurfaceVariant,
-                  )),
+          Text(
+            '${list.openCount} offen',
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+              color: Theme.of(context).colorScheme.onSurfaceVariant,
+            ),
+          ),
         ],
       ),
     );
@@ -193,7 +199,8 @@ class _TaskTile extends StatelessWidget {
     final theme = Theme.of(context);
     final color = item.color ?? theme.colorScheme.primary;
     final due = _dueLabel();
-    final overdue = item.due != null &&
+    final overdue =
+        item.due != null &&
         !item.completed &&
         item.due!.isBefore(DateTime.now());
 
@@ -204,14 +211,29 @@ class _TaskTile extends StatelessWidget {
         onChanged: (_) => onToggle(),
         shape: const CircleBorder(),
       ),
-      title: Text(
-        item.summary,
-        style: item.completed
-            ? theme.textTheme.bodyLarge?.copyWith(
-                decoration: TextDecoration.lineThrough,
+      title: Row(
+        children: [
+          Flexible(
+            child: Text(
+              item.summary,
+              style: item.completed
+                  ? theme.textTheme.bodyLarge?.copyWith(
+                      decoration: TextDecoration.lineThrough,
+                      color: theme.colorScheme.onSurfaceVariant,
+                    )
+                  : theme.textTheme.bodyLarge,
+            ),
+          ),
+          if (item.isRecurring)
+            Padding(
+              padding: const EdgeInsets.only(left: 6),
+              child: Icon(
+                Icons.repeat,
+                size: 15,
                 color: theme.colorScheme.onSurfaceVariant,
-              )
-            : theme.textTheme.bodyLarge,
+              ),
+            ),
+        ],
       ),
       subtitle: due == null
           ? null
@@ -238,8 +260,7 @@ class _EmptyTasks extends StatelessWidget {
     return ListView(
       children: [
         const SizedBox(height: 120),
-        Icon(Icons.checklist_rtl,
-            size: 64, color: theme.colorScheme.primary),
+        Icon(Icons.checklist_rtl, size: 64, color: theme.colorScheme.primary),
         const SizedBox(height: 16),
         Center(
           child: Text('Keine Aufgaben', style: theme.textTheme.titleLarge),
@@ -273,8 +294,11 @@ class _ConnectPrompt extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.cloud_off_outlined,
-                size: 64, color: theme.colorScheme.primary),
+            Icon(
+              Icons.cloud_off_outlined,
+              size: 64,
+              color: theme.colorScheme.primary,
+            ),
             const SizedBox(height: 16),
             Text('Nicht verbunden', style: theme.textTheme.titleLarge),
             const SizedBox(height: 8),

@@ -113,8 +113,9 @@ class IcalParser {
   /// mit negativem TRIGGER (z. B. `TRIGGER:-PT15M`, `-PT1H`). `null` = keine.
   static int? _alarmMinutes(VComponent c) {
     final text = c.toString();
-    final m =
-        RegExp(r'TRIGGER[^:\r\n]*:-PT(?:(\d+)H)?(?:(\d+)M)?').firstMatch(text);
+    final m = RegExp(
+      r'TRIGGER[^:\r\n]*:-PT(?:(\d+)H)?(?:(\d+)M)?',
+    ).firstMatch(text);
     if (m == null) return null;
     final h = int.tryParse(m.group(1) ?? '') ?? 0;
     final min = int.tryParse(m.group(2) ?? '') ?? 0;
@@ -133,26 +134,29 @@ class IcalParser {
         if (start == null) continue;
         final end = c.end;
         final summary = _unescapeText(c.summary)?.trim();
-        result.add(ParsedEvent(
-          uid: c.uid,
-          summary: (summary != null && summary.isNotEmpty)
-              ? summary
-              : '(ohne Titel)',
-          start: start,
-          end: end,
-          description: _unescapeText(c.description),
-          location: _unescapeText(c.location),
-          allDay: _looksAllDay(start, end),
-          isRecurring: c.recurrenceRule != null,
-          recurrence: c.recurrenceRule,
-          recurrenceId: c.recurrenceId,
-          exDates: c.excludingRecurrenceDates
-                  ?.map((d) => d.dateTime)
-                  .whereType<DateTime>()
-                  .toList() ??
-              const [],
-          reminderMinutes: _alarmMinutes(c),
-        ));
+        result.add(
+          ParsedEvent(
+            uid: c.uid,
+            summary: (summary != null && summary.isNotEmpty)
+                ? summary
+                : '(ohne Titel)',
+            start: start,
+            end: end,
+            description: _unescapeText(c.description),
+            location: _unescapeText(c.location),
+            allDay: _looksAllDay(start, end),
+            isRecurring: c.recurrenceRule != null,
+            recurrence: c.recurrenceRule,
+            recurrenceId: c.recurrenceId,
+            exDates:
+                c.excludingRecurrenceDates
+                    ?.map((d) => d.dateTime)
+                    .whereType<DateTime>()
+                    .toList() ??
+                const [],
+            reminderMinutes: _alarmMinutes(c),
+          ),
+        );
       }
     } catch (_) {
       // Unparsebares Objekt ignorieren.
@@ -167,17 +171,19 @@ class IcalParser {
       for (final c in _components(icalData)) {
         if (c is! VTodo) continue;
         final todoSummary = _unescapeText(c.summary)?.trim();
-        result.add(ParsedTodo(
-          uid: c.uid,
-          summary: (todoSummary != null && todoSummary.isNotEmpty)
-              ? todoSummary
-              : '(ohne Titel)',
-          description: _unescapeText(c.description),
-          due: c.due,
-          completed: c.status == TodoStatus.completed,
-          priority: c.priorityInt,
-          categories: c.categories ?? const [],
-        ));
+        result.add(
+          ParsedTodo(
+            uid: c.uid,
+            summary: (todoSummary != null && todoSummary.isNotEmpty)
+                ? todoSummary
+                : '(ohne Titel)',
+            description: _unescapeText(c.description),
+            due: c.due,
+            completed: c.status == TodoStatus.completed,
+            priority: c.priorityInt,
+            categories: c.categories ?? const [],
+          ),
+        );
       }
     } catch (_) {
       // Unparsebares Objekt ignorieren.
@@ -195,8 +201,7 @@ class IcalParser {
     final components = root is VCalendar ? root.children : [root];
     for (final c in components) {
       if (c is VTodo) {
-        c.status =
-            completed ? TodoStatus.completed : TodoStatus.needsAction;
+        c.status = completed ? TodoStatus.completed : TodoStatus.needsAction;
         c.completed = completed ? DateTime.now() : null;
         c.percentComplete = completed ? 100 : 0;
       }
@@ -204,11 +209,62 @@ class IcalParser {
     return root.toString();
   }
 
+  /// Schaltet eine wiederkehrende Aufgabe auf das nächste Vorkommen weiter
+  /// (DUE/DTSTART verschoben, wieder offen) statt sie dauerhaft abzuhaken.
+  /// Gibt `null` zurück, wenn keine Wiederholung oder Fälligkeit vorhanden ist
+  /// (→ normales Abhaken).
+  String? advanceRecurringTodo(String icalData) {
+    final root = VComponent.parse(icalData);
+    final components = root is VCalendar ? root.children : [root];
+    var changed = false;
+    for (final c in components) {
+      if (c is VTodo) {
+        final rule = c.recurrenceRule;
+        final due = c.due;
+        if (rule == null || due == null) return null;
+        final next = _nextTodoOccurrence(due, rule);
+        final start = c.start;
+        if (start != null) c.start = start.add(next.difference(due));
+        c.due = next;
+        c.status = TodoStatus.needsAction;
+        c.completed = null;
+        c.percentComplete = 0;
+        c.timeStamp = DateTime.now();
+        changed = true;
+      }
+    }
+    return changed ? root.toString() : null;
+  }
+
+  DateTime _nextTodoOccurrence(DateTime from, Recurrence rule) {
+    final i = rule.interval < 1 ? 1 : rule.interval;
+    switch (rule.frequency) {
+      case RecurrenceFrequency.daily:
+        return from.add(Duration(days: i));
+      case RecurrenceFrequency.weekly:
+        return from.add(Duration(days: 7 * i));
+      case RecurrenceFrequency.monthly:
+        return _addMonthsTodo(from, i);
+      case RecurrenceFrequency.yearly:
+        return _addMonthsTodo(from, 12 * i);
+      default:
+        return from.add(Duration(days: i));
+    }
+  }
+
+  DateTime _addMonthsTodo(DateTime d, int months) {
+    final total = d.month - 1 + months;
+    final year = d.year + total ~/ 12;
+    final month = total % 12 + 1;
+    final lastDay = DateTime(year, month + 1, 0).day;
+    final day = d.day > lastDay ? lastDay : d.day;
+    return DateTime(year, month, day, d.hour, d.minute, d.second);
+  }
+
   /// Heuristik: Ganztags-Events haben Mitternacht als Start (DTSTART;VALUE=DATE)
   /// und enden – falls vorhanden – ebenfalls auf Mitternacht.
   bool _looksAllDay(DateTime start, DateTime? end) {
-    bool midnight(DateTime d) =>
-        d.hour == 0 && d.minute == 0 && d.second == 0;
+    bool midnight(DateTime d) => d.hour == 0 && d.minute == 0 && d.second == 0;
     if (!midnight(start)) return false;
     if (end == null) return true;
     return midnight(end);

@@ -43,13 +43,15 @@ List<TaskList> buildTaskListsFromSnapshot(
     final items = <TaskItem>[];
     for (final obj in objects) {
       for (final parsed in _parser.parseTodos(obj.icalData)) {
-        items.add(TaskItem.fromParsed(
-          parsed,
-          objectHref: obj.href,
-          etag: obj.etag,
-          rawIcal: obj.icalData,
-          color: color,
-        ));
+        items.add(
+          TaskItem.fromParsed(
+            parsed,
+            objectHref: obj.href,
+            etag: obj.etag,
+            rawIcal: obj.icalData,
+            color: color,
+          ),
+        );
       }
     }
     sortTaskItems(items);

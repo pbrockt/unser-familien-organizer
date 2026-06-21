@@ -9,8 +9,8 @@ import 'task_item.dart';
 /// Per Drag&Drop kann man wichtige Aufgaben nach oben ziehen.
 final taskOrderProvider =
     AsyncNotifierProvider<TaskOrderController, Map<String, List<String>>>(
-  TaskOrderController.new,
-);
+      TaskOrderController.new,
+    );
 
 class TaskOrderController extends AsyncNotifier<Map<String, List<String>>> {
   static const _key = 'task_order';
@@ -22,8 +22,9 @@ class TaskOrderController extends AsyncNotifier<Map<String, List<String>>> {
     if (raw == null || raw.isEmpty) return {};
     try {
       final map = jsonDecode(raw) as Map<String, dynamic>;
-      return map.map((k, v) =>
-          MapEntry(k, (v as List).map((e) => e.toString()).toList()));
+      return map.map(
+        (k, v) => MapEntry(k, (v as List).map((e) => e.toString()).toList()),
+      );
     } catch (_) {
       return {};
     }

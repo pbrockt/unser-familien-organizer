@@ -12,9 +12,7 @@ import 'tasks_builder.dart';
 
 /// Lädt Aufgabenlisten aus der Nextcloud und verwaltet das Abhaken.
 final tasksControllerProvider =
-    AsyncNotifierProvider<TasksController, List<TaskList>>(
-  TasksController.new,
-);
+    AsyncNotifierProvider<TasksController, List<TaskList>>(TasksController.new);
 
 class TasksController extends AsyncNotifier<List<TaskList>> {
   static const _parser = IcalParser();
@@ -38,8 +36,11 @@ class TasksController extends AsyncNotifier<List<TaskList>> {
     return buildTaskListsFromSnapshot(cached, settings);
   }
 
-  Future<void> _backgroundRefresh(NextcloudAccount account,
-      CalDavRepository repo, Map<String, MemberSetting> settings) async {
+  Future<void> _backgroundRefresh(
+    NextcloudAccount account,
+    CalDavRepository repo,
+    Map<String, MemberSetting> settings,
+  ) async {
     try {
       final fresh = await repo.sync(account);
       if (_disposed) return;
@@ -70,12 +71,50 @@ class TasksController extends AsyncNotifier<List<TaskList>> {
 
     final target = !item.completed;
 
+    // Wiederkehrende Aufgabe abhaken → auf das nächste Vorkommen weiterschalten
+    // (statt dauerhaft erledigen). Kurz als „erledigt" anzeigen, dann via
+    // _refresh wieder offen mit neuer Fälligkeit.
+    if (target && item.isRecurring) {
+      final advanced = _parser.advanceRecurringTodo(item.rawIcal);
+      if (advanced != null) {
+        state = AsyncData(
+          _replace(current, item, item.copyWith(completed: true)),
+        );
+        try {
+          await repo.putObject(
+            account,
+            item.objectHref,
+            advanced,
+            ifMatchEtag: item.etag.isEmpty ? null : item.etag,
+          );
+        } catch (e) {
+          if (e is CalDavException && e.isConflict) {
+            await repo.putObject(
+              account,
+              item.objectHref,
+              advanced,
+              force: true,
+            );
+          } else {
+            state = AsyncData(_replace(state.value ?? current, item, item));
+            rethrow;
+          }
+        }
+        await _refresh(account);
+        return;
+      }
+    }
+
     // 1) Optimistisch umschalten.
-    state = AsyncData(_replace(current, item, item.copyWith(completed: target)));
+    state = AsyncData(
+      _replace(current, item, item.copyWith(completed: target)),
+    );
 
     try {
-      final newIcal =
-          _parser.toggleTodoCompletion(item.rawIcal, completed: target);
+      final newIcal = _parser.toggleTodoCompletion(
+        item.rawIcal,
+        completed: target,
+      );
       final newEtag = await repo.putObject(
         account,
         item.objectHref,
@@ -94,13 +133,20 @@ class TasksController extends AsyncNotifier<List<TaskList>> {
       // Konflikt: Abhaken ist unkritisch → erzwingen (letzte Änderung gewinnt).
       if (e is CalDavException && e.isConflict) {
         try {
-          final forced =
-              _parser.toggleTodoCompletion(item.rawIcal, completed: target);
+          final forced = _parser.toggleTodoCompletion(
+            item.rawIcal,
+            completed: target,
+          );
           await repo.putObject(account, item.objectHref, forced, force: true);
           final base = state.value ?? current;
-          state = AsyncData(_replace(
-              base, item, item.copyWith(completed: target, rawIcal: forced),
-              resort: true));
+          state = AsyncData(
+            _replace(
+              base,
+              item,
+              item.copyWith(completed: target, rawIcal: forced),
+              resort: true,
+            ),
+          );
           return;
         } catch (_) {
           // fällt unten zum Rollback durch
@@ -120,6 +166,7 @@ class TasksController extends AsyncNotifier<List<TaskList>> {
     required String summary,
     DateTime? due,
     String? description,
+    String? rrule,
   }) async {
     final account = await ref.read(accountProvider.future);
     if (account == null) return;
@@ -131,6 +178,7 @@ class TasksController extends AsyncNotifier<List<TaskList>> {
       summary: summary,
       due: due,
       description: description,
+      rrule: rrule,
     );
     await repo.putObject(account, _objectHref(listHref, uid), ical);
     await _refresh(account);
@@ -143,6 +191,8 @@ class TasksController extends AsyncNotifier<List<TaskList>> {
     DateTime? due,
     bool clearDue = false,
     String? description,
+    String? rrule,
+    bool updateRrule = false,
     bool force = false,
   }) async {
     final account = await ref.read(accountProvider.future);
@@ -155,6 +205,8 @@ class TasksController extends AsyncNotifier<List<TaskList>> {
       due: due,
       clearDue: clearDue,
       description: description,
+      rrule: rrule,
+      updateRrule: updateRrule,
     );
     await repo.putObject(
       account,
