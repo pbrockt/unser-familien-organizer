@@ -526,9 +526,10 @@ class _TwoWeekCalendar extends StatelessWidget {
                 ),
                 const SizedBox(height: 3),
                 SizedBox(
-                  height: 11,
+                  height: 8,
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.center,
+                    crossAxisAlignment: CrossAxisAlignment.center,
                     children: [
                       for (final e in dayEvents.take(3))
                         // Vergangene Tage – und heute bereits erledigte
@@ -538,11 +539,14 @@ class _TwoWeekCalendar extends StatelessWidget {
                             opacity: (isPast || (isToday && e.hasPassed(now)))
                                 ? 0.3
                                 : 1,
-                            child: const Padding(
-                              padding: EdgeInsets.symmetric(horizontal: 1),
-                              child: Text(
-                                '👑',
-                                style: TextStyle(fontSize: 9, height: 1),
+                            // Feste Box, damit die Krone die Reihe nicht
+                            // höher zieht als die Punkte.
+                            child: const SizedBox(
+                              width: 9,
+                              height: 8,
+                              child: FittedBox(
+                                fit: BoxFit.contain,
+                                child: Text('👑', style: TextStyle(height: 1)),
                               ),
                             ),
                           )
