@@ -135,10 +135,11 @@ class CalendarEvent {
       !day.isBefore(startDay) && !day.isAfter(endDayInclusive);
 
   /// Ist der Termin bereits vorbei (zum Ausblenden in Listen)?
-  /// Zeitgebunden: Ende (oder Start, falls kein Ende) liegt vor [now].
-  /// Ganztägig/mehrtägig: der letzte Tag liegt vor dem heutigen Tag.
+  /// Ganztägig (auch mehrtägig ganztägig): der letzte Tag liegt vor heute.
+  /// Zeitgebunden (auch mehrtägig mit Uhrzeit): das Ende (oder der Start, falls
+  /// kein Ende) liegt vor [now].
   bool hasPassed(DateTime now) {
-    if (allDay || isMultiDay) {
+    if (allDay) {
       final today = DateTime(now.year, now.month, now.day);
       return endDayInclusive.isBefore(today);
     }

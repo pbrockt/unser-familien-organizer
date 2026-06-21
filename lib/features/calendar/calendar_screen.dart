@@ -822,7 +822,7 @@ class _EventTile extends StatelessWidget {
 
   /// Kompakte, transparente Darstellung für bereits beendete Termine.
   Widget _buildPassed(BuildContext context, ThemeData theme, Color color) {
-    final timeLabel = (event.allDay || event.isMultiDay)
+    final timeLabel = event.allDay
         ? 'ganztags'
         : DateFormat('HH:mm').format(event.start);
     return Opacity(
@@ -874,7 +874,7 @@ class _EventTile extends StatelessWidget {
   }
 
   Widget _timeBlock(ThemeData theme, Color color) {
-    if (event.allDay || event.isMultiDay) {
+    if (event.allDay) {
       return Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [

@@ -73,8 +73,9 @@ class HomeWidgets {
       final dayEvents =
           events.where((e) {
             if (!e.occursOn(day)) return false;
-            // Heute: bereits vergangene (eintägige) Termine ausblenden.
-            if (d == 0 && !e.allDay && !e.isMultiDay && e.hasPassed(now)) {
+            // Heute: bereits vergangene zeitgebundene Termine ausblenden
+            // (auch mehrtägige mit Uhrzeit, sobald ihr Ende vorbei ist).
+            if (d == 0 && !e.allDay && e.hasPassed(now)) {
               return false;
             }
             return true;
@@ -98,14 +99,14 @@ class HomeWidgets {
     return lines.isEmpty ? 'Keine anstehenden Termine 🎉' : lines.join('\n');
   }
 
-  /// Kalender-Eintrags-Stil: Zeitspanne (von–bis); mehrtägige/ganztägige als
-  /// „ganztägig".
+  /// Kalender-Eintrags-Stil: Zeitspanne (von–bis); nur echte Ganztages-Termine
+  /// als „ganztägig" (mehrtägige mit Uhrzeit zeigen ihre Zeit).
   static String _calLine(CalendarEvent e, BirthdayConfig birthdayCfg) {
     if (isBirthday(e, birthdayCfg)) {
       return '${_colorHex(e)}$_kSep👑  ${withBirthdayAge(e.summary, e.start.year)}';
     }
     final String when;
-    if (e.allDay || e.isMultiDay) {
+    if (e.allDay) {
       when = 'ganztägig';
     } else {
       final end = e.end;
