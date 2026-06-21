@@ -262,31 +262,8 @@ class _EventEditorSheetState extends ConsumerState<_EventEditorSheet> {
     // Bei Serienterminen fragen: nur diese Instanz oder die ganze Serie?
     var editOnlyThis = false;
     if (isSeriesInstance) {
-      final scope = await showDialog<String>(
-        context: context,
-        builder: (ctx) => AlertDialog(
-          title: const Text('Serientermin ändern'),
-          content: const Text(
-            'Möchtest du nur diesen einen Termin oder die ganze Serie '
-            'ändern?',
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(ctx, 'cancel'),
-              child: const Text('Abbrechen'),
-            ),
-            TextButton(
-              onPressed: () => Navigator.pop(ctx, 'series'),
-              child: const Text('Ganze Serie'),
-            ),
-            FilledButton(
-              onPressed: () => Navigator.pop(ctx, 'this'),
-              child: const Text('Nur diesen'),
-            ),
-          ],
-        ),
-      );
-      if (scope == null || scope == 'cancel') return;
+      final scope = await _askSeriesScope(ev, 'ändern');
+      if (scope == null) return;
       editOnlyThis = scope == 'this';
     }
     if (!mounted) return;
@@ -413,6 +390,53 @@ class _EventEditorSheetState extends ConsumerState<_EventEditorSheet> {
     }
   }
 
+  /// Fragt bei Serien-Instanzen klar nach: nur dieser Termin oder ganze Serie.
+  /// [verb] ist „ändern" oder „löschen". Rückgabe: 'this', 'series' oder null
+  /// (Abbruch).
+  Future<String?> _askSeriesScope(CalendarEvent ev, String verb) {
+    final dateLabel = DateFormat('EEEE, d. MMMM', 'de_DE').format(ev.start);
+    return showDialog<String>(
+      context: context,
+      builder: (ctx) {
+        final t = Theme.of(ctx);
+        return SimpleDialog(
+          title: Text('Serientermin $verb'),
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(24, 0, 24, 12),
+              child: Text(
+                '„${ev.summary}" gehört zu einer Serie. Was möchtest du $verb?',
+                style: t.textTheme.bodyMedium,
+              ),
+            ),
+            ListTile(
+              leading: const Icon(Icons.event_outlined),
+              title: const Text('Nur dieser Termin'),
+              subtitle: Text('Betrifft nur den Termin am $dateLabel.'),
+              onTap: () => Navigator.pop(ctx, 'this'),
+            ),
+            ListTile(
+              leading: const Icon(Icons.repeat),
+              title: const Text('Ganze Serie'),
+              subtitle: const Text('Betrifft alle Termine dieser Serie.'),
+              onTap: () => Navigator.pop(ctx, 'series'),
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 4, 8, 0),
+              child: Align(
+                alignment: Alignment.centerRight,
+                child: TextButton(
+                  onPressed: () => Navigator.pop(ctx, null),
+                  child: const Text('Abbrechen'),
+                ),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
   Future<void> _delete() async {
     final ev = widget.existing!;
     final isSeriesInstance = ev.isRecurring && ev.recurrenceDate != null;
@@ -420,31 +444,8 @@ class _EventEditorSheetState extends ConsumerState<_EventEditorSheet> {
     // Bei Serienterminen zuerst fragen: nur diese Instanz oder ganze Serie?
     var deleteOnlyThis = false;
     if (isSeriesInstance) {
-      final scope = await showDialog<String>(
-        context: context,
-        builder: (ctx) => AlertDialog(
-          title: const Text('Serientermin löschen'),
-          content: const Text(
-            'Möchtest du nur diesen einen Termin oder die ganze Serie '
-            'löschen?',
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(ctx, 'cancel'),
-              child: const Text('Abbrechen'),
-            ),
-            TextButton(
-              onPressed: () => Navigator.pop(ctx, 'series'),
-              child: const Text('Ganze Serie'),
-            ),
-            FilledButton(
-              onPressed: () => Navigator.pop(ctx, 'this'),
-              child: const Text('Nur diesen'),
-            ),
-          ],
-        ),
-      );
-      if (scope == null || scope == 'cancel') return;
+      final scope = await _askSeriesScope(ev, 'löschen');
+      if (scope == null) return;
       deleteOnlyThis = scope == 'this';
     }
     if (!mounted) return;
@@ -727,8 +728,12 @@ class _EventEditorSheetState extends ConsumerState<_EventEditorSheet> {
               Padding(
                 padding: const EdgeInsets.only(bottom: 12),
                 child: Text(
-                  '🔁 Serientermin – Änderungen wirken sich auf die ganze '
-                  'Serie aus.',
+                  widget.existing!.recurrenceDate != null
+                      ? '🔁 Teil einer Serie – beim Speichern oder Löschen '
+                            'kannst du wählen: nur dieser Termin oder die ganze '
+                            'Serie.'
+                      : '🔁 Serientermin – Änderungen gelten für die ganze '
+                            'Serie.',
                   style: theme.textTheme.bodySmall?.copyWith(
                     color: theme.colorScheme.onSurfaceVariant,
                   ),
