@@ -1,14 +1,18 @@
-/// Ergebnis der Schnell-Eingabe („Zahnarzt morgen 15 Uhr").
+/// Ergebnis der Schnell-Eingabe („Zahnarzt morgen 15 Uhr Arbeit").
 class QuickEntry {
   const QuickEntry({
     required this.title,
     required this.start,
     required this.allDay,
+    this.calendarName,
   });
 
   final String title;
   final DateTime start;
   final bool allDay;
+
+  /// Erkannter Kalendername aus dem Text (z. B. „Arbeit"), sonst `null`.
+  final String? calendarName;
 }
 
 const _weekdays = {
@@ -31,8 +35,14 @@ RegExp _word(String w) =>
 ///
 /// Erkennt (deutsch): „heute/morgen/übermorgen", Wochentage, Datum „5.6."/
 /// „5.6.2026", sowie Uhrzeiten „15 Uhr", „15:30", „um 15 Uhr", „15h".
-/// Ohne Uhrzeit → Ganztags-Termin. Der Rest wird zum Titel.
-QuickEntry parseQuickEntry(String input, DateTime now) {
+/// Ohne Uhrzeit → Ganztags-Termin. Enthält der Text einen der [calendarNames]
+/// (als eigenes Wort), wird dieser als Zielkalender erkannt. Der Rest wird zum
+/// Titel.
+QuickEntry parseQuickEntry(
+  String input,
+  DateTime now, {
+  List<String> calendarNames = const [],
+}) {
   final today = DateTime(now.year, now.month, now.day);
   var rest = ' ${input.trim()} ';
 
@@ -127,9 +137,24 @@ QuickEntry parseQuickEntry(String input, DateTime now) {
     }
   }
 
+  // --- Zielkalender (Kalendername als eigenes Wort im Text) ---
+  String? calendarName;
+  // Längste Namen zuerst, damit z. B. „Arbeit Schmidt" vor „Arbeit" greift.
+  final names = [...calendarNames]
+    ..sort((a, b) => b.length.compareTo(a.length));
+  for (final name in names) {
+    if (name.trim().isEmpty) continue;
+    final m = _word(RegExp.escape(name)).firstMatch(rest);
+    if (m != null) {
+      calendarName = name;
+      remove(m);
+      break;
+    }
+  }
+
   // --- Titel aus dem Rest ---
   var title = rest
-      .replaceAll(RegExp(r'\b(am|um)\b', caseSensitive: false), ' ')
+      .replaceAll(RegExp(r'\b(am|um|im|in)\b', caseSensitive: false), ' ')
       .replaceAll(RegExp(r'\s+'), ' ')
       .trim();
   // Bindestriche/Doppelpunkte am Rand entfernen.
@@ -140,5 +165,10 @@ QuickEntry parseQuickEntry(String input, DateTime now) {
       ? DateTime(day.year, day.month, day.day)
       : DateTime(day.year, day.month, day.day, hour, minute ?? 0);
 
-  return QuickEntry(title: title, start: start, allDay: allDay);
+  return QuickEntry(
+    title: title,
+    start: start,
+    allDay: allDay,
+    calendarName: calendarName,
+  );
 }

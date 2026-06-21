@@ -10,6 +10,8 @@
     <!-- Damit der Hintergrund-Sync (Erinnerungen) nicht von der Akku-Optimierung
          abgewürgt wird – Nutzer kann die App ausnehmen. -->
     <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS"/>
+    <!-- Für die Sprach-Schnelleingabe (speech_to_text). -->
+    <uses-permission android:name="android.permission.RECORD_AUDIO"/>
     <application
         android:label="Unser Familien-Organizer"
         android:name="${applicationName}"
@@ -101,6 +103,10 @@
         <intent>
             <action android:name="android.intent.action.VIEW"/>
             <data android:scheme="https"/>
+        </intent>
+        <!-- Damit speech_to_text den System-Spracherkenner findet (Android 11+). -->
+        <intent>
+            <action android:name="android.speech.RecognitionService"/>
         </intent>
     </queries>
 </manifest>

@@ -19,6 +19,7 @@ Future<void> showEventEditor(
   DateTime? initialStart,
   String? initialTitle,
   bool initialAllDay = false,
+  String? initialCalendarHref,
 }) {
   return showModalBottomSheet<void>(
     context: context,
@@ -34,6 +35,7 @@ Future<void> showEventEditor(
         initialStart: initialStart,
         initialTitle: initialTitle,
         initialAllDay: initialAllDay,
+        initialCalendarHref: initialCalendarHref,
       ),
     ),
   );
@@ -46,6 +48,7 @@ class _EventEditorSheet extends ConsumerStatefulWidget {
     this.initialStart,
     this.initialTitle,
     this.initialAllDay = false,
+    this.initialCalendarHref,
   });
   final CalendarEvent? existing;
   final DateTime? initialDay;
@@ -59,6 +62,9 @@ class _EventEditorSheet extends ConsumerStatefulWidget {
 
   /// Vorbelegt als Ganztags-Termin (Schnell-Eingabe ohne Uhrzeit).
   final bool initialAllDay;
+
+  /// Vorausgewählter Zielkalender (z.B. aus der Schnell-Eingabe).
+  final String? initialCalendarHref;
 
   @override
   ConsumerState<_EventEditorSheet> createState() => _EventEditorSheetState();
@@ -199,6 +205,7 @@ class _EventEditorSheetState extends ConsumerState<_EventEditorSheet> {
       // Vorbelegte Startzeit (z.B. Tippen auf eine Stunde in der Tagesansicht
       // oder Schnell-Eingabe).
       _allDay = widget.initialAllDay;
+      _calendarHref = widget.initialCalendarHref;
       final start = widget.initialStart!;
       _startDate = DateTime(start.year, start.month, start.day);
       _startTime = TimeOfDay(hour: start.hour, minute: start.minute);

@@ -54,4 +54,25 @@ void main() {
     expect(e.title, 'Die Toten Hosen Konzert');
     expect(e.allDay, isTrue);
   });
+
+  test('Kalendername wird erkannt und aus dem Titel entfernt', () {
+    final e = parseQuickEntry(
+      'Meeting morgen 10 Uhr Arbeit',
+      now,
+      calendarNames: ['Arbeit', 'Persönlich'],
+    );
+    expect(e.title, 'Meeting');
+    expect(e.calendarName, 'Arbeit');
+    expect(e.start, DateTime(2026, 6, 11, 10, 0));
+  });
+
+  test('ohne erkannten Kalender bleibt calendarName null', () {
+    final e = parseQuickEntry(
+      'Zahnarzt morgen 15 Uhr',
+      now,
+      calendarNames: ['Arbeit', 'Persönlich'],
+    );
+    expect(e.calendarName, isNull);
+    expect(e.title, 'Zahnarzt');
+  });
 }

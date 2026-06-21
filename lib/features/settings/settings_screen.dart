@@ -1,15 +1,10 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 
 import '../../core/background/background_sync.dart';
-import '../../core/platform/battery_optimization.dart';
 import '../../core/platform/platform_support.dart';
-import '../../core/widgets/home_widgets.dart';
-import '../../core/widgets/widget_diagnostics.dart';
 import '../calendar/birthdays.dart';
-import '../calendar/event_providers.dart';
 import '../../shared/theme/app_theme.dart';
 import '../calendar/event_templates.dart';
 import '../family/family_screen.dart';
@@ -19,6 +14,7 @@ import '../study/study_settings_screen.dart';
 import '../weather/weather_service.dart';
 import 'about_update_sheet.dart';
 import 'notification_providers.dart';
+import 'permissions_screen.dart';
 import 'theme_provider.dart';
 
 /// Einstellungen: Benachrichtigungen & Berechtigungen, App-Update.
@@ -29,52 +25,13 @@ class SettingsScreen extends ConsumerStatefulWidget {
   ConsumerState<SettingsScreen> createState() => _SettingsScreenState();
 }
 
-class _SettingsScreenState extends ConsumerState<SettingsScreen>
-    with WidgetsBindingObserver {
-  bool? _permissionGranted;
-  bool? _batteryIgnored;
+class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   int _versionTaps = 0;
-
-  @override
-  void initState() {
-    super.initState();
-    WidgetsBinding.instance.addObserver(this);
-    _refreshPermission();
-    _refreshBattery();
-  }
-
-  @override
-  void dispose() {
-    WidgetsBinding.instance.removeObserver(this);
-    super.dispose();
-  }
-
-  @override
-  void didChangeAppLifecycleState(AppLifecycleState state) {
-    // Nach Rückkehr aus den System-Dialogen (Akku/Benachrichtigungen) Status neu
-    // prüfen.
-    if (state == AppLifecycleState.resumed) {
-      _refreshPermission();
-      _refreshBattery();
-    }
-  }
-
-  Future<void> _refreshPermission() async {
-    final service = ref.read(notificationServiceProvider);
-    final granted = await service.areNotificationsEnabled();
-    if (mounted) setState(() => _permissionGranted = granted);
-  }
-
-  Future<void> _refreshBattery() async {
-    final ignored = await BatteryOptimization.isIgnoring();
-    if (mounted) setState(() => _batteryIgnored = ignored);
-  }
 
   Future<void> _toggleEnabled(bool value) async {
     final service = ref.read(notificationServiceProvider);
     if (value) {
       final granted = await service.requestPermission();
-      await _refreshPermission();
       if (!granted) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
@@ -266,71 +223,16 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen>
                     ),
                   ),
                 ),
-              const Divider(),
-              _sectionHeader(context, 'Berechtigungen'),
               ListTile(
-                leading: Icon(
-                  _permissionGranted == true
-                      ? Icons.check_circle
-                      : Icons.error_outline,
-                  color: _permissionGranted == true
-                      ? Colors.green
-                      : Theme.of(context).colorScheme.error,
+                leading: const Icon(Icons.shield_outlined),
+                title: const Text('Berechtigungen'),
+                subtitle: const Text(
+                  'Benachrichtigungen, Hintergrund-Aktualisierung & Mikrofon',
                 ),
-                title: const Text('Benachrichtigungen'),
-                subtitle: Text(
-                  _permissionGranted == null
-                      ? 'Status wird geprüft…'
-                      : _permissionGranted!
-                      ? 'Erlaubt'
-                      : 'Nicht erlaubt – für Erinnerungen nötig',
+                trailing: const Icon(Icons.chevron_right),
+                onTap: () => Navigator.of(context).push(
+                  MaterialPageRoute(builder: (_) => const PermissionsScreen()),
                 ),
-                trailing: _permissionGranted == true
-                    ? null
-                    : TextButton(
-                        onPressed: () async {
-                          await ref
-                              .read(notificationServiceProvider)
-                              .requestPermission();
-                          await _refreshPermission();
-                        },
-                        child: const Text('Erlauben'),
-                      ),
-              ),
-              ListTile(
-                leading: const Icon(Icons.notifications_none),
-                title: const Text('Test-Benachrichtigung senden'),
-                onTap: () async {
-                  await ref.read(notificationServiceProvider).showTest();
-                },
-              ),
-              ListTile(
-                leading: Icon(
-                  _batteryIgnored == true
-                      ? Icons.battery_charging_full
-                      : Icons.battery_alert,
-                  color: _batteryIgnored == true
-                      ? Colors.green
-                      : Theme.of(context).colorScheme.error,
-                ),
-                title: const Text('Hintergrund-Aktualisierung'),
-                subtitle: Text(
-                  _batteryIgnored == null
-                      ? 'Status wird geprüft…'
-                      : _batteryIgnored!
-                      ? 'Akku-Optimierung aus – Erinnerungen kommen zuverlässig'
-                      : 'Akku-Optimierung aktiv – Erinnerungen können verspätet '
-                            'kommen oder ausbleiben',
-                ),
-                trailing: _batteryIgnored == true
-                    ? null
-                    : TextButton(
-                        onPressed: () async {
-                          await BatteryOptimization.request();
-                          await _refreshBattery();
-                        },
-                        child: const Text('Erlauben'),
-                      ),
               ),
               const Divider(),
             ],
@@ -447,16 +349,6 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen>
               subtitle: const Text('Neueste Version von GitHub laden'),
               onTap: () => showAboutUpdateSheet(context),
             ),
-            if (isAndroid)
-              ListTile(
-                leading: const Icon(Icons.widgets_outlined),
-                title: const Text('Widget-Diagnose'),
-                subtitle: const Text(
-                  'Prüft das „Anstehende Termine"-Widget und zeigt einen '
-                  'Bericht',
-                ),
-                onTap: _widgetDiagnose,
-              ),
             FutureBuilder<PackageInfo>(
               future: PackageInfo.fromPlatform(),
               builder: (context, snapshot) {
@@ -475,47 +367,6 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen>
             ),
           ],
         ),
-      ),
-    );
-  }
-
-  /// Widget-Diagnose: befüllt das Widget neu und zeigt einen nativen Bericht
-  /// (platzierte Widgets, registrierte Provider, gespeicherte Daten, Rendern).
-  Future<void> _widgetDiagnose() async {
-    final messenger = ScaffoldMessenger.of(context);
-    String push;
-    try {
-      final events = ref.read(visibleEventsProvider);
-      await HomeWidgets.update(events: events);
-      push = 'Befüllen (HomeWidgets.update): OK';
-    } catch (e) {
-      push = 'Befüllen FEHLER: $e';
-    }
-    final report = await widgetDiagnostics();
-    final info = await PackageInfo.fromPlatform();
-    if (!mounted) return;
-    final text =
-        'App-Version: ${info.version} (${info.buildNumber})\n$push\n\n$report';
-    await showDialog<void>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('🔍 Widget-Diagnose'),
-        content: SingleChildScrollView(child: SelectableText(text)),
-        actions: [
-          TextButton(
-            onPressed: () {
-              Clipboard.setData(ClipboardData(text: text));
-              messenger.showSnackBar(
-                const SnackBar(content: Text('Bericht kopiert')),
-              );
-            },
-            child: const Text('Kopieren'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text('Schließen'),
-          ),
-        ],
       ),
     );
   }
