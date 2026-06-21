@@ -591,13 +591,22 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
                                 final faint =
                                     pastDay ||
                                     (dayOnly == today && e.hasPassed(now));
-                                // Geburtstage als Krone statt Punkt.
+                                // Geburtstage als Krone statt Punkt – in fester
+                                // Box, damit sie die Marker-Reihe nicht höher
+                                // zieht als die Punkte.
                                 if (isBirthday(e, birthdayCfg)) {
                                   return Opacity(
                                     opacity: faint ? 0.3 : 1,
-                                    child: const Text(
-                                      '👑',
-                                      style: TextStyle(fontSize: 10),
+                                    child: const SizedBox(
+                                      width: 11,
+                                      height: 8,
+                                      child: FittedBox(
+                                        fit: BoxFit.contain,
+                                        child: Text(
+                                          '👑',
+                                          style: TextStyle(height: 1),
+                                        ),
+                                      ),
                                     ),
                                   );
                                 }
