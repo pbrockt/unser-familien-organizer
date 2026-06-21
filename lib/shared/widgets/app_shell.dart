@@ -9,6 +9,7 @@ import '../../core/auth/account_providers.dart';
 import '../../core/platform/platform_support.dart';
 import '../../features/calendar/event_editor_sheet.dart';
 import '../../features/calendar/event_providers.dart';
+import '../../features/calendar/quick_entry_sheet.dart';
 import '../../features/study/study_planner_sheet.dart';
 import '../../features/tasks/task_editor_sheet.dart';
 import '../../features/tasks/task_providers.dart';
@@ -150,6 +151,12 @@ class _AppShellState extends ConsumerState<AppShell> {
           mainAxisSize: MainAxisSize.min,
           children: [
             ListTile(
+              leading: const Icon(Icons.bolt),
+              title: const Text('Schnell-Eingabe'),
+              subtitle: const Text('z. B. „Zahnarzt morgen 15 Uhr"'),
+              onTap: () => Navigator.pop(ctx, 'quick'),
+            ),
+            ListTile(
               leading: const Icon(Icons.event),
               title: const Text('Neuer Termin'),
               onTap: () => Navigator.pop(ctx, 'event'),
@@ -172,7 +179,9 @@ class _AppShellState extends ConsumerState<AppShell> {
       ),
     );
     if (!mounted || choice == null) return;
-    if (choice == 'study') {
+    if (choice == 'quick') {
+      await showQuickEntrySheet(context);
+    } else if (choice == 'study') {
       await showStudyPlannerSheet(context);
     } else if (choice == 'event') {
       // Im Kalender-Tab den dort gewählten Tag vorbelegen (sonst heute).

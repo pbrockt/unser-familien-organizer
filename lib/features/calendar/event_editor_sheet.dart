@@ -17,6 +17,8 @@ Future<void> showEventEditor(
   CalendarEvent? existing,
   DateTime? initialDay,
   DateTime? initialStart,
+  String? initialTitle,
+  bool initialAllDay = false,
 }) {
   return showModalBottomSheet<void>(
     context: context,
@@ -30,19 +32,33 @@ Future<void> showEventEditor(
         existing: existing,
         initialDay: initialDay,
         initialStart: initialStart,
+        initialTitle: initialTitle,
+        initialAllDay: initialAllDay,
       ),
     ),
   );
 }
 
 class _EventEditorSheet extends ConsumerStatefulWidget {
-  const _EventEditorSheet({this.existing, this.initialDay, this.initialStart});
+  const _EventEditorSheet({
+    this.existing,
+    this.initialDay,
+    this.initialStart,
+    this.initialTitle,
+    this.initialAllDay = false,
+  });
   final CalendarEvent? existing;
   final DateTime? initialDay;
 
   /// Vorbelegte Startzeit (Datum + Uhrzeit), z.B. beim Tippen auf eine Stunde
   /// in der Tagesansicht. Hat Vorrang vor [initialDay].
   final DateTime? initialStart;
+
+  /// Vorbelegter Titel (z.B. aus der Schnell-Eingabe).
+  final String? initialTitle;
+
+  /// Vorbelegt als Ganztags-Termin (Schnell-Eingabe ohne Uhrzeit).
+  final bool initialAllDay;
 
   @override
   ConsumerState<_EventEditorSheet> createState() => _EventEditorSheetState();
@@ -160,7 +176,9 @@ class _EventEditorSheetState extends ConsumerState<_EventEditorSheet> {
   void initState() {
     super.initState();
     final e = widget.existing;
-    _summaryCtrl = TextEditingController(text: e?.summary ?? '');
+    _summaryCtrl = TextEditingController(
+      text: e?.summary ?? widget.initialTitle ?? '',
+    );
     _locationCtrl = TextEditingController(text: e?.location ?? '');
     _descCtrl = TextEditingController(text: e?.description ?? '');
     _reminderMinutes = e?.reminderMinutes;
@@ -178,7 +196,9 @@ class _EventEditorSheetState extends ConsumerState<_EventEditorSheet> {
       _endTime = TimeOfDay.fromDateTime(end);
       _calendarHref = e.calendarHref;
     } else if (widget.initialStart != null) {
-      // Vorbelegte Startzeit (z.B. Tippen auf eine Stunde in der Tagesansicht).
+      // Vorbelegte Startzeit (z.B. Tippen auf eine Stunde in der Tagesansicht
+      // oder Schnell-Eingabe).
+      _allDay = widget.initialAllDay;
       final start = widget.initialStart!;
       _startDate = DateTime(start.year, start.month, start.day);
       _startTime = TimeOfDay(hour: start.hour, minute: start.minute);
