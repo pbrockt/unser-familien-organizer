@@ -92,7 +92,7 @@ class HomeWidgets {
   /// Kalender-Eintrags-Stil: Zeitspanne (von–bis); mehrtägige/ganztägige als
   /// „ganztägig".
   static String _calLine(CalendarEvent e) {
-    if (isBirthday(e)) return '${_colorHex(e)}$_kSep🎂  ${e.summary}';
+    if (isBirthday(e)) return '${_colorHex(e)}$_kSep👑  ${e.summary}';
     final String when;
     if (e.allDay || e.isMultiDay) {
       when = 'ganztägig';

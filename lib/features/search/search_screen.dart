@@ -115,7 +115,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                       backgroundColor: e.color ?? scheme.primary,
                     ),
                     title: Text(
-                      isBirthday(e) ? '🎂 ${e.summary}' : e.summary,
+                      isBirthday(e) ? '👑 ${e.summary}' : e.summary,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),

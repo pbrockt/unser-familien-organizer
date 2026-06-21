@@ -76,7 +76,8 @@ class HomeScreen extends ConsumerWidget {
     // Liste gehängt, sichtbar beim Wischen nach links.
     final passedToday = _passedToday(homeEvents, now, today);
     final countdowns = countdownEvents(events, memberSettings, today);
-    final birthdays = upcomingBirthdays(events, today);
+    // Geburtstage auf der Startseite nur eine Woche im Voraus.
+    final birthdays = upcomingBirthdays(events, today, horizon: 7);
 
     // Tippen auf einen Termin/Countdown → in die Kalender-Tagesansicht springen.
     void openInCalendar(CalendarEvent e) {
@@ -153,7 +154,7 @@ class HomeScreen extends ConsumerWidget {
                         onEdit: (e) => showEventEditor(context, existing: e),
                       ),
                     if (birthdays.isNotEmpty) ...[
-                      const _SectionLabel('🎂 Geburtstage'),
+                      const _SectionLabel('👑 Geburtstage'),
                       ...birthdays
                           .take(5)
                           .map(
@@ -883,7 +884,7 @@ class _BirthdayCard extends StatelessWidget {
                   borderRadius: BorderRadius.circular(11),
                 ),
                 child: const Center(
-                  child: Text('🎂', style: TextStyle(fontSize: 20)),
+                  child: Text('👑', style: TextStyle(fontSize: 20)),
                 ),
               ),
               const SizedBox(width: 10),

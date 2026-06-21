@@ -584,14 +584,24 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
                             return Row(
                               mainAxisAlignment: MainAxisAlignment.center,
                               children: events.take(4).map((e) {
-                                final base =
-                                    e.color ??
-                                    Theme.of(context).colorScheme.primary;
                                 // Vergangene Tage – und heute bereits erledigte
                                 // Termine – nur noch schwach sichtbar.
                                 final faint =
                                     pastDay ||
                                     (dayOnly == today && e.hasPassed(now));
+                                // Geburtstage als Krone statt Punkt.
+                                if (isBirthday(e)) {
+                                  return Opacity(
+                                    opacity: faint ? 0.3 : 1,
+                                    child: const Text(
+                                      '👑',
+                                      style: TextStyle(fontSize: 10),
+                                    ),
+                                  );
+                                }
+                                final base =
+                                    e.color ??
+                                    Theme.of(context).colorScheme.primary;
                                 return Container(
                                   width: 6,
                                   height: 6,
@@ -737,22 +747,28 @@ class _EventTile extends StatelessWidget {
           child: Row(
             children: [
               SizedBox(width: 52, child: _timeBlock(theme, color)),
-              Container(
-                width: 4,
-                height: 42,
-                margin: const EdgeInsets.symmetric(horizontal: 12),
-                decoration: BoxDecoration(
-                  color: color,
-                  borderRadius: BorderRadius.circular(2),
+              if (isBirthday(event))
+                const Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 8),
+                  child: Text('👑', style: TextStyle(fontSize: 22)),
+                )
+              else
+                Container(
+                  width: 4,
+                  height: 42,
+                  margin: const EdgeInsets.symmetric(horizontal: 12),
+                  decoration: BoxDecoration(
+                    color: color,
+                    borderRadius: BorderRadius.circular(2),
+                  ),
                 ),
-              ),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     Text(
-                      isBirthday(event) ? '🎂 ${event.summary}' : event.summary,
+                      event.summary,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: theme.textTheme.titleMedium?.copyWith(
