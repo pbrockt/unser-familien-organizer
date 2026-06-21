@@ -102,7 +102,7 @@ class HomeWidgets {
   /// „ganztägig".
   static String _calLine(CalendarEvent e, BirthdayConfig birthdayCfg) {
     if (isBirthday(e, birthdayCfg)) {
-      return '${_colorHex(e)}$_kSep👑  ${e.summary}';
+      return '${_colorHex(e)}$_kSep👑  ${withBirthdayAge(e.summary, e.start.year)}';
     }
     final String when;
     if (e.allDay || e.isMultiDay) {

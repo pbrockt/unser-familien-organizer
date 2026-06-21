@@ -916,7 +916,10 @@ class _BirthdayCard extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      birthday.event.summary,
+                      withBirthdayAge(
+                        birthday.event.summary,
+                        birthday.date.year,
+                      ),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(

@@ -84,6 +84,23 @@ class _EventEditorSheetState extends ConsumerState<_EventEditorSheet> {
     _ => null,
   };
 
+  /// Liest die Wiederholung aus einem vorhandenen iCal-Text (für die Vorauswahl
+  /// beim Bearbeiten).
+  String _repeatFromIcal(String raw) {
+    final m = RegExp(r'RRULE:([^\r\n]*)').firstMatch(raw);
+    if (m == null) return 'none';
+    final rule = m.group(1)!.toUpperCase();
+    final freq = RegExp(r'FREQ=([A-Z]+)').firstMatch(rule)?.group(1);
+    final interval = RegExp(r'INTERVAL=(\d+)').firstMatch(rule)?.group(1);
+    return switch (freq) {
+      'DAILY' => 'DAILY',
+      'WEEKLY' => interval == '2' ? 'BIWEEKLY' : 'WEEKLY',
+      'MONTHLY' => 'MONTHLY',
+      'YEARLY' => 'YEARLY',
+      _ => 'none',
+    };
+  }
+
   @override
   void initState() {
     super.initState();
@@ -95,6 +112,7 @@ class _EventEditorSheetState extends ConsumerState<_EventEditorSheet> {
 
     if (e != null) {
       _allDay = e.allDay;
+      _repeat = _repeatFromIcal(e.rawIcal);
       _startDate = DateTime(e.start.year, e.start.month, e.start.day);
       _startTime = TimeOfDay.fromDateTime(e.start);
       final end = e.end ?? e.start.add(const Duration(hours: 1));
@@ -314,6 +332,8 @@ class _EventEditorSheetState extends ConsumerState<_EventEditorSheet> {
             location: location,
             description: desc,
             reminderMinutes: _reminderMinutes,
+            rrule: _rruleFor(_repeat),
+            updateRrule: true,
             force: force,
           );
         } else {
@@ -326,6 +346,8 @@ class _EventEditorSheetState extends ConsumerState<_EventEditorSheet> {
             location: location,
             description: desc,
             reminderMinutes: _reminderMinutes,
+            rrule: _rruleFor(_repeat),
+            updateRrule: true,
             force: force,
           );
         }
@@ -644,29 +666,27 @@ class _EventEditorSheetState extends ConsumerState<_EventEditorSheet> {
               ),
             ),
             const SizedBox(height: 12),
-            if (!_isEdit) ...[
-              DropdownButtonFormField<String>(
-                initialValue: _repeat,
-                decoration: const InputDecoration(
-                  labelText: 'Wiederholen (Serientermin)',
-                  prefixIcon: Icon(Icons.repeat),
-                  border: OutlineInputBorder(),
-                ),
-                items: const [
-                  DropdownMenuItem(value: 'none', child: Text('Nie')),
-                  DropdownMenuItem(value: 'DAILY', child: Text('Täglich')),
-                  DropdownMenuItem(value: 'WEEKLY', child: Text('Wöchentlich')),
-                  DropdownMenuItem(
-                    value: 'BIWEEKLY',
-                    child: Text('Alle 2 Wochen'),
-                  ),
-                  DropdownMenuItem(value: 'MONTHLY', child: Text('Monatlich')),
-                  DropdownMenuItem(value: 'YEARLY', child: Text('Jährlich')),
-                ],
-                onChanged: (v) => setState(() => _repeat = v ?? 'none'),
+            DropdownButtonFormField<String>(
+              initialValue: _repeat,
+              decoration: const InputDecoration(
+                labelText: 'Wiederholen (Serientermin)',
+                prefixIcon: Icon(Icons.repeat),
+                border: OutlineInputBorder(),
               ),
-              const SizedBox(height: 12),
-            ],
+              items: const [
+                DropdownMenuItem(value: 'none', child: Text('Nie')),
+                DropdownMenuItem(value: 'DAILY', child: Text('Täglich')),
+                DropdownMenuItem(value: 'WEEKLY', child: Text('Wöchentlich')),
+                DropdownMenuItem(
+                  value: 'BIWEEKLY',
+                  child: Text('Alle 2 Wochen'),
+                ),
+                DropdownMenuItem(value: 'MONTHLY', child: Text('Monatlich')),
+                DropdownMenuItem(value: 'YEARLY', child: Text('Jährlich')),
+              ],
+              onChanged: (v) => setState(() => _repeat = v ?? 'none'),
+            ),
+            const SizedBox(height: 12),
             if (calendars.length > 1)
               Padding(
                 padding: const EdgeInsets.only(bottom: 12),

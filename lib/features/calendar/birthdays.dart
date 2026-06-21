@@ -14,13 +14,14 @@ class BirthdayConfig {
   /// Einträge mit „Geburtstag"/„Birthday").
   final bool useHeuristic;
 
-  /// Ist [e] ein Geburtstag? Ganztägig + (im gewählten Kalender ODER – falls
-  /// erlaubt – per Namens-Erkennung).
+  /// Ist [e] ein Geburtstag?
+  /// - Liegt er im gewählten Geburtstags-Kalender → immer ja (alle Einträge).
+  /// - Sonst nur bei aktiver Namens-Erkennung („externe Quellen") und ganztägig.
   bool isBirthday(CalendarEvent e) {
-    if (!e.allDay) return false;
     final href = calendarHref;
     if (href != null && href.isNotEmpty && e.calendarHref == href) return true;
     if (!useHeuristic) return false;
+    if (!e.allDay) return false;
     final s = '${e.summary} ${e.calendarName}'.toLowerCase();
     return s.contains('geburtstag') ||
         s.contains('birthday') ||
@@ -40,6 +41,19 @@ class BirthdayConfig {
 
 /// Kurzform: ist [e] laut [cfg] ein Geburtstag?
 bool isBirthday(CalendarEvent e, BirthdayConfig cfg) => cfg.isBirthday(e);
+
+/// Hängt das Alter in eckigen Klammern an, wenn der Titel ein (Geburtsjahr) in
+/// runden Klammern enthält – z. B. „Max (1990)" → „Max (1990) [35]" für das
+/// Jahr [yearOfOccurrence].
+String withBirthdayAge(String summary, int yearOfOccurrence) {
+  final m = RegExp(r'\((\d{4})\)').firstMatch(summary);
+  if (m == null) return summary;
+  final birthYear = int.tryParse(m.group(1)!);
+  if (birthYear == null) return summary;
+  final age = yearOfOccurrence - birthYear;
+  if (age <= 0 || age > 130) return summary;
+  return '$summary [$age]';
+}
 
 /// Persistierte Geburtstags-Einstellungen.
 final birthdayConfigProvider =

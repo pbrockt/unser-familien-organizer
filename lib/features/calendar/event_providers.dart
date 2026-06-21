@@ -212,6 +212,8 @@ class EventsController extends AsyncNotifier<List<CalendarEvent>> {
     String? description,
     String? location,
     int? reminderMinutes,
+    String? rrule,
+    bool updateRrule = false,
     bool force = false,
   }) async {
     final account = await ref.read(accountProvider.future);
@@ -227,6 +229,8 @@ class EventsController extends AsyncNotifier<List<CalendarEvent>> {
       description: description,
       location: location,
       reminderMinutes: reminderMinutes,
+      rrule: rrule,
+      updateRrule: updateRrule,
     );
     await repo.putObject(
       account,
@@ -303,6 +307,8 @@ class EventsController extends AsyncNotifier<List<CalendarEvent>> {
     String? description,
     String? location,
     int? reminderMinutes,
+    String? rrule,
+    bool updateRrule = false,
     bool force = false,
   }) async {
     final account = await ref.read(accountProvider.future);
@@ -318,6 +324,8 @@ class EventsController extends AsyncNotifier<List<CalendarEvent>> {
       description: description,
       location: location,
       reminderMinutes: reminderMinutes,
+      rrule: rrule,
+      updateRrule: updateRrule,
     );
 
     final fileName = event.objectHref.split('/').last;

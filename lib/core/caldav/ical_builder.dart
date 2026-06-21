@@ -88,7 +88,9 @@ class IcalBuilder {
     return '${text.substring(0, idx)}RRULE:$rrule\r\n${text.substring(idx)}';
   }
 
-  /// Ändert ein bestehendes VEVENT und behält den Rest (z.B. RRULE) erhalten.
+  /// Ändert ein bestehendes VEVENT. Behält standardmäßig eine vorhandene RRULE.
+  /// Mit [updateRrule] = true wird die Wiederholung ersetzt: bestehende RRULE
+  /// entfernt und – falls [rrule] nicht null/leer – die neue gesetzt.
   String updateEvent(
     String rawIcal, {
     required String summary,
@@ -98,6 +100,8 @@ class IcalBuilder {
     String? description,
     String? location,
     int? reminderMinutes,
+    String? rrule,
+    bool updateRrule = false,
   }) {
     final root = VComponent.parse(rawIcal);
     final components = root is VCalendar ? root.children : [root];
@@ -120,10 +124,17 @@ class IcalBuilder {
           ..timeStamp = DateTime.now();
       }
     }
-    final text = root.toString();
+    var text = root.toString();
+    if (updateRrule) {
+      text = _withRrule(_stripRrule(text), rrule);
+    }
     final withDay = allDay ? _applyAllDay(text, start, effectiveEnd) : text;
     return _withAlarm(withDay, reminderMinutes, summary);
   }
+
+  /// Entfernt alle `RRULE:`-Zeilen.
+  String _stripRrule(String text) =>
+      text.replaceAll(RegExp(r'RRULE:[^\r\n]*\r?\n'), '');
 
   /// Setzt/entfernt einen VALARM (DISPLAY) mit relativem Trigger „[minutes] vor
   /// Beginn". Bestehende VALARM-Blöcke werden zuerst entfernt.

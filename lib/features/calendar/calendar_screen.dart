@@ -764,28 +764,24 @@ class _EventTile extends StatelessWidget {
           child: Row(
             children: [
               SizedBox(width: 52, child: _timeBlock(theme, color)),
-              if (isBirthday(event, birthdayConfig))
-                const Padding(
-                  padding: EdgeInsets.symmetric(horizontal: 8),
-                  child: Text('👑', style: TextStyle(fontSize: 22)),
-                )
-              else
-                Container(
-                  width: 4,
-                  height: 42,
-                  margin: const EdgeInsets.symmetric(horizontal: 12),
-                  decoration: BoxDecoration(
-                    color: color,
-                    borderRadius: BorderRadius.circular(2),
-                  ),
+              Container(
+                width: 4,
+                height: 42,
+                margin: const EdgeInsets.symmetric(horizontal: 12),
+                decoration: BoxDecoration(
+                  color: color,
+                  borderRadius: BorderRadius.circular(2),
                 ),
+              ),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     Text(
-                      event.summary,
+                      isBirthday(event, birthdayConfig)
+                          ? '👑 ${withBirthdayAge(event.summary, event.start.year)}'
+                          : event.summary,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: theme.textTheme.titleMedium?.copyWith(
