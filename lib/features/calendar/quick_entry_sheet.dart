@@ -16,7 +16,11 @@ import 'quick_entry_help.dart';
 /// Schnell-Eingabe: Freitext wie „Zahnarzt morgen 15 Uhr Arbeit" → erkennt Typ,
 /// Datum, Uhrzeit, Serie, Kalender/Liste, Erinnerung … und öffnet danach den
 /// passenden Editor (bzw. fügt Einkaufsartikel direkt hinzu).
-Future<void> showQuickEntrySheet(BuildContext context, WidgetRef ref) async {
+Future<void> showQuickEntrySheet(
+  BuildContext context,
+  WidgetRef ref, {
+  String? initialText,
+}) async {
   final entry = await showModalBottomSheet<QuickEntry>(
     context: context,
     isScrollControlled: true,
@@ -25,7 +29,7 @@ Future<void> showQuickEntrySheet(BuildContext context, WidgetRef ref) async {
       padding: EdgeInsets.only(
         bottom: MediaQuery.of(context).viewInsets.bottom,
       ),
-      child: const _QuickEntrySheet(),
+      child: _QuickEntrySheet(initialText: initialText),
     ),
   );
   if (entry == null || !context.mounted) return;
@@ -160,7 +164,8 @@ Future<void> _addShopping(
 }
 
 class _QuickEntrySheet extends ConsumerStatefulWidget {
-  const _QuickEntrySheet();
+  const _QuickEntrySheet({this.initialText});
+  final String? initialText;
 
   @override
   ConsumerState<_QuickEntrySheet> createState() => _QuickEntrySheetState();
@@ -176,6 +181,11 @@ class _QuickEntrySheetState extends ConsumerState<_QuickEntrySheet> {
   @override
   void initState() {
     super.initState();
+    final initial = widget.initialText?.trim() ?? '';
+    if (initial.isNotEmpty) {
+      _text = initial;
+      _ctrl.text = initial;
+    }
     _initSpeech();
   }
 

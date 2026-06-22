@@ -7,6 +7,7 @@ import 'package:home_widget/home_widget.dart';
 
 import '../../core/auth/account_providers.dart';
 import '../../core/platform/platform_support.dart';
+import '../../core/platform/share_intent.dart';
 import '../../features/calendar/event_editor_sheet.dart';
 import '../../features/calendar/event_providers.dart';
 import '../../features/calendar/quick_entry_sheet.dart';
@@ -53,6 +54,7 @@ class _AppShellState extends ConsumerState<AppShell> {
         runUpdateCheck(context, ref, silentIfNone: true);
       }
       _handleInitialWidgetLaunch();
+      _handleSharedText();
     });
     // Klicks aus Widgets, während die App schon läuft.
     if (isAndroid) {
@@ -66,6 +68,19 @@ class _AppShellState extends ConsumerState<AppShell> {
   void dispose() {
     _widgetSub?.cancel();
     super.dispose();
+  }
+
+  /// Geteilten Text (ACTION_SEND) aus anderen Apps in die Schnell-Eingabe
+  /// leiten – beim Start und während die App läuft.
+  Future<void> _handleSharedText() async {
+    if (!isAndroid) return;
+    setSharedTextHandler((text) {
+      if (mounted) showQuickEntrySheet(context, ref, initialText: text);
+    });
+    final initial = await getInitialSharedText();
+    if (initial != null && initial.trim().isNotEmpty && mounted) {
+      await showQuickEntrySheet(context, ref, initialText: initial);
+    }
   }
 
   /// Wurde die App über ein Widget gestartet? Dann passend reagieren.

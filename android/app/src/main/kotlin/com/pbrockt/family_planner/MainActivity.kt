@@ -13,9 +13,26 @@ import io.flutter.plugin.common.MethodChannel
 class MainActivity : FlutterActivity() {
     private val batteryChannel = "com.pbrockt.family_planner/battery"
     private val widgetChannel = "com.pbrockt.family_planner/widget"
+    private val shareChannel = "com.pbrockt.family_planner/share"
+    private var shareMethodChannel: MethodChannel? = null
+    private var initialSharedText: String? = null
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
+        // Geteilten Text beim (Kalt-)Start merken; warme Shares via onNewIntent.
+        initialSharedText = extractSharedText(intent)
+        shareMethodChannel =
+            MethodChannel(flutterEngine.dartExecutor.binaryMessenger, shareChannel)
+        shareMethodChannel?.setMethodCallHandler { call, result ->
+            when (call.method) {
+                "getInitial" -> {
+                    val t = initialSharedText
+                    initialSharedText = null
+                    result.success(t)
+                }
+                else -> result.notImplemented()
+            }
+        }
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, batteryChannel)
             .setMethodCallHandler { call, result ->
                 when (call.method) {
@@ -40,6 +57,23 @@ class MainActivity : FlutterActivity() {
                     else -> result.notImplemented()
                 }
             }
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        val text = extractSharedText(intent)
+        if (text != null) shareMethodChannel?.invokeMethod("shared", text)
+    }
+
+    private fun extractSharedText(intent: Intent?): String? {
+        if (intent == null) return null
+        if (intent.action == Intent.ACTION_SEND &&
+            intent.type?.startsWith("text") == true
+        ) {
+            return intent.getStringExtra(Intent.EXTRA_TEXT)
+        }
+        return null
     }
 
     private fun isIgnoringBatteryOptimizations(): Boolean {
