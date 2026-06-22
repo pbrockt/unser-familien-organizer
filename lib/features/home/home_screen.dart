@@ -647,8 +647,13 @@ class _UpcomingStrip extends StatefulWidget {
 }
 
 class _UpcomingStripState extends State<_UpcomingStrip> {
+  // Start so vorgescrollt, dass die abgelaufenen Termine komplett links außerhalb
+  // liegen und der erste laufende/anstehende Termin am linken Rand beginnt
+  // (+16 = führendes Padding).
   late final ScrollController _controller = ScrollController(
-    initialScrollOffset: widget.passed.length * _kCardExtent,
+    initialScrollOffset: widget.passed.isEmpty
+        ? 0
+        : widget.passed.length * _kCardExtent + 16,
   );
 
   @override
@@ -663,31 +668,40 @@ class _UpcomingStripState extends State<_UpcomingStrip> {
     final upcoming = widget.upcoming;
     return SizedBox(
       height: 118,
-      child: ListView.builder(
-        controller: _controller,
-        scrollDirection: Axis.horizontal,
-        padding: const EdgeInsets.symmetric(horizontal: 16),
-        itemCount: passed.length + upcoming.length,
-        itemBuilder: (context, i) {
-          if (i < passed.length) {
-            final e = passed[i];
-            return _EventCard(
-              event: e,
-              now: widget.now,
-              highlighted: false,
-              passed: true,
-              onTap: () => widget.onOpen(e),
-              onLongPress: () => widget.onEdit(e),
-            );
-          }
-          final idx = i - passed.length;
-          final e = upcoming[idx];
-          return _EventCard(
-            event: e,
-            now: widget.now,
-            highlighted: idx == 0,
-            onTap: () => widget.onOpen(e),
-            onLongPress: () => widget.onEdit(e),
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          // Trailing-Platz, damit die Liste weit genug scrollen kann, um die
+          // abgelaufenen Termine auch bei wenig Inhalt links rauszuschieben.
+          // Ist nichts Anstehendes da, bleibt der Bereich einfach leer.
+          final trailing =
+              (constraints.maxWidth - upcoming.length * _kCardExtent).clamp(
+                0.0,
+                double.infinity,
+              );
+          return ListView(
+            controller: _controller,
+            scrollDirection: Axis.horizontal,
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            children: [
+              for (final e in passed)
+                _EventCard(
+                  event: e,
+                  now: widget.now,
+                  highlighted: false,
+                  passed: true,
+                  onTap: () => widget.onOpen(e),
+                  onLongPress: () => widget.onEdit(e),
+                ),
+              for (var idx = 0; idx < upcoming.length; idx++)
+                _EventCard(
+                  event: upcoming[idx],
+                  now: widget.now,
+                  highlighted: idx == 0,
+                  onTap: () => widget.onOpen(upcoming[idx]),
+                  onLongPress: () => widget.onEdit(upcoming[idx]),
+                ),
+              if (trailing > 0) SizedBox(width: trailing),
+            ],
           );
         },
       ),
