@@ -180,7 +180,7 @@ class _AppShellState extends ConsumerState<AppShell> {
     );
     if (!mounted || choice == null) return;
     if (choice == 'quick') {
-      await showQuickEntrySheet(context);
+      await showQuickEntrySheet(context, ref);
     } else if (choice == 'study') {
       await showStudyPlannerSheet(context);
     } else if (choice == 'event') {

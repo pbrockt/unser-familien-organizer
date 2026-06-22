@@ -12,6 +12,10 @@ Future<void> showTaskEditor(
   BuildContext context, {
   required List<TaskList> lists,
   TaskItem? existing,
+  String? initialTitle,
+  DateTime? initialDue,
+  String? initialListHref,
+  String initialRepeat = 'none',
 }) {
   return showModalBottomSheet<void>(
     context: context,
@@ -22,15 +26,33 @@ Future<void> showTaskEditor(
       padding: EdgeInsets.only(
         bottom: MediaQuery.of(context).viewInsets.bottom,
       ),
-      child: _TaskEditorSheet(lists: lists, existing: existing),
+      child: _TaskEditorSheet(
+        lists: lists,
+        existing: existing,
+        initialTitle: initialTitle,
+        initialDue: initialDue,
+        initialListHref: initialListHref,
+        initialRepeat: initialRepeat,
+      ),
     ),
   );
 }
 
 class _TaskEditorSheet extends ConsumerStatefulWidget {
-  const _TaskEditorSheet({required this.lists, this.existing});
+  const _TaskEditorSheet({
+    required this.lists,
+    this.existing,
+    this.initialTitle,
+    this.initialDue,
+    this.initialListHref,
+    this.initialRepeat = 'none',
+  });
   final List<TaskList> lists;
   final TaskItem? existing;
+  final String? initialTitle;
+  final DateTime? initialDue;
+  final String? initialListHref;
+  final String initialRepeat;
 
   @override
   ConsumerState<_TaskEditorSheet> createState() => _TaskEditorSheetState();
@@ -76,11 +98,18 @@ class _TaskEditorSheetState extends ConsumerState<_TaskEditorSheet> {
   void initState() {
     super.initState();
     final e = widget.existing;
-    _summaryCtrl = TextEditingController(text: e?.summary ?? '');
+    _summaryCtrl = TextEditingController(
+      text: e?.summary ?? widget.initialTitle ?? '',
+    );
     _descCtrl = TextEditingController(text: e?.description ?? '');
-    _due = e?.due;
-    if (e != null) _repeat = _repeatFromIcal(e.rawIcal);
-    _listHref = widget.lists.isNotEmpty ? widget.lists.first.href : '';
+    _due = e?.due ?? widget.initialDue;
+    _repeat = e != null ? _repeatFromIcal(e.rawIcal) : widget.initialRepeat;
+    final fallback = widget.lists.isNotEmpty ? widget.lists.first.href : '';
+    // Vorausgewählte Liste nur, wenn sie existiert.
+    final wanted = widget.initialListHref;
+    _listHref = (wanted != null && widget.lists.any((l) => l.href == wanted))
+        ? wanted
+        : fallback;
   }
 
   @override

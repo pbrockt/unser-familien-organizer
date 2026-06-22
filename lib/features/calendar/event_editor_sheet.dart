@@ -20,6 +20,11 @@ Future<void> showEventEditor(
   String? initialTitle,
   bool initialAllDay = false,
   String? initialCalendarHref,
+  DateTime? initialEnd,
+  String? initialRrule,
+  int? initialReminderMinutes,
+  bool initialSaveAsTemplate = false,
+  String? initialLocation,
 }) {
   return showModalBottomSheet<void>(
     context: context,
@@ -36,6 +41,11 @@ Future<void> showEventEditor(
         initialTitle: initialTitle,
         initialAllDay: initialAllDay,
         initialCalendarHref: initialCalendarHref,
+        initialEnd: initialEnd,
+        initialRrule: initialRrule,
+        initialReminderMinutes: initialReminderMinutes,
+        initialSaveAsTemplate: initialSaveAsTemplate,
+        initialLocation: initialLocation,
       ),
     ),
   );
@@ -49,6 +59,11 @@ class _EventEditorSheet extends ConsumerStatefulWidget {
     this.initialTitle,
     this.initialAllDay = false,
     this.initialCalendarHref,
+    this.initialEnd,
+    this.initialRrule,
+    this.initialReminderMinutes,
+    this.initialSaveAsTemplate = false,
+    this.initialLocation,
   });
   final CalendarEvent? existing;
   final DateTime? initialDay;
@@ -65,6 +80,21 @@ class _EventEditorSheet extends ConsumerStatefulWidget {
 
   /// Vorausgewählter Zielkalender (z.B. aus der Schnell-Eingabe).
   final String? initialCalendarHref;
+
+  /// Vorbelegtes Ende (Schnell-Eingabe „14–16 Uhr" / „für 2 Std").
+  final DateTime? initialEnd;
+
+  /// Vorbelegte Wiederholung als RRULE-String (z.B. „FREQ=WEEKLY").
+  final String? initialRrule;
+
+  /// Vorbelegte Erinnerung in Minuten.
+  final int? initialReminderMinutes;
+
+  /// Vorbelegt: „als Vorlage speichern" angehakt.
+  final bool initialSaveAsTemplate;
+
+  /// Vorbelegter Ort.
+  final String? initialLocation;
 
   @override
   ConsumerState<_EventEditorSheet> createState() => _EventEditorSheetState();
@@ -119,6 +149,18 @@ class _EventEditorSheetState extends ConsumerState<_EventEditorSheet> {
       return '$base;COUNT=${_repeatCount < 1 ? 1 : _repeatCount}';
     }
     return base;
+  }
+
+  /// Rundet eine (z.B. aus der Schnell-Eingabe stammende) Erinnerungs-Minutenzahl
+  /// auf einen der Dropdown-Werte, damit die Vorauswahl gültig ist.
+  int? _snapReminder(int? minutes) {
+    if (minutes == null || minutes <= 0) return null;
+    const options = [5, 15, 30, 60, 120, 1440];
+    var best = options.first;
+    for (final o in options) {
+      if ((o - minutes).abs() < (best - minutes).abs()) best = o;
+    }
+    return best;
   }
 
   /// UNTIL-Wert: Ganztägig als DATE (YYYYMMDD), sonst DATE-TIME in UTC.
@@ -185,9 +227,13 @@ class _EventEditorSheetState extends ConsumerState<_EventEditorSheet> {
     _summaryCtrl = TextEditingController(
       text: e?.summary ?? widget.initialTitle ?? '',
     );
-    _locationCtrl = TextEditingController(text: e?.location ?? '');
+    _locationCtrl = TextEditingController(
+      text: e?.location ?? widget.initialLocation ?? '',
+    );
     _descCtrl = TextEditingController(text: e?.description ?? '');
-    _reminderMinutes = e?.reminderMinutes;
+    _reminderMinutes =
+        e?.reminderMinutes ?? _snapReminder(widget.initialReminderMinutes);
+    _saveAsTemplate = widget.initialSaveAsTemplate;
 
     if (e != null) {
       _allDay = e.allDay;
@@ -209,8 +255,19 @@ class _EventEditorSheetState extends ConsumerState<_EventEditorSheet> {
       final start = widget.initialStart!;
       _startDate = DateTime(start.year, start.month, start.day);
       _startTime = TimeOfDay(hour: start.hour, minute: start.minute);
-      _endDate = _startDate;
-      _endTime = TimeOfDay(hour: (start.hour + 1) % 24, minute: start.minute);
+      final iEnd = widget.initialEnd;
+      if (iEnd != null) {
+        _endDate = DateTime(iEnd.year, iEnd.month, iEnd.day);
+        _endTime = TimeOfDay(hour: iEnd.hour, minute: iEnd.minute);
+      } else {
+        _endDate = _startDate;
+        _endTime = TimeOfDay(hour: (start.hour + 1) % 24, minute: start.minute);
+      }
+      final rrule = widget.initialRrule;
+      if (rrule != null && rrule.isNotEmpty) {
+        _repeat = _repeatFromIcal('RRULE:$rrule');
+        _repeatEndFromIcal('RRULE:$rrule');
+      }
     } else {
       final base = widget.initialDay ?? DateTime.now();
       final start = DateTime(
@@ -744,6 +801,8 @@ class _EventEditorSheetState extends ConsumerState<_EventEditorSheet> {
                 DropdownMenuItem(value: 15, child: Text('15 Minuten vorher')),
                 DropdownMenuItem(value: 30, child: Text('30 Minuten vorher')),
                 DropdownMenuItem(value: 60, child: Text('1 Stunde vorher')),
+                DropdownMenuItem(value: 120, child: Text('2 Stunden vorher')),
+                DropdownMenuItem(value: 1440, child: Text('1 Tag vorher')),
               ],
               onChanged: (v) => setState(
                 () => _reminderMinutes = (v == null || v == 0) ? null : v,
