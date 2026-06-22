@@ -1,11 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../core/notifications/notification_service.dart';
 import '../../core/widgets/home_widgets.dart';
 import '../calendar/event_providers.dart';
 import '../members/member_settings.dart';
 import '../tasks/task_providers.dart';
 import '../weather/weather_service.dart';
+import 'briefing_planner.dart';
+import 'briefing_providers.dart';
 import 'notification_providers.dart';
 import 'reminder_planner.dart';
 
@@ -50,6 +53,7 @@ class _ReminderSyncState extends ConsumerState<ReminderSync>
     ref.listen(eventsControllerProvider, (_, _) => _reschedule());
     ref.listen(tasksControllerProvider, (_, _) => _reschedule());
     ref.listen(notificationSettingsProvider, (_, _) => _reschedule());
+    ref.listen(briefingSettingsProvider, (_, _) => _reschedule());
     ref.listen(memberSettingsProvider, (_, _) => _reschedule());
     ref.listen(weatherProvider, (_, _) => _reschedule());
     return widget.child;
@@ -70,16 +74,27 @@ class _ReminderSyncState extends ConsumerState<ReminderSync>
     );
 
     final settings = ref.read(notificationSettingsProvider).value;
+    final briefingCfg =
+        ref.read(briefingSettingsProvider).value ?? const BriefingSettings();
     final service = ref.read(notificationServiceProvider);
     if (settings == null) return;
-
-    if (!settings.enabled) {
-      await service.cancelAll();
+    if (!await service.areNotificationsEnabled()) {
+      if (!settings.enabled) await service.cancelAll();
       return;
     }
-    if (!await service.areNotificationsEnabled()) return;
 
-    final reminders = planReminders(events: events, taskLists: lists);
-    await service.schedule(reminders);
+    final items = <ScheduledReminder>[];
+    if (settings.enabled) {
+      items.addAll(planReminders(events: events, taskLists: lists));
+    }
+    final briefing = planDailyBriefing(
+      events: events,
+      taskLists: lists,
+      weather: weather,
+      enabled: briefingCfg.enabled,
+      minutesOfDay: briefingCfg.minutesOfDay,
+    );
+    if (briefing != null) items.add(briefing);
+    await service.schedule(items);
   }
 }

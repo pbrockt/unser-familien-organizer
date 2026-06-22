@@ -6,8 +6,11 @@ import 'package:workmanager/workmanager.dart';
 import '../../features/calendar/events_builder.dart';
 import '../../features/members/member_settings.dart';
 import '../../features/settings/backup_providers.dart';
+import '../../features/settings/briefing_planner.dart';
+import '../../features/settings/briefing_providers.dart';
 import '../../features/settings/notification_providers.dart';
 import '../../features/settings/reminder_planner.dart';
+import '../notifications/notification_service.dart';
 import '../../features/tasks/tasks_builder.dart';
 import '../../features/weather/weather_service.dart';
 import '../auth/account_providers.dart';
@@ -55,13 +58,26 @@ void callbackDispatcher() {
         weather: weather,
       );
 
-      // Erinnerungen nur, wenn aktiviert.
+      // Erinnerungen (falls aktiviert) + tägliches Briefing (falls aktiviert).
       final settings = await container.read(
         notificationSettingsProvider.future,
       );
+      final briefingCfg = await container.read(briefingSettingsProvider.future);
       final service = container.read(notificationServiceProvider);
-      if (settings.enabled && await service.areNotificationsEnabled()) {
-        await service.schedule(planReminders(events: events, taskLists: lists));
+      if (await service.areNotificationsEnabled()) {
+        final items = <ScheduledReminder>[];
+        if (settings.enabled) {
+          items.addAll(planReminders(events: events, taskLists: lists));
+        }
+        final briefing = planDailyBriefing(
+          events: events,
+          taskLists: lists,
+          weather: weather,
+          enabled: briefingCfg.enabled,
+          minutesOfDay: briefingCfg.minutesOfDay,
+        );
+        if (briefing != null) items.add(briefing);
+        await service.schedule(items);
       }
 
       // Automatische Sicherung (falls fällig).

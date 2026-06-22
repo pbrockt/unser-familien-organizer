@@ -14,6 +14,7 @@ import '../study/study_settings_screen.dart';
 import '../weather/weather_service.dart';
 import 'about_update_sheet.dart';
 import 'backup_screen.dart';
+import 'briefing_providers.dart';
 import 'notification_providers.dart';
 import 'permissions_screen.dart';
 import 'theme_provider.dart';
@@ -97,6 +98,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     final upcomingDays = ref.watch(upcomingDaysProvider).value ?? 2;
     final birthdayCfg =
         ref.watch(birthdayConfigProvider).value ?? const BirthdayConfig();
+    final briefing =
+        ref.watch(briefingSettingsProvider).value ?? const BriefingSettings();
     const dayChoices = [1, 2, 3, 5, 7, 14];
     final daysValue = dayChoices.contains(upcomingDays) ? upcomingDays : 2;
 
@@ -223,6 +226,40 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                       color: Theme.of(context).colorScheme.onSurfaceVariant,
                     ),
                   ),
+                ),
+              SwitchListTile(
+                secondary: const Icon(Icons.wb_twilight),
+                title: const Text('Tages-Briefing (morgens)'),
+                subtitle: const Text(
+                  'Tägliche Übersicht: Termine, fällige Aufgaben & Wetter',
+                ),
+                value: briefing.enabled,
+                onChanged: (v) =>
+                    ref.read(briefingSettingsProvider.notifier).setEnabled(v),
+              ),
+              if (briefing.enabled)
+                ListTile(
+                  leading: const Icon(Icons.schedule),
+                  title: const Text('Uhrzeit des Briefings'),
+                  trailing: Text(
+                    '${briefing.hour.toString().padLeft(2, '0')}:'
+                    '${briefing.minute.toString().padLeft(2, '0')} Uhr',
+                    style: Theme.of(context).textTheme.titleMedium,
+                  ),
+                  onTap: () async {
+                    final picked = await showTimePicker(
+                      context: context,
+                      initialTime: TimeOfDay(
+                        hour: briefing.hour,
+                        minute: briefing.minute,
+                      ),
+                    );
+                    if (picked != null) {
+                      await ref
+                          .read(briefingSettingsProvider.notifier)
+                          .setTime(picked.hour * 60 + picked.minute);
+                    }
+                  },
                 ),
               ListTile(
                 leading: const Icon(Icons.shield_outlined),
@@ -357,9 +394,9 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                 'Einstellungen & Vorlagen auf der Nextcloud sichern',
               ),
               trailing: const Icon(Icons.chevron_right),
-              onTap: () => Navigator.of(context).push(
-                MaterialPageRoute(builder: (_) => const BackupScreen()),
-              ),
+              onTap: () => Navigator.of(
+                context,
+              ).push(MaterialPageRoute(builder: (_) => const BackupScreen())),
             ),
             FutureBuilder<PackageInfo>(
               future: PackageInfo.fromPlatform(),
