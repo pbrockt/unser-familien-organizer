@@ -13,6 +13,7 @@ import '../members/member_settings.dart';
 import '../study/study_settings_screen.dart';
 import '../weather/weather_service.dart';
 import 'about_update_sheet.dart';
+import 'backup_screen.dart';
 import 'notification_providers.dart';
 import 'permissions_screen.dart';
 import 'theme_provider.dart';
@@ -348,6 +349,17 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               title: const Text('Nach Updates suchen'),
               subtitle: const Text('Neueste Version von GitHub laden'),
               onTap: () => showAboutUpdateSheet(context),
+            ),
+            ListTile(
+              leading: const Icon(Icons.cloud_sync_outlined),
+              title: const Text('Sicherung & Wiederherstellung'),
+              subtitle: const Text(
+                'Einstellungen & Vorlagen auf der Nextcloud sichern',
+              ),
+              trailing: const Icon(Icons.chevron_right),
+              onTap: () => Navigator.of(context).push(
+                MaterialPageRoute(builder: (_) => const BackupScreen()),
+              ),
             ),
             FutureBuilder<PackageInfo>(
               future: PackageInfo.fromPlatform(),

@@ -1,14 +1,17 @@
 import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:workmanager/workmanager.dart';
 
 import '../../features/calendar/events_builder.dart';
 import '../../features/members/member_settings.dart';
+import '../../features/settings/backup_providers.dart';
 import '../../features/settings/notification_providers.dart';
 import '../../features/settings/reminder_planner.dart';
 import '../../features/tasks/tasks_builder.dart';
 import '../../features/weather/weather_service.dart';
 import '../auth/account_providers.dart';
+import '../backup/backup_service.dart';
 import '../platform/platform_support.dart';
 import '../widgets/home_widgets.dart';
 
@@ -60,6 +63,25 @@ void callbackDispatcher() {
       if (settings.enabled && await service.areNotificationsEnabled()) {
         await service.schedule(planReminders(events: events, taskLists: lists));
       }
+
+      // Automatische Sicherung (falls fällig).
+      try {
+        final prefs = await SharedPreferences.getInstance();
+        final freq = prefs.getString(kBackupFreqKey) ?? 'weekly';
+        final lastMs = prefs.getInt(kBackupLastKey);
+        final last = lastMs == null
+            ? null
+            : DateTime.fromMillisecondsSinceEpoch(lastMs);
+        if (isBackupDue(freq, last, DateTime.now())) {
+          final svc = BackupService(account);
+          await svc.createBackup();
+          await svc.pruneOld();
+          await prefs.setInt(
+            kBackupLastKey,
+            DateTime.now().millisecondsSinceEpoch,
+          );
+        }
+      } catch (_) {}
       return true;
     } catch (_) {
       return false; // WorkManager versucht es später erneut.
