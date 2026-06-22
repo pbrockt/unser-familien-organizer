@@ -10,6 +10,7 @@ import '../../core/platform/platform_support.dart';
 import '../../features/calendar/event_editor_sheet.dart';
 import '../../features/calendar/event_providers.dart';
 import '../../features/calendar/quick_entry_sheet.dart';
+import '../../features/onboarding/onboarding_screen.dart';
 import '../../features/study/study_planner_sheet.dart';
 import '../../features/tasks/task_editor_sheet.dart';
 import '../../features/tasks/task_providers.dart';
@@ -42,7 +43,10 @@ class _AppShellState extends ConsumerState<AppShell> {
     super.initState();
     // Beim Start einmalig auf eine neue Version prüfen. Hier (im Navigator)
     // gibt es einen gültigen Context für den Update-Dialog.
-    WidgetsBinding.instance.addPostFrameCallback((_) {
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      if (!mounted) return;
+      // Ersteinrichtung beim allerersten Start.
+      await maybeShowOnboarding(context, ref);
       if (!mounted) return;
       if (!_updateChecked && isAndroid) {
         _updateChecked = true;
