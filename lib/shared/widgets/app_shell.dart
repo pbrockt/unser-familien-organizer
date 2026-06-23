@@ -102,6 +102,11 @@ class _AppShellState extends ConsumerState<AppShell> {
       case 'newevent':
         _openNewEvent();
         break;
+      case 'quickadd':
+        if (ref.read(accountProvider).value != null) {
+          showQuickEntrySheet(context, ref);
+        }
+        break;
       case 'calendar':
         widget.navigationShell.goBranch(1, initialLocation: false);
         break;

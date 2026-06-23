@@ -200,6 +200,33 @@ class DesignWidget : HomeWidgetProvider() {
     }
 }
 
+/** „Schnell-Eingabe" – kleiner Knopf, der direkt die Schnell-Eingabe öffnet. */
+class QuickAddWidget : HomeWidgetProvider() {
+    override fun onUpdate(
+        context: Context,
+        appWidgetManager: AppWidgetManager,
+        appWidgetIds: IntArray,
+        widgetData: SharedPreferences,
+    ) {
+        for (id in appWidgetIds) {
+            val views = RemoteViews(context.packageName, R.layout.fp_widget_quickadd)
+            views.setOnClickPendingIntent(
+                R.id.fp_widget_root,
+                HomeWidgetLaunchIntent.getActivity(
+                    context,
+                    MainActivity::class.java,
+                    Uri.parse("familyplanner://quickadd"),
+                ),
+            )
+            try {
+                appWidgetManager.updateAppWidget(id, views)
+            } catch (e: Throwable) {
+                // lieber keine Aktualisierung als ein Absturz
+            }
+        }
+    }
+}
+
 /**
  * Diagnose für den „Widget-Diagnose"-Knopf in den Einstellungen. Liefert harte
  * Fakten: platzierte Widgets, registrierte Provider und gespeicherte Daten.
