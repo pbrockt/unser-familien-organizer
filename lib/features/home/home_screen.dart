@@ -2,12 +2,14 @@ import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 
 import '../../core/auth/account_providers.dart';
 import '../../core/auth/nextcloud_account.dart';
+import '../../core/sync/sync_probe.dart';
 import '../../core/sync/sync_status.dart';
 import '../../shared/widgets/blob_background.dart';
 import '../../shared/widgets/running_badge.dart';
@@ -1315,12 +1317,67 @@ class _NextcloudAvatarState extends ConsumerState<_NextcloudAvatar> {
         title: const Text('🔍 Sync-Diagnose'),
         content: SingleChildScrollView(child: SelectableText(lines.join('\n'))),
         actions: [
+          if (a != null)
+            TextButton(
+              onPressed: () {
+                Navigator.pop(ctx);
+                _runConnectionTest(a);
+              },
+              child: const Text('Verbindung testen'),
+            ),
           TextButton(
             onPressed: () {
               Navigator.pop(ctx);
               _triggerSync(force: true);
             },
             child: const Text('Jetzt synchronisieren'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Schließen'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Direkter Verbindungs-Test (HTTP-Status, Header, Fehlertyp) zur Fehlersuche.
+  Future<void> _runConnectionTest(NextcloudAccount account) async {
+    showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => const AlertDialog(
+        content: Row(
+          children: [
+            CircularProgressIndicator(),
+            SizedBox(width: 16),
+            Expanded(child: Text('Teste Verbindung …')),
+          ],
+        ),
+      ),
+    );
+    String report;
+    try {
+      report = await runConnectionProbe(account);
+    } catch (e) {
+      report = 'Test fehlgeschlagen: $e';
+    }
+    if (!mounted) return;
+    Navigator.of(context).pop(); // Lade-Dialog schließen
+    await showDialog<void>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('🔌 Verbindungstest'),
+        content: SingleChildScrollView(child: SelectableText(report)),
+        actions: [
+          TextButton(
+            onPressed: () {
+              Clipboard.setData(ClipboardData(text: report));
+              ScaffoldMessenger.of(
+                context,
+              ).showSnackBar(const SnackBar(content: Text('Bericht kopiert')));
+            },
+            child: const Text('Kopieren'),
           ),
           FilledButton(
             onPressed: () => Navigator.pop(ctx),
