@@ -1,6 +1,9 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
+import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
 
 import '../../core/caldav/caldav_exception.dart';
@@ -58,25 +61,45 @@ Future<void> _shareEvent(BuildContext context, CalendarEvent e) async {
   final when = e.allDay
       ? df.format(e.start)
       : '${df.format(e.start)}, ${tf.format(e.start)}'
-          '${e.end != null ? ' – ${tf.format(e.end!)}' : ''} Uhr';
+            '${e.end != null ? ' – ${tf.format(e.end!)}' : ''} Uhr';
   final loc = (e.location != null && e.location!.isNotEmpty)
       ? '\n📍 ${e.location}'
       : '';
   final text = '${e.summary}\n$when$loc';
   try {
-    await SharePlus.instance
-        .share(ShareParams(text: text, subject: e.summary));
+    // Wenn der iCal-Body vorliegt, eine echte .ics-Datei mitschicken
+    // (in andere Kalender-Apps importierbar) – sonst nur Text.
+    if (e.rawIcal.trim().isNotEmpty) {
+      final dir = await getTemporaryDirectory();
+      final safe = e.summary.replaceAll(RegExp(r'[^\wäöüÄÖÜß\- ]+'), '').trim();
+      final file = File('${dir.path}/${safe.isEmpty ? 'Termin' : safe}.ics');
+      await file.writeAsString(e.rawIcal);
+      await SharePlus.instance.share(
+        ShareParams(
+          files: [XFile(file.path, mimeType: 'text/calendar')],
+          text: text,
+          subject: e.summary,
+        ),
+      );
+    } else {
+      await SharePlus.instance.share(
+        ShareParams(text: text, subject: e.summary),
+      );
+    }
   } catch (err) {
     if (context.mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Teilen nicht möglich: $err')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Teilen nicht möglich: $err')));
     }
   }
 }
 
 Future<void> _deleteEvent(
-    BuildContext context, WidgetRef ref, CalendarEvent ev) async {
+  BuildContext context,
+  WidgetRef ref,
+  CalendarEvent ev,
+) async {
   final isSeriesInstance = ev.isRecurring && ev.recurrenceDate != null;
   var deleteOnlyThis = false;
   if (isSeriesInstance) {
@@ -85,17 +108,21 @@ Future<void> _deleteEvent(
       builder: (ctx) => AlertDialog(
         title: const Text('Serientermin löschen'),
         content: const Text(
-            'Möchtest du nur diesen einen Termin oder die ganze Serie löschen?'),
+          'Möchtest du nur diesen einen Termin oder die ganze Serie löschen?',
+        ),
         actions: [
           TextButton(
-              onPressed: () => Navigator.pop(ctx, 'cancel'),
-              child: const Text('Abbrechen')),
+            onPressed: () => Navigator.pop(ctx, 'cancel'),
+            child: const Text('Abbrechen'),
+          ),
           TextButton(
-              onPressed: () => Navigator.pop(ctx, 'series'),
-              child: const Text('Ganze Serie')),
+            onPressed: () => Navigator.pop(ctx, 'series'),
+            child: const Text('Ganze Serie'),
+          ),
           FilledButton(
-              onPressed: () => Navigator.pop(ctx, 'this'),
-              child: const Text('Nur diesen')),
+            onPressed: () => Navigator.pop(ctx, 'this'),
+            child: const Text('Nur diesen'),
+          ),
         ],
       ),
     );
@@ -110,14 +137,14 @@ Future<void> _deleteEvent(
     title: deleteOnlyThis
         ? 'Diesen Termin löschen?'
         : isSeriesInstance
-            ? 'Ganze Serie löschen?'
-            : 'Termin löschen?',
+        ? 'Ganze Serie löschen?'
+        : 'Termin löschen?',
     message: deleteOnlyThis
         ? '„${ev.summary}" am $dateLabel wird aus der Serie entfernt.'
         : isSeriesInstance
-            ? '„${ev.summary}" – die gesamte Serie wird gelöscht. Diese Aktion '
-                'kann nicht rückgängig gemacht werden.'
-            : '„${ev.summary}" wird endgültig aus der Nextcloud gelöscht.',
+        ? '„${ev.summary}" – die gesamte Serie wird gelöscht. Diese Aktion '
+              'kann nicht rückgängig gemacht werden.'
+        : '„${ev.summary}" wird endgültig aus der Nextcloud gelöscht.',
   );
   if (!ok) return;
 
@@ -141,9 +168,9 @@ Future<void> _deleteEvent(
         return false;
       }
       if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Löschen fehlgeschlagen: $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Löschen fehlgeschlagen: $e')));
       }
       return false;
     }

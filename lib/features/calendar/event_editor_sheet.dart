@@ -8,6 +8,7 @@ import '../../shared/utils/hex_color.dart';
 import '../../shared/widgets/conflict_dialog.dart';
 import '../../shared/widgets/countdown_confirm_dialog.dart';
 import 'calendar_event.dart';
+import 'conflict_check.dart';
 import 'event_providers.dart';
 import 'event_templates.dart';
 
@@ -378,6 +379,48 @@ class _EventEditorSheetState extends ConsumerState<_EventEditorSheet> {
     return (start: start, end: end);
   }
 
+  /// Warnt vor sich überschneidenden Terminen; `true` = trotzdem speichern.
+  Future<bool?> _confirmConflicts(List<CalendarEvent> conflicts) {
+    final tf = DateFormat('HH:mm');
+    final df = DateFormat('EEE, d. MMM', 'de_DE');
+    final shown = conflicts.take(4).toList();
+    return showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Terminüberschneidung'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text('Überschneidet sich mit:'),
+            const SizedBox(height: 8),
+            for (final e in shown)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 4),
+                child: Text(
+                  '• ${e.summary} (${df.format(e.start)}, '
+                  '${tf.format(e.start)}'
+                  '${e.end != null ? '–${tf.format(e.end!)}' : ''})',
+                ),
+              ),
+            if (conflicts.length > shown.length)
+              Text('… und ${conflicts.length - shown.length} weitere'),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Abbrechen'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Trotzdem speichern'),
+          ),
+        ],
+      ),
+    );
+  }
+
   Future<void> _save() async {
     final summary = _summaryCtrl.text.trim();
     if (summary.isEmpty) {
@@ -393,6 +436,20 @@ class _EventEditorSheetState extends ConsumerState<_EventEditorSheet> {
     if (calHref == null || calHref.isEmpty) {
       _snack('Bitte einen Kalender wählen.');
       return;
+    }
+
+    // Konflikt-Warnung: überschneidet sich der Termin mit einem bestehenden?
+    final conflicts = findConflicts(
+      events: ref.read(visibleEventsProvider),
+      start: times.start,
+      end: times.end,
+      allDay: _allDay,
+      ignoreUid: widget.existing?.uid,
+      ignoreObjectHref: widget.existing?.objectHref,
+    );
+    if (conflicts.isNotEmpty) {
+      final proceed = await _confirmConflicts(conflicts);
+      if (proceed != true || !mounted) return;
     }
 
     final ev = widget.existing;
