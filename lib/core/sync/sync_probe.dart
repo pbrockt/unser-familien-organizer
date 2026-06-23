@@ -45,13 +45,10 @@ Future<String> runConnectionProbe(NextcloudAccount account) async {
     try {
       final req = http.Request(method, Uri.parse(url))
         ..followRedirects = false
-        ..headers.addAll({
-          if (withAuth) ...auth,
-          ...?headers,
-        });
+        ..headers.addAll({if (withAuth) ...auth, ...?headers});
       final res = await http.Response.fromStream(
         await client.send(req),
-      ).timeout(const Duration(seconds: 15));
+      ).timeout(const Duration(seconds: 10));
       out.writeln('  → HTTP ${res.statusCode}');
       final interesting = ['dav', 'location', 'www-authenticate', 'server'];
       for (final h in interesting) {

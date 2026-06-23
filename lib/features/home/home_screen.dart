@@ -1342,19 +1342,12 @@ class _NextcloudAvatarState extends ConsumerState<_NextcloudAvatar> {
   }
 
   /// Direkter Verbindungs-Test (HTTP-Status, Header, Fehlertyp) zur Fehlersuche.
+  /// Kein eigener Lade-Dialog (der hatte den Navigations-Stack zerschossen) –
+  /// stattdessen eine Snackbar während des Tests, danach das Ergebnis.
   Future<void> _runConnectionTest(NextcloudAccount account) async {
-    showDialog<void>(
-      context: context,
-      barrierDismissible: false,
-      builder: (_) => const AlertDialog(
-        content: Row(
-          children: [
-            CircularProgressIndicator(),
-            SizedBox(width: 16),
-            Expanded(child: Text('Teste Verbindung …')),
-          ],
-        ),
-      ),
+    final messenger = ScaffoldMessenger.of(context);
+    messenger.showSnackBar(
+      const SnackBar(content: Text('Teste Verbindung … (bis zu 20 s)')),
     );
     String report;
     try {
@@ -1363,7 +1356,7 @@ class _NextcloudAvatarState extends ConsumerState<_NextcloudAvatar> {
       report = 'Test fehlgeschlagen: $e';
     }
     if (!mounted) return;
-    Navigator.of(context).pop(); // Lade-Dialog schließen
+    messenger.hideCurrentSnackBar();
     await showDialog<void>(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -1374,7 +1367,7 @@ class _NextcloudAvatarState extends ConsumerState<_NextcloudAvatar> {
             onPressed: () {
               Clipboard.setData(ClipboardData(text: report));
               ScaffoldMessenger.of(
-                context,
+                ctx,
               ).showSnackBar(const SnackBar(content: Text('Bericht kopiert')));
             },
             child: const Text('Kopieren'),
