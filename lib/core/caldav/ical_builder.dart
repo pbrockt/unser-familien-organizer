@@ -19,6 +19,7 @@ class IcalBuilder {
     DateTime? due,
     String? description,
     String? rrule,
+    String? relatedTo,
   }) {
     final calendar = VCalendar()
       ..version = '2.0'
@@ -34,7 +35,9 @@ class IcalBuilder {
     if (description != null && description.isNotEmpty) {
       todo.description = description;
     }
-    return _withRruleTodo(calendar.toString(), rrule);
+    var text = _withRruleTodo(calendar.toString(), rrule);
+    text = _withRelatedTodo(text, relatedTo);
+    return text;
   }
 
   /// Fügt eine `RRULE:`-Zeile vor dem ersten `END:VTODO` ein (wiederkehrende
@@ -45,6 +48,18 @@ class IcalBuilder {
     if (idx < 0) return text;
     return '${text.substring(0, idx)}RRULE:$rrule\r\n${text.substring(idx)}';
   }
+
+  /// Fügt eine `RELATED-TO:<uid>`-Zeile vor dem ersten `END:VTODO` ein
+  /// (Verknüpfung zu einem Termin).
+  String _withRelatedTodo(String text, String? uid) {
+    if (uid == null || uid.isEmpty) return text;
+    final idx = text.indexOf('END:VTODO');
+    if (idx < 0) return text;
+    return '${text.substring(0, idx)}RELATED-TO:$uid\r\n${text.substring(idx)}';
+  }
+
+  String _stripRelated(String text) =>
+      text.replaceAll(RegExp(r'RELATED-TO[^\r\n]*\r?\n'), '');
 
   /// Baut ein neues VEVENT (Termin). [rrule] = Wiederholungsregel ohne Präfix,
   /// z. B. `FREQ=WEEKLY` (null = Einzeltermin).
@@ -326,6 +341,8 @@ class IcalBuilder {
     String? description,
     String? rrule,
     bool updateRrule = false,
+    String? relatedTo,
+    bool updateRelated = false,
   }) {
     final root = VComponent.parse(rawIcal);
     final components = root is VCalendar ? root.children : [root];
@@ -346,6 +363,9 @@ class IcalBuilder {
     var text = root.toString();
     if (updateRrule) {
       text = _withRruleTodo(_stripRrule(text), rrule);
+    }
+    if (updateRelated) {
+      text = _withRelatedTodo(_stripRelated(text), relatedTo);
     }
     return text;
   }

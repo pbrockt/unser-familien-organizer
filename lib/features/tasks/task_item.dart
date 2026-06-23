@@ -40,6 +40,12 @@ class TaskItem {
   /// Wiederkehrende Aufgabe (VTODO mit RRULE)?
   bool get isRecurring => rawIcal.contains('RRULE:');
 
+  /// UID des verknüpften Termins (RELATED-TO), sonst `null`.
+  String? get relatedEventUid {
+    final m = RegExp(r'RELATED-TO[^:\r\n]*:([^\r\n]+)').firstMatch(rawIcal);
+    return m?.group(1)?.trim();
+  }
+
   factory TaskItem.fromParsed(
     ParsedTodo t, {
     required String objectHref,

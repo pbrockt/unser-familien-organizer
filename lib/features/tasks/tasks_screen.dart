@@ -233,6 +233,15 @@ class _TaskTile extends StatelessWidget {
                 color: theme.colorScheme.onSurfaceVariant,
               ),
             ),
+          if (item.relatedEventUid != null)
+            Padding(
+              padding: const EdgeInsets.only(left: 6),
+              child: Icon(
+                Icons.link,
+                size: 15,
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
+            ),
         ],
       ),
       subtitle: due == null

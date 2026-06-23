@@ -4,6 +4,8 @@ import 'package:intl/intl.dart';
 
 import '../../core/caldav/caldav_exception.dart';
 import '../../shared/widgets/conflict_dialog.dart';
+import '../calendar/calendar_event.dart';
+import '../calendar/event_providers.dart';
 import 'task_item.dart';
 import 'task_providers.dart';
 
@@ -64,6 +66,7 @@ class _TaskEditorSheetState extends ConsumerState<_TaskEditorSheet> {
   DateTime? _due;
   late String _listHref;
   String _repeat = 'none';
+  String? _relatedTo; // UID des verknüpften Termins
   bool _busy = false;
 
   bool get _isEdit => widget.existing != null;
@@ -104,6 +107,7 @@ class _TaskEditorSheetState extends ConsumerState<_TaskEditorSheet> {
     _descCtrl = TextEditingController(text: e?.description ?? '');
     _due = e?.due ?? widget.initialDue;
     _repeat = e != null ? _repeatFromIcal(e.rawIcal) : widget.initialRepeat;
+    _relatedTo = e?.relatedEventUid;
     final fallback = widget.lists.isNotEmpty ? widget.lists.first.href : '';
     // Vorausgewählte Liste nur, wenn sie existiert.
     final wanted = widget.initialListHref;
@@ -130,6 +134,52 @@ class _TaskEditorSheetState extends ConsumerState<_TaskEditorSheet> {
     if (picked != null) setState(() => _due = picked);
   }
 
+  Future<void> _pickEvent() async {
+    final now = DateTime.now();
+    final events =
+        ref
+            .read(visibleEventsProvider)
+            .where((e) => (e.end ?? e.start).isAfter(now))
+            .toList()
+          ..sort((a, b) => a.start.compareTo(b.start));
+    final picked = await showModalBottomSheet<CalendarEvent>(
+      context: context,
+      showDragHandle: true,
+      isScrollControlled: true,
+      builder: (ctx) => SafeArea(
+        child: events.isEmpty
+            ? const Padding(
+                padding: EdgeInsets.all(24),
+                child: Text('Keine kommenden Termine zum Verknüpfen.'),
+              )
+            : ListView(
+                shrinkWrap: true,
+                children: [
+                  for (final e in events.take(80))
+                    ListTile(
+                      leading: const Icon(Icons.event),
+                      title: Text(
+                        e.summary,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      subtitle: Text(
+                        e.allDay
+                            ? DateFormat('EEE, d. MMM', 'de_DE').format(e.start)
+                            : DateFormat(
+                                'EEE, d. MMM · HH:mm',
+                                'de_DE',
+                              ).format(e.start),
+                      ),
+                      onTap: () => Navigator.pop(ctx, e),
+                    ),
+                ],
+              ),
+      ),
+    );
+    if (picked != null) setState(() => _relatedTo = picked.uid);
+  }
+
   Future<void> _save() async {
     final summary = _summaryCtrl.text.trim();
     if (summary.isEmpty) {
@@ -152,6 +202,8 @@ class _TaskEditorSheetState extends ConsumerState<_TaskEditorSheet> {
             description: desc,
             rrule: _rruleFor(_repeat),
             updateRrule: true,
+            relatedTo: _relatedTo,
+            updateRelated: true,
             force: force,
           );
         } else {
@@ -161,6 +213,7 @@ class _TaskEditorSheetState extends ConsumerState<_TaskEditorSheet> {
             due: _due,
             description: desc,
             rrule: _rruleFor(_repeat),
+            relatedTo: _relatedTo,
           );
         }
         return true;
@@ -249,6 +302,51 @@ class _TaskEditorSheetState extends ConsumerState<_TaskEditorSheet> {
     } else {
       setState(() => _busy = false);
     }
+  }
+
+  Widget _buildLinkTile(ThemeData theme) {
+    CalendarEvent? linked;
+    if (_relatedTo != null) {
+      for (final e in ref.watch(visibleEventsProvider)) {
+        if (e.uid == _relatedTo) {
+          linked = e;
+          break;
+        }
+      }
+    }
+    final hasLink = _relatedTo != null;
+    return Card(
+      margin: EdgeInsets.zero,
+      child: ListTile(
+        leading: const Icon(Icons.link),
+        title: Text(
+          linked != null
+              ? '🔗 ${linked.summary}'
+              : (hasLink ? '🔗 Verknüpfter Termin' : 'Mit Termin verknüpfen'),
+        ),
+        subtitle: linked != null
+            ? Text(DateFormat('EEE, d. MMM', 'de_DE').format(linked.start))
+            : (hasLink
+                  ? null
+                  : const Text('z. B. „Geschenk kaufen" am Geburtstag')),
+        trailing: hasLink
+            ? Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  IconButton(
+                    icon: const Icon(Icons.edit),
+                    onPressed: _pickEvent,
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.clear),
+                    onPressed: () => setState(() => _relatedTo = null),
+                  ),
+                ],
+              )
+            : TextButton(onPressed: _pickEvent, child: const Text('Wählen')),
+        onTap: _pickEvent,
+      ),
+    );
   }
 
   @override
@@ -372,6 +470,8 @@ class _TaskEditorSheetState extends ConsumerState<_TaskEditorSheet> {
                   ),
                 ),
               ),
+            const SizedBox(height: 12),
+            _buildLinkTile(theme),
             const SizedBox(height: 20),
             Row(
               children: [

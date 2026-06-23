@@ -59,6 +59,33 @@ void main() {
     expect(todos.first.completed, isFalse);
   });
 
+  test('buildTodo schreibt RELATED-TO; updateTodo ersetzt/entfernt es', () {
+    final ical = builder.buildTodo(
+      uid: 'x',
+      summary: 'Geschenk kaufen',
+      relatedTo: 'event-uid-1',
+    );
+    expect(ical.contains('RELATED-TO:event-uid-1'), isTrue);
+    expect(ical.indexOf('RELATED-TO:'), lessThan(ical.indexOf('END:VTODO')));
+
+    final changed = builder.updateTodo(
+      ical,
+      summary: 'Geschenk kaufen',
+      relatedTo: 'event-uid-2',
+      updateRelated: true,
+    );
+    expect(changed.contains('RELATED-TO:event-uid-2'), isTrue);
+    expect(changed.contains('event-uid-1'), isFalse);
+
+    final cleared = builder.updateTodo(
+      ical,
+      summary: 'Geschenk kaufen',
+      relatedTo: null,
+      updateRelated: true,
+    );
+    expect(cleared.contains('RELATED-TO:'), isFalse);
+  });
+
   test('advanceRecurringTodo liefert null ohne RRULE', () {
     final ical = builder.buildTodo(
       uid: 'x',
