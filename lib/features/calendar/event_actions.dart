@@ -32,6 +32,11 @@ Future<void> showEventActions(
             onTap: () => Navigator.pop(ctx, 'edit'),
           ),
           ListTile(
+            leading: const Icon(Icons.copy_outlined),
+            title: const Text('Duplizieren'),
+            onTap: () => Navigator.pop(ctx, 'duplicate'),
+          ),
+          ListTile(
             leading: const Icon(Icons.share_outlined),
             title: const Text('Teilen'),
             onTap: () => Navigator.pop(ctx, 'share'),
@@ -48,11 +53,30 @@ Future<void> showEventActions(
   if (action == null || !context.mounted) return;
   if (action == 'edit') {
     await showEventEditor(context, existing: event);
+  } else if (action == 'duplicate') {
+    await _duplicateEvent(context, event);
   } else if (action == 'share') {
     await _shareEvent(context, event);
   } else if (action == 'delete') {
     await _deleteEvent(context, ref, event);
   }
+}
+
+/// Öffnet den Editor als NEUEN Termin, vorbelegt mit den Werten von [e].
+Future<void> _duplicateEvent(BuildContext context, CalendarEvent e) async {
+  final rrule = RegExp(r'RRULE:([^\r\n]*)').firstMatch(e.rawIcal)?.group(1);
+  await showEventEditor(
+    context,
+    initialTitle: e.summary,
+    initialStart: e.start,
+    initialEnd: e.end,
+    initialAllDay: e.allDay,
+    initialCalendarHref: e.calendarHref,
+    initialLocation: e.location,
+    initialDescription: e.description,
+    initialReminderMinutes: e.reminderMinutes,
+    initialRrule: rrule,
+  );
 }
 
 Future<void> _shareEvent(BuildContext context, CalendarEvent e) async {

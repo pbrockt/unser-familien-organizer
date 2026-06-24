@@ -5,8 +5,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../../shared/theme/app_theme.dart';
 
 /// Persistierte Akzentfarbe der App. Steuert das gesamte Farbschema.
-final accentColorProvider =
-    AsyncNotifierProvider<AccentColorController, Color>(
+final accentColorProvider = AsyncNotifierProvider<AccentColorController, Color>(
   AccentColorController.new,
 );
 
@@ -27,9 +26,30 @@ class AccentColorController extends AsyncNotifier<Color> {
   }
 }
 
+/// Persistierter AMOLED-Schalter (reines Schwarz im Dunkelmodus, spart Akku
+/// auf OLED-Displays).
+final amoledProvider = AsyncNotifierProvider<AmoledController, bool>(
+  AmoledController.new,
+);
+
+class AmoledController extends AsyncNotifier<bool> {
+  static const _key = 'amoled_dark';
+
+  @override
+  Future<bool> build() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getBool(_key) ?? false;
+  }
+
+  Future<void> set(bool value) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_key, value);
+    state = AsyncData(value);
+  }
+}
+
 /// Persistierte Theme-Wahl: System / Hell / Dunkel.
-final themeModeProvider =
-    AsyncNotifierProvider<ThemeModeController, ThemeMode>(
+final themeModeProvider = AsyncNotifierProvider<ThemeModeController, ThemeMode>(
   ThemeModeController.new,
 );
 
@@ -49,8 +69,8 @@ class ThemeModeController extends AsyncNotifier<ThemeMode> {
   }
 
   ThemeMode _parse(String? value) => switch (value) {
-        'light' => ThemeMode.light,
-        'dark' => ThemeMode.dark,
-        _ => ThemeMode.system,
-      };
+    'light' => ThemeMode.light,
+    'dark' => ThemeMode.dark,
+    _ => ThemeMode.system,
+  };
 }

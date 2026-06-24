@@ -26,6 +26,7 @@ Future<void> showEventEditor(
   int? initialReminderMinutes,
   bool initialSaveAsTemplate = false,
   String? initialLocation,
+  String? initialDescription,
 }) {
   return showModalBottomSheet<void>(
     context: context,
@@ -47,6 +48,7 @@ Future<void> showEventEditor(
         initialReminderMinutes: initialReminderMinutes,
         initialSaveAsTemplate: initialSaveAsTemplate,
         initialLocation: initialLocation,
+        initialDescription: initialDescription,
       ),
     ),
   );
@@ -65,6 +67,7 @@ class _EventEditorSheet extends ConsumerStatefulWidget {
     this.initialReminderMinutes,
     this.initialSaveAsTemplate = false,
     this.initialLocation,
+    this.initialDescription,
   });
   final CalendarEvent? existing;
   final DateTime? initialDay;
@@ -96,6 +99,9 @@ class _EventEditorSheet extends ConsumerStatefulWidget {
 
   /// Vorbelegter Ort.
   final String? initialLocation;
+
+  /// Vorbelegte Notiz/Beschreibung (z.B. beim Duplizieren).
+  final String? initialDescription;
 
   @override
   ConsumerState<_EventEditorSheet> createState() => _EventEditorSheetState();
@@ -231,7 +237,9 @@ class _EventEditorSheetState extends ConsumerState<_EventEditorSheet> {
     _locationCtrl = TextEditingController(
       text: e?.location ?? widget.initialLocation ?? '',
     );
-    _descCtrl = TextEditingController(text: e?.description ?? '');
+    _descCtrl = TextEditingController(
+      text: e?.description ?? widget.initialDescription ?? '',
+    );
     _reminderMinutes =
         e?.reminderMinutes ?? _snapReminder(widget.initialReminderMinutes);
     _saveAsTemplate = widget.initialSaveAsTemplate;

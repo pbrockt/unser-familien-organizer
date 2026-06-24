@@ -7,6 +7,7 @@ import 'task_editor_sheet.dart';
 import 'task_item.dart';
 import 'task_order.dart';
 import 'task_providers.dart';
+import 'tasks_view_providers.dart';
 
 /// Aufgaben-Bereich (VTODO per CalDAV): Aufgabenlisten mit Abhaken.
 class TasksScreen extends ConsumerWidget {
@@ -26,6 +27,7 @@ class TasksScreen extends ConsumerWidget {
             icon: const Icon(Icons.refresh),
             onPressed: () => ref.invalidate(tasksControllerProvider),
           ),
+          _TasksMenu(),
         ],
       ),
       body: accountAsync.maybeWhen(
@@ -64,6 +66,8 @@ class _TaskListsView extends ConsumerWidget {
     // Alle Kategorien immer zeigen; Überschriften bei mehreren Listen.
     final showHeaders = lists.length > 1;
     final order = ref.watch(taskOrderProvider).value ?? const {};
+    final hideCompleted = ref.watch(hideCompletedProvider).value ?? false;
+    final sortMode = ref.watch(taskSortProvider).value ?? 'manual';
     final scheme = Theme.of(context).colorScheme;
 
     return ListView(
@@ -71,21 +75,179 @@ class _TaskListsView extends ConsumerWidget {
       children: [
         for (final list in lists) ...[
           if (showHeaders) _ListHeader(list: list),
-          if (list.items.isEmpty)
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 2, 16, 10),
-              child: Text(
-                'Keine Aufgaben',
-                style: TextStyle(color: scheme.onSurfaceVariant),
-              ),
-            )
-          else
-            _ReorderableTasks(
+          () {
+            var items = list.items;
+            if (hideCompleted) {
+              items = items.where((t) => !t.completed).toList();
+            }
+            if (items.isEmpty) {
+              return Padding(
+                padding: const EdgeInsets.fromLTRB(16, 2, 16, 10),
+                child: Text(
+                  hideCompleted ? 'Keine offenen Aufgaben' : 'Keine Aufgaben',
+                  style: TextStyle(color: scheme.onSurfaceVariant),
+                ),
+              );
+            }
+            if (sortMode == 'manual') {
+              return _ReorderableTasks(
+                list: list,
+                items: applyTaskOrder(items, order[list.href]),
+                allLists: lists,
+              );
+            }
+            return _PlainTasks(
               list: list,
-              items: applyTaskOrder(list.items, order[list.href]),
+              items: sortTasks(items, sortMode),
               allLists: lists,
-            ),
+            );
+          }(),
         ],
+      ],
+    );
+  }
+}
+
+/// Sortiert Aufgaben: offen vor erledigt, wichtig zuerst, dann nach Fälligkeit
+/// bzw. alphabetisch.
+List<TaskItem> sortTasks(List<TaskItem> items, String mode) {
+  final list = [...items];
+  list.sort((a, b) {
+    if (a.completed != b.completed) return a.completed ? 1 : -1;
+    if (a.isImportant != b.isImportant) return a.isImportant ? -1 : 1;
+    if (mode == 'due') {
+      final ad = a.due, bd = b.due;
+      if (ad == null && bd == null) {
+        return a.summary.toLowerCase().compareTo(b.summary.toLowerCase());
+      }
+      if (ad == null) return 1;
+      if (bd == null) return -1;
+      return ad.compareTo(bd);
+    }
+    return a.summary.toLowerCase().compareTo(b.summary.toLowerCase());
+  });
+  return list;
+}
+
+/// Gemeinsames Abhaken (für beide Listen-Darstellungen).
+Future<void> _toggleTask(
+  BuildContext context,
+  WidgetRef ref,
+  TaskItem item,
+) async {
+  try {
+    await ref.read(tasksControllerProvider.notifier).toggle(item);
+  } catch (e) {
+    if (context.mounted) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Konnte nicht speichern: $e')));
+    }
+  }
+}
+
+/// Aufgaben-Liste ohne Drag&Drop (bei aktiver Sortierung).
+class _PlainTasks extends ConsumerWidget {
+  const _PlainTasks({
+    required this.list,
+    required this.items,
+    required this.allLists,
+  });
+  final TaskList list;
+  final List<TaskItem> items;
+  final List<TaskList> allLists;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    return Column(
+      children: [
+        for (final item in items)
+          _TaskTile(
+            key: ValueKey('${list.href}|${item.uid}'),
+            item: item,
+            onToggle: () => _toggleTask(context, ref, item),
+            onEdit: () =>
+                showTaskEditor(context, lists: allLists, existing: item),
+          ),
+      ],
+    );
+  }
+}
+
+/// Aufgaben-Menü: Erledigte ausblenden, Sortierung, Erledigte löschen.
+class _TasksMenu extends ConsumerWidget {
+  Future<void> _clearCompleted(BuildContext context, WidgetRef ref) async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Erledigte löschen?'),
+        content: const Text(
+          'Alle abgehakten Aufgaben werden aus der Nextcloud entfernt.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Abbrechen'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Löschen'),
+          ),
+        ],
+      ),
+    );
+    if (ok != true) return;
+    final lists = ref.read(tasksControllerProvider).value ?? const <TaskList>[];
+    final notifier = ref.read(tasksControllerProvider.notifier);
+    for (final l in lists) {
+      await notifier.clearCompleted(l.href);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final hide = ref.watch(hideCompletedProvider).value ?? false;
+    final sort = ref.watch(taskSortProvider).value ?? 'manual';
+    return PopupMenuButton<String>(
+      icon: const Icon(Icons.more_vert),
+      onSelected: (v) {
+        switch (v) {
+          case 'hide':
+            ref.read(hideCompletedProvider.notifier).toggle();
+          case 'sort_manual':
+            ref.read(taskSortProvider.notifier).set('manual');
+          case 'sort_due':
+            ref.read(taskSortProvider.notifier).set('due');
+          case 'sort_alpha':
+            ref.read(taskSortProvider.notifier).set('alpha');
+          case 'clear':
+            _clearCompleted(context, ref);
+        }
+      },
+      itemBuilder: (ctx) => [
+        CheckedPopupMenuItem(
+          value: 'hide',
+          checked: hide,
+          child: const Text('Erledigte ausblenden'),
+        ),
+        const PopupMenuDivider(),
+        CheckedPopupMenuItem(
+          value: 'sort_manual',
+          checked: sort == 'manual',
+          child: const Text('Manuell (Drag & Drop)'),
+        ),
+        CheckedPopupMenuItem(
+          value: 'sort_due',
+          checked: sort == 'due',
+          child: const Text('Nach Fälligkeit'),
+        ),
+        CheckedPopupMenuItem(
+          value: 'sort_alpha',
+          checked: sort == 'alpha',
+          child: const Text('Alphabetisch'),
+        ),
+        const PopupMenuDivider(),
+        const PopupMenuItem(value: 'clear', child: Text('Erledigte löschen')),
       ],
     );
   }
@@ -213,6 +375,11 @@ class _TaskTile extends StatelessWidget {
       ),
       title: Row(
         children: [
+          if (item.isImportant)
+            const Padding(
+              padding: EdgeInsets.only(right: 6),
+              child: Icon(Icons.star, size: 15, color: Colors.amber),
+            ),
           Flexible(
             child: Text(
               item.summary,

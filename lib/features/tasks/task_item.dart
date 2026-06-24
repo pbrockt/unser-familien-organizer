@@ -40,6 +40,9 @@ class TaskItem {
   /// Wiederkehrende Aufgabe (VTODO mit RRULE)?
   bool get isRecurring => rawIcal.contains('RRULE:');
 
+  /// Als wichtig markiert (VTODO PRIORITY 1–5)?
+  bool get isImportant => priority != null && priority! >= 1 && priority! <= 5;
+
   /// UID des verknüpften Termins (RELATED-TO), sonst `null`.
   String? get relatedEventUid {
     final m = RegExp(r'RELATED-TO[^:\r\n]*:([^\r\n]+)').firstMatch(rawIcal);

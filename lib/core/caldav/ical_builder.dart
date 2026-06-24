@@ -20,6 +20,7 @@ class IcalBuilder {
     String? description,
     String? rrule,
     String? relatedTo,
+    int? priority,
   }) {
     final calendar = VCalendar()
       ..version = '2.0'
@@ -32,6 +33,7 @@ class IcalBuilder {
       ..summary = summary
       ..status = TodoStatus.needsAction;
     if (due != null) todo.due = due;
+    if (priority != null) todo.priorityInt = priority;
     if (description != null && description.isNotEmpty) {
       todo.description = description;
     }
@@ -343,6 +345,8 @@ class IcalBuilder {
     bool updateRrule = false,
     String? relatedTo,
     bool updateRelated = false,
+    int? priority,
+    bool updatePriority = false,
   }) {
     final root = VComponent.parse(rawIcal);
     final components = root is VCalendar ? root.children : [root];
@@ -354,6 +358,7 @@ class IcalBuilder {
         } else if (due != null) {
           c.due = due;
         }
+        if (updatePriority) c.priorityInt = priority;
         c.description = (description == null || description.isEmpty)
             ? null
             : description;

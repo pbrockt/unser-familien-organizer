@@ -153,13 +153,21 @@ Future<void> _addShopping(
       }
     }
   }
-  await ref
-      .read(tasksControllerProvider.notifier)
-      .createTask(listHref: href, summary: item);
+  // Mehrere Artikel auf einmal: per Komma getrennt.
+  final items = item
+      .split(',')
+      .map((s) => s.trim())
+      .where((s) => s.isNotEmpty)
+      .toList();
+  final notifier = ref.read(tasksControllerProvider.notifier);
+  for (final i in items) {
+    await notifier.createTask(listHref: href, summary: i);
+  }
+  final msg = items.length == 1
+      ? '„${items.first}" zur Einkaufsliste hinzugefügt'
+      : '${items.length} Artikel zur Einkaufsliste hinzugefügt';
   if (context.mounted) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('„$item" zur Einkaufsliste hinzugefügt')),
-    );
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
   }
 }
 

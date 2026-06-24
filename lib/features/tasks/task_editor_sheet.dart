@@ -67,6 +67,7 @@ class _TaskEditorSheetState extends ConsumerState<_TaskEditorSheet> {
   late String _listHref;
   String _repeat = 'none';
   String? _relatedTo; // UID des verknüpften Termins
+  bool _important = false;
   bool _busy = false;
 
   bool get _isEdit => widget.existing != null;
@@ -108,6 +109,7 @@ class _TaskEditorSheetState extends ConsumerState<_TaskEditorSheet> {
     _due = e?.due ?? widget.initialDue;
     _repeat = e != null ? _repeatFromIcal(e.rawIcal) : widget.initialRepeat;
     _relatedTo = e?.relatedEventUid;
+    _important = e?.isImportant ?? false;
     final fallback = widget.lists.isNotEmpty ? widget.lists.first.href : '';
     // Vorausgewählte Liste nur, wenn sie existiert.
     final wanted = widget.initialListHref;
@@ -204,6 +206,8 @@ class _TaskEditorSheetState extends ConsumerState<_TaskEditorSheet> {
             updateRrule: true,
             relatedTo: _relatedTo,
             updateRelated: true,
+            priority: _important ? 1 : null,
+            updatePriority: true,
             force: force,
           );
         } else {
@@ -214,6 +218,7 @@ class _TaskEditorSheetState extends ConsumerState<_TaskEditorSheet> {
             description: desc,
             rrule: _rruleFor(_repeat),
             relatedTo: _relatedTo,
+            priority: _important ? 1 : null,
           );
         }
         return true;
@@ -470,6 +475,18 @@ class _TaskEditorSheetState extends ConsumerState<_TaskEditorSheet> {
                   ),
                 ),
               ),
+            const SizedBox(height: 4),
+            SwitchListTile(
+              contentPadding: EdgeInsets.zero,
+              secondary: Icon(
+                _important ? Icons.star : Icons.star_border,
+                color: _important ? Colors.amber : null,
+              ),
+              title: const Text('Wichtig'),
+              subtitle: const Text('Wird oben einsortiert'),
+              value: _important,
+              onChanged: (v) => setState(() => _important = v),
+            ),
             const SizedBox(height: 12),
             _buildLinkTile(theme),
             const SizedBox(height: 20),

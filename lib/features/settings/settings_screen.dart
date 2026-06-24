@@ -235,6 +235,15 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                 ],
               ),
             ),
+            SwitchListTile(
+              secondary: const Icon(Icons.dark_mode_outlined),
+              title: const Text('AMOLED-Schwarz'),
+              subtitle: const Text(
+                'Reines Schwarz im Dunkelmodus – spart Akku auf OLED-Displays',
+              ),
+              value: ref.watch(amoledProvider).value ?? false,
+              onChanged: (v) => ref.read(amoledProvider.notifier).set(v),
+            ),
             const Divider(),
             if (isAndroid) ...[
               _sectionHeader(context, 'Erinnerungen'),

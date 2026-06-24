@@ -20,6 +20,7 @@ class SearchScreen extends ConsumerStatefulWidget {
 class _SearchScreenState extends ConsumerState<SearchScreen> {
   final _controller = TextEditingController();
   String _query = '';
+  String _filter = 'all'; // all | events | tasks
 
   @override
   void dispose() {
@@ -107,58 +108,103 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
       ),
       body: q.isEmpty
           ? const _Hint('Tippe oben, um Termine & Aufgaben zu durchsuchen.')
-          : (eventHits.isEmpty && taskHits.isEmpty)
-          ? const _Hint('Nichts gefunden.')
-          : ListView(
+          : Column(
               children: [
-                if (eventHits.isNotEmpty) _header('Termine'),
-                ...eventHits.map(
-                  (e) => ListTile(
-                    leading: CircleAvatar(
-                      radius: 7,
-                      backgroundColor: e.color ?? scheme.primary,
-                    ),
-                    title: Text(
-                      isBirthday(e, bcfg)
-                          ? '👑 ${withBirthdayAge(e.summary, e.start.year)}'
-                          : e.summary,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    subtitle: Text(_eventWhen(e, bcfg)),
-                    onTap: () => _openEvent(e),
-                  ),
+                _filterChips(),
+                Expanded(
+                  child: _buildResults(scheme, bcfg, eventHits, taskHits),
                 ),
-                if (taskHits.isNotEmpty) _header('Aufgaben'),
-                ...taskHits.map(
-                  (t) => ListTile(
-                    leading: Icon(
-                      t.item.completed
-                          ? Icons.check_circle
-                          : Icons.radio_button_unchecked,
-                      color: t.item.color ?? scheme.primary,
-                    ),
-                    title: Text(
-                      t.item.summary,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: t.item.completed
-                          ? const TextStyle(
-                              decoration: TextDecoration.lineThrough,
-                            )
-                          : null,
-                    ),
-                    subtitle: Text(
-                      t.item.due != null
-                          ? '${t.list} · bis ${DateFormat('d. MMM', 'de_DE').format(t.item.due!)}'
-                          : t.list,
-                    ),
-                    onTap: _openTasks,
-                  ),
-                ),
-                const SizedBox(height: 16),
               ],
             ),
+    );
+  }
+
+  Widget _filterChips() {
+    Widget chip(String value, String label) => Padding(
+      padding: const EdgeInsets.only(right: 8),
+      child: ChoiceChip(
+        label: Text(label),
+        selected: _filter == value,
+        onSelected: (_) => setState(() => _filter = value),
+      ),
+    );
+    return Align(
+      alignment: Alignment.centerLeft,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
+        child: Row(
+          children: [
+            chip('all', 'Alle'),
+            chip('events', 'Termine'),
+            chip('tasks', 'Aufgaben'),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildResults(
+    ColorScheme scheme,
+    BirthdayConfig bcfg,
+    List<CalendarEvent> eventHits,
+    List<({TaskItem item, String list})> taskHits,
+  ) {
+    final showEvents = _filter != 'tasks';
+    final showTasks = _filter != 'events';
+    final noResults =
+        (!showEvents || eventHits.isEmpty) && (!showTasks || taskHits.isEmpty);
+    if (noResults) return const _Hint('Nichts gefunden.');
+    return ListView(
+      children: [
+        if (showEvents) ...[
+          if (eventHits.isNotEmpty) _header('Termine'),
+          ...eventHits.map(
+            (e) => ListTile(
+              leading: CircleAvatar(
+                radius: 7,
+                backgroundColor: e.color ?? scheme.primary,
+              ),
+              title: Text(
+                isBirthday(e, bcfg)
+                    ? '👑 ${withBirthdayAge(e.summary, e.start.year)}'
+                    : e.summary,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+              subtitle: Text(_eventWhen(e, bcfg)),
+              onTap: () => _openEvent(e),
+            ),
+          ),
+        ],
+        if (showTasks) ...[
+          if (taskHits.isNotEmpty) _header('Aufgaben'),
+          ...taskHits.map(
+            (t) => ListTile(
+              leading: Icon(
+                t.item.completed
+                    ? Icons.check_circle
+                    : Icons.radio_button_unchecked,
+                color: t.item.color ?? scheme.primary,
+              ),
+              title: Text(
+                t.item.summary,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: t.item.completed
+                    ? const TextStyle(decoration: TextDecoration.lineThrough)
+                    : null,
+              ),
+              subtitle: Text(
+                t.item.due != null
+                    ? '${t.list} · bis ${DateFormat('d. MMM', 'de_DE').format(t.item.due!)}'
+                    : t.list,
+              ),
+              onTap: _openTasks,
+            ),
+          ),
+        ],
+        const SizedBox(height: 16),
+      ],
     );
   }
 

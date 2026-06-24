@@ -71,6 +71,10 @@ class NotificationService {
           AndroidFlutterLocalNotificationsPlugin
         >();
     final granted = await androidImpl?.requestNotificationsPermission();
+    // Für pünktliche (exakte) Alarme – best effort, ignoriert wenn schon erlaubt.
+    try {
+      await androidImpl?.requestExactAlarmsPermission();
+    } catch (_) {}
     return granted ?? false;
   }
 
@@ -109,7 +113,7 @@ class NotificationService {
         body: r.body,
         scheduledDate: tz.TZDateTime.from(r.when, tz.local),
         notificationDetails: details,
-        androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
+        androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
       );
     }
   }

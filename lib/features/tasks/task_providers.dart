@@ -168,6 +168,7 @@ class TasksController extends AsyncNotifier<List<TaskList>> {
     String? description,
     String? rrule,
     String? relatedTo,
+    int? priority,
   }) async {
     final account = await ref.read(accountProvider.future);
     if (account == null) return;
@@ -181,6 +182,7 @@ class TasksController extends AsyncNotifier<List<TaskList>> {
       description: description,
       rrule: rrule,
       relatedTo: relatedTo,
+      priority: priority,
     );
     await repo.putObject(account, _objectHref(listHref, uid), ical);
     await _refresh(account);
@@ -197,6 +199,8 @@ class TasksController extends AsyncNotifier<List<TaskList>> {
     bool updateRrule = false,
     String? relatedTo,
     bool updateRelated = false,
+    int? priority,
+    bool updatePriority = false,
     bool force = false,
   }) async {
     final account = await ref.read(accountProvider.future);
@@ -213,6 +217,8 @@ class TasksController extends AsyncNotifier<List<TaskList>> {
       updateRrule: updateRrule,
       relatedTo: relatedTo,
       updateRelated: updateRelated,
+      priority: priority,
+      updatePriority: updatePriority,
     );
     await repo.putObject(
       account,

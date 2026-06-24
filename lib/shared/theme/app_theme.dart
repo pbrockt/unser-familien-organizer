@@ -35,8 +35,8 @@ class AppTheme {
   /// Lesbare Vordergrundfarbe (schwarz/weiß) für eine Akzentfläche.
   static Color _onColor(Color c) =>
       ThemeData.estimateBrightnessForColor(c) == Brightness.dark
-          ? Colors.white
-          : Colors.black;
+      ? Colors.white
+      : Colors.black;
 
   static ThemeData light({Color seed = orange}) {
     // Container-/Sekundärtöne aus dem Seed ableiten → der Akzent ist überall
@@ -54,11 +54,13 @@ class AppTheme {
     return _build(scheme, isLight: true, scaffold: cream, card: Colors.white);
   }
 
-  static ThemeData dark({Color seed = orange}) {
-    const bg = Color(0xFF241F1B);
-    const card = Color(0xFF2E2823);
-    final base =
-        ColorScheme.fromSeed(seedColor: seed, brightness: Brightness.dark);
+  static ThemeData dark({Color seed = orange, bool amoled = false}) {
+    final bg = amoled ? const Color(0xFF000000) : const Color(0xFF241F1B);
+    final card = amoled ? const Color(0xFF121212) : const Color(0xFF2E2823);
+    final base = ColorScheme.fromSeed(
+      seedColor: seed,
+      brightness: Brightness.dark,
+    );
     final scheme = base.copyWith(
       primary: seed,
       onPrimary: _onColor(seed),
@@ -69,8 +71,12 @@ class AppTheme {
     return _build(scheme, isLight: false, scaffold: bg, card: card);
   }
 
-  static ThemeData _build(ColorScheme scheme,
-      {required bool isLight, required Color scaffold, required Color card}) {
+  static ThemeData _build(
+    ColorScheme scheme, {
+    required bool isLight,
+    required Color scaffold,
+    required Color card,
+  }) {
     return ThemeData(
       colorScheme: scheme,
       useMaterial3: true,
@@ -94,9 +100,7 @@ class AppTheme {
         surfaceTintColor: Colors.transparent,
         shadowColor: Colors.black.withValues(alpha: 0.10),
         clipBehavior: Clip.antiAlias,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(22),
-        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(22)),
       ),
       navigationBarTheme: NavigationBarThemeData(
         backgroundColor: isLight ? Colors.white : scheme.surfaceContainerHigh,
@@ -107,27 +111,29 @@ class AppTheme {
         indicatorColor: scheme.primaryContainer,
         labelTextStyle: WidgetStateProperty.all(
           TextStyle(
-              fontSize: 12,
-              fontWeight: FontWeight.w600,
-              color: scheme.onSurface),
+            fontSize: 12,
+            fontWeight: FontWeight.w600,
+            color: scheme.onSurface,
+          ),
         ),
         iconTheme: WidgetStateProperty.resolveWith((states) {
           final selected = states.contains(WidgetState.selected);
           return IconThemeData(
-              color: selected
-                  ? scheme.onPrimaryContainer
-                  : scheme.onSurfaceVariant);
+            color: selected
+                ? scheme.onPrimaryContainer
+                : scheme.onSurfaceVariant,
+          );
         }),
       ),
       filledButtonTheme: FilledButtonThemeData(
         style: FilledButton.styleFrom(
-          shape:
-              RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(14),
+          ),
         ),
       ),
       inputDecorationTheme: InputDecorationTheme(
-        border:
-            OutlineInputBorder(borderRadius: BorderRadius.circular(14)),
+        border: OutlineInputBorder(borderRadius: BorderRadius.circular(14)),
       ),
     );
   }

@@ -424,6 +424,18 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
           _viewToggle(),
           const SizedBox(width: 4),
           IconButton(
+            tooltip: 'Heute',
+            icon: const Icon(Icons.today_outlined),
+            onPressed: () {
+              final today = DateTime.now();
+              setState(() {
+                _selectedDay = today;
+                _focusedDay = today;
+              });
+              ref.read(calendarSelectedDayProvider.notifier).set(today);
+            },
+          ),
+          IconButton(
             tooltip: 'Suchen',
             icon: const Icon(Icons.search),
             onPressed: () => Navigator.of(

@@ -86,6 +86,19 @@ void main() {
     expect(cleared.contains('RELATED-TO:'), isFalse);
   });
 
+  test('buildTodo schreibt PRIORITY; updateTodo ändert/entfernt sie', () {
+    final ical = builder.buildTodo(uid: 'x', summary: 'Wichtig', priority: 1);
+    expect(parser.parseTodos(ical).first.priority, 1);
+
+    final cleared = builder.updateTodo(
+      ical,
+      summary: 'Wichtig',
+      priority: null,
+      updatePriority: true,
+    );
+    expect(parser.parseTodos(cleared).first.priority, isNull);
+  });
+
   test('advanceRecurringTodo liefert null ohne RRULE', () {
     final ical = builder.buildTodo(
       uid: 'x',
