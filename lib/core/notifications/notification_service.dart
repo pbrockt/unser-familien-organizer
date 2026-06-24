@@ -47,9 +47,10 @@ class NotificationService {
       settings: const InitializationSettings(android: android),
     );
 
-    final androidImpl =
-        _plugin.resolvePlatformSpecificImplementation<
-            AndroidFlutterLocalNotificationsPlugin>();
+    final androidImpl = _plugin
+        .resolvePlatformSpecificImplementation<
+          AndroidFlutterLocalNotificationsPlugin
+        >();
     await androidImpl?.createNotificationChannel(
       const AndroidNotificationChannel(
         _channelId,
@@ -65,9 +66,10 @@ class NotificationService {
   Future<bool> requestPermission() async {
     if (!isAndroid) return false;
     await init();
-    final androidImpl =
-        _plugin.resolvePlatformSpecificImplementation<
-            AndroidFlutterLocalNotificationsPlugin>();
+    final androidImpl = _plugin
+        .resolvePlatformSpecificImplementation<
+          AndroidFlutterLocalNotificationsPlugin
+        >();
     final granted = await androidImpl?.requestNotificationsPermission();
     return granted ?? false;
   }
@@ -75,9 +77,10 @@ class NotificationService {
   Future<bool> areNotificationsEnabled() async {
     if (!isAndroid) return false;
     await init();
-    final androidImpl =
-        _plugin.resolvePlatformSpecificImplementation<
-            AndroidFlutterLocalNotificationsPlugin>();
+    final androidImpl = _plugin
+        .resolvePlatformSpecificImplementation<
+          AndroidFlutterLocalNotificationsPlugin
+        >();
     return await androidImpl?.areNotificationsEnabled() ?? false;
   }
 
@@ -125,6 +128,26 @@ class NotificationService {
       id: 999999,
       title: 'Unser Familien-Organizer',
       body: 'Benachrichtigungen funktionieren ✓',
+      notificationDetails: const NotificationDetails(
+        android: AndroidNotificationDetails(
+          _channelId,
+          'Erinnerungen',
+          channelDescription: 'Erinnerungen an Termine und Aufgaben',
+          importance: Importance.high,
+          priority: Priority.high,
+        ),
+      ),
+    );
+  }
+
+  /// Zeigt sofort eine Benachrichtigung (z. B. zum Test des Tages-Briefings).
+  Future<void> showNow({required String title, required String body}) async {
+    if (!isAndroid) return;
+    await init();
+    await _plugin.show(
+      id: 900002,
+      title: title,
+      body: body,
       notificationDetails: const NotificationDetails(
         android: AndroidNotificationDetails(
           _channelId,

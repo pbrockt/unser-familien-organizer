@@ -6,14 +6,17 @@ import '../../core/background/background_sync.dart';
 import '../../core/platform/platform_support.dart';
 import '../calendar/birthdays.dart';
 import '../../shared/theme/app_theme.dart';
+import '../calendar/event_providers.dart';
 import '../calendar/event_templates.dart';
 import '../family/family_screen.dart';
 import '../home/dashboard_providers.dart';
 import '../members/member_settings.dart';
 import '../study/study_settings_screen.dart';
+import '../tasks/task_providers.dart';
 import '../weather/weather_service.dart';
 import 'about_update_sheet.dart';
 import 'backup_screen.dart';
+import 'briefing_planner.dart';
 import 'briefing_providers.dart';
 import 'notification_providers.dart';
 import 'permissions_screen.dart';
@@ -57,6 +60,34 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     } else {
       await service.cancelAll();
     }
+  }
+
+  /// Sendet sofort ein Test-Briefing (zur Prüfung von Inhalt & Benachrichtigung).
+  Future<void> _sendBriefingTest() async {
+    final messenger = ScaffoldMessenger.of(context);
+    final service = ref.read(notificationServiceProvider);
+    if (!await service.areNotificationsEnabled()) {
+      final granted = await service.requestPermission();
+      if (!granted) {
+        messenger.showSnackBar(
+          const SnackBar(
+            content: Text('Benachrichtigungen sind nicht erlaubt.'),
+          ),
+        );
+        return;
+      }
+    }
+    final now = DateTime.now();
+    final body = briefingBody(
+      events: ref.read(visibleEventsProvider),
+      taskLists: ref.read(tasksControllerProvider).value ?? const [],
+      weather: ref.read(weatherProvider).value ?? const {},
+      day: DateTime(now.year, now.month, now.day),
+    );
+    await service.showNow(title: '☀️ Tages-Briefing (Test)', body: body);
+    messenger.showSnackBar(
+      const SnackBar(content: Text('Test-Briefing gesendet.')),
+    );
   }
 
   /// Easter Egg: 5× auf die Versionsnummer tippen zeigt eine Danksagung.
@@ -261,6 +292,14 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                     }
                   },
                 ),
+              ListTile(
+                leading: const Icon(Icons.notifications_active_outlined),
+                title: const Text('Test-Briefing jetzt senden'),
+                subtitle: const Text(
+                  'Zeigt sofort die heutige Übersicht als Benachrichtigung',
+                ),
+                onTap: _sendBriefingTest,
+              ),
               ListTile(
                 leading: const Icon(Icons.shield_outlined),
                 title: const Text('Berechtigungen'),

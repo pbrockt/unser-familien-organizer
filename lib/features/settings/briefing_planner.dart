@@ -28,6 +28,27 @@ ScheduledReminder? planDailyBriefing({
   if (!when.isAfter(n)) when = when.add(const Duration(days: 1));
   final day = DateTime(when.year, when.month, when.day);
 
+  final isToday = day == DateTime(n.year, n.month, n.day);
+  return ScheduledReminder(
+    id: kBriefingNotificationId,
+    title: isToday ? 'Guten Morgen! ☀️' : 'Vorschau für morgen',
+    body: briefingBody(
+      events: events,
+      taskLists: taskLists,
+      weather: weather,
+      day: day,
+    ),
+    when: when,
+  );
+}
+
+/// Baut den Briefing-Text für [day]: „X Termine · Y fällige Aufgaben · 🌤 …".
+String briefingBody({
+  required List<CalendarEvent> events,
+  required List<TaskList> taskLists,
+  required DateTime day,
+  Map<String, DayWeather> weather = const {},
+}) {
   final eventCount = events.where((e) => e.occursOn(day)).length;
   final taskCount = taskLists
       .expand((l) => l.items)
@@ -59,12 +80,5 @@ ScheduledReminder? planDailyBriefing({
       '${weatherEmoji(w.code)} ${w.tempMax.round()}°/${w.tempMin.round()}°',
     );
   }
-
-  final isToday = day == DateTime(n.year, n.month, n.day);
-  return ScheduledReminder(
-    id: kBriefingNotificationId,
-    title: isToday ? 'Guten Morgen! ☀️' : 'Vorschau für morgen',
-    body: parts.join(' · '),
-    when: when,
-  );
+  return parts.join(' · ');
 }
