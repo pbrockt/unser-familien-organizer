@@ -11,6 +11,7 @@ import '../../core/auth/account_providers.dart';
 import '../../core/auth/nextcloud_account.dart';
 import '../../core/sync/sync_probe.dart';
 import '../../core/sync/sync_status.dart';
+import '../../shared/utils/week.dart';
 import '../../shared/widgets/blob_background.dart';
 import '../../shared/widgets/running_badge.dart';
 import '../calendar/birthdays.dart';
@@ -577,11 +578,29 @@ class _TwoWeekCalendar extends StatelessWidget {
       );
     }
 
-    Widget weekRow(int offset) => Row(
-      children: [
-        for (var i = 0; i < 7; i++) cell(start.add(Duration(days: offset + i))),
-      ],
+    Widget kwCell(String text, {bool header = false}) => SizedBox(
+      width: 22,
+      child: Center(
+        child: Text(
+          text,
+          style: TextStyle(
+            fontSize: header ? 10 : 11,
+            fontWeight: FontWeight.w600,
+            color: scheme.onSurfaceVariant,
+          ),
+        ),
+      ),
     );
+
+    Widget weekRow(int offset) {
+      final weekStart = start.add(Duration(days: offset));
+      return Row(
+        children: [
+          kwCell('${isoWeekNumber(weekStart)}'),
+          for (var i = 0; i < 7; i++) cell(weekStart.add(Duration(days: i))),
+        ],
+      );
+    }
 
     return Container(
       margin: const EdgeInsets.fromLTRB(16, 0, 16, 12),
@@ -595,6 +614,7 @@ class _TwoWeekCalendar extends StatelessWidget {
         children: [
           Row(
             children: [
+              kwCell('KW', header: true),
               for (final l in labels)
                 Expanded(
                   child: Center(

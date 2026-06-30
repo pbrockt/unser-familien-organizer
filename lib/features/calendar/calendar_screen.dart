@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 import 'package:table_calendar/table_calendar.dart';
 
 import '../../core/auth/account_providers.dart';
+import '../../shared/utils/week.dart';
 import '../../shared/widgets/running_badge.dart';
 import '../members/member_settings.dart';
 import '../search/search_screen.dart';
@@ -360,6 +361,12 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
                   textAlign: TextAlign.center,
                   style: Theme.of(context).textTheme.titleMedium,
                 ),
+                Text(
+                  'KW ${isoWeekNumber(_selectedDay)}',
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  ),
+                ),
                 _weatherBadge(_selectedDay),
               ],
             ),
@@ -521,6 +528,8 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
                         locale: 'de_DE',
                         startingDayOfWeek: StartingDayOfWeek.monday,
                         calendarFormat: _format,
+                        // Kalenderwochen-Spalte links anzeigen.
+                        weekNumbersVisible: true,
                         // Nur Monatsansicht – kein Umschalter (2 Wochen/Woche).
                         availableCalendarFormats: const {
                           CalendarFormat.month: 'Monat',
