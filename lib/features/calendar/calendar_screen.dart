@@ -537,6 +537,19 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
                         headerStyle: const HeaderStyle(
                           formatButtonVisible: false,
                         ),
+                        // KW gleich gedämpft wie die Wochentags-Beschriftung.
+                        daysOfWeekStyle: DaysOfWeekStyle(
+                          weekdayStyle: TextStyle(
+                            color: Theme.of(
+                              context,
+                            ).colorScheme.onSurfaceVariant,
+                          ),
+                          weekendStyle: TextStyle(
+                            color: Theme.of(
+                              context,
+                            ).colorScheme.onSurfaceVariant,
+                          ),
+                        ),
                         selectedDayPredicate: (d) => isSameDay(d, _selectedDay),
                         eventLoader: loader,
                         onFormatChanged: (f) => setState(() => _format = f),
@@ -552,6 +565,12 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
                         },
                         calendarStyle: CalendarStyle(
                           markersMaxCount: 4,
+                          weekNumberTextStyle: TextStyle(
+                            fontSize: 12,
+                            color: Theme.of(
+                              context,
+                            ).colorScheme.onSurfaceVariant,
+                          ),
                           // Tage des aktuellen Monats leicht hinterlegen, Tage außerhalb
                           // klar abgesetzt (blasser, ohne Hintergrund).
                           defaultDecoration: BoxDecoration(
