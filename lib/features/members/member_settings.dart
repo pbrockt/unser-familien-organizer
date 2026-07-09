@@ -44,38 +44,39 @@ class MemberSetting {
     bool? countdown,
     bool? countdownAll,
     bool clearColor = false,
-  }) =>
-      MemberSetting(
-        name: name ?? this.name,
-        colorHex: clearColor ? null : (colorHex ?? this.colorHex),
-        hidden: hidden ?? this.hidden,
-        showOnHome: showOnHome ?? this.showOnHome,
-        countdown: countdown ?? this.countdown,
-        countdownAll: countdownAll ?? this.countdownAll,
-      );
+  }) => MemberSetting(
+    name: name ?? this.name,
+    colorHex: clearColor ? null : (colorHex ?? this.colorHex),
+    hidden: hidden ?? this.hidden,
+    showOnHome: showOnHome ?? this.showOnHome,
+    countdown: countdown ?? this.countdown,
+    countdownAll: countdownAll ?? this.countdownAll,
+  );
 
   Map<String, dynamic> toJson() => {
-        'name': name,
-        'color': colorHex,
-        'hidden': hidden,
-        'showOnHome': showOnHome,
-        'countdown': countdown,
-        'countdownAll': countdownAll,
-      };
+    'name': name,
+    'color': colorHex,
+    'hidden': hidden,
+    'showOnHome': showOnHome,
+    'countdown': countdown,
+    'countdownAll': countdownAll,
+  };
 
   factory MemberSetting.fromJson(Map<String, dynamic> j) => MemberSetting(
-        name: j['name'] as String?,
-        colorHex: j['color'] as String?,
-        hidden: (j['hidden'] as bool?) ?? false,
-        showOnHome: (j['showOnHome'] as bool?) ?? true,
-        countdown: (j['countdown'] as bool?) ?? false,
-        countdownAll: (j['countdownAll'] as bool?) ?? false,
-      );
+    name: j['name'] as String?,
+    colorHex: j['color'] as String?,
+    hidden: (j['hidden'] as bool?) ?? false,
+    showOnHome: (j['showOnHome'] as bool?) ?? true,
+    countdown: (j['countdown'] as bool?) ?? false,
+    countdownAll: (j['countdownAll'] as bool?) ?? false,
+  );
 }
 
 /// Persistierte Member-Einstellungen, gekeyt nach Collection-href.
-final memberSettingsProvider = AsyncNotifierProvider<MemberSettingsController,
-    Map<String, MemberSetting>>(MemberSettingsController.new);
+final memberSettingsProvider =
+    AsyncNotifierProvider<MemberSettingsController, Map<String, MemberSetting>>(
+      MemberSettingsController.new,
+    );
 
 class MemberSettingsController
     extends AsyncNotifier<Map<String, MemberSetting>> {
@@ -88,8 +89,10 @@ class MemberSettingsController
     if (raw == null || raw.isEmpty) return {};
     try {
       final map = jsonDecode(raw) as Map<String, dynamic>;
-      return map.map((k, v) =>
-          MapEntry(k, MemberSetting.fromJson(v as Map<String, dynamic>)));
+      return map.map(
+        (k, v) =>
+            MapEntry(k, MemberSetting.fromJson(v as Map<String, dynamic>)),
+      );
     } catch (_) {
       return {};
     }
@@ -106,17 +109,19 @@ class MemberSettingsController
     state = AsyncData(current);
   }
 
-  MemberSetting _of(String href) =>
-      state.value?[href] ?? const MemberSetting();
+  MemberSetting _of(String href) => state.value?[href] ?? const MemberSetting();
 
-  Future<void> setName(String href, String? name) =>
-      _update(href, _of(href).copyWith(name: (name ?? '').trim().isEmpty ? null : name!.trim()));
+  Future<void> setName(String href, String? name) => _update(
+    href,
+    _of(href).copyWith(name: (name ?? '').trim().isEmpty ? null : name!.trim()),
+  );
 
   Future<void> setColorHex(String href, String? colorHex) => _update(
-      href,
-      colorHex == null
-          ? _of(href).copyWith(clearColor: true)
-          : _of(href).copyWith(colorHex: colorHex));
+    href,
+    colorHex == null
+        ? _of(href).copyWith(clearColor: true)
+        : _of(href).copyWith(colorHex: colorHex),
+  );
 
   Future<void> setHidden(String href, bool hidden) =>
       _update(href, _of(href).copyWith(hidden: hidden));
@@ -164,14 +169,28 @@ List<CalendarEvent> filterVisibleEvents(
   return out;
 }
 
+/// Wie [filterVisibleEvents], aber **ohne** ausgeblendete Kalender zu
+/// entfernen – überschreibt nur die Farbe. Für die Startseite, damit der im
+/// Kalender gesetzte Sichtbarkeits-Filter dort NICHT durchschlägt (die
+/// Startseite hat ihren eigenen Filter).
+List<CalendarEvent> applyMemberColors(
+  List<CalendarEvent> events,
+  Map<String, MemberSetting> settings,
+) {
+  if (settings.isEmpty) return events;
+  final out = <CalendarEvent>[];
+  for (final e in events) {
+    final override = parseHexColor(settings[e.calendarHref]?.colorHex);
+    out.add(override != null ? e.copyWith(color: override) : e);
+  }
+  return out;
+}
+
 /// Termine, die auf der Startseite („Anstehende Termine") erscheinen sollen.
 List<CalendarEvent> filterHomeEvents(
   List<CalendarEvent> events,
   Map<String, MemberSetting> settings,
-) =>
-    events
-        .where((e) => settings[e.calendarHref]?.showOnHome ?? true)
-        .toList();
+) => events.where((e) => settings[e.calendarHref]?.showOnHome ?? true).toList();
 
 /// Pro Countdown-Kalender nur der **nächste** anstehende Termin (heute oder
 /// später), nach Datum sortiert.
@@ -208,8 +227,9 @@ final membersProvider = Provider.autoDispose<List<Member>>((ref) {
   final result = <Member>[];
   for (final c in collections) {
     final s = settings[c.href];
-    final name =
-        (s?.name != null && s!.name!.isNotEmpty) ? s.name! : c.displayName;
+    final name = (s?.name != null && s!.name!.isNotEmpty)
+        ? s.name!
+        : c.displayName;
     final color =
         parseHexColor(s?.colorHex) ?? parseHexColor(c.color) ?? AppTheme.seed;
     result.add((

@@ -528,6 +528,10 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
                         locale: 'de_DE',
                         startingDayOfWeek: StartingDayOfWeek.monday,
                         calendarFormat: _format,
+                        // Etwas kompakter, damit der Kalender weniger Höhe
+                        // einnimmt (Default-Zeilenhöhe 52 → 46).
+                        rowHeight: 46,
+                        daysOfWeekHeight: 18,
                         // Kalenderwochen-Spalte links anzeigen.
                         weekNumbersVisible: true,
                         // Nur Monatsansicht – kein Umschalter (2 Wochen/Woche).

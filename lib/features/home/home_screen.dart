@@ -21,8 +21,6 @@ import '../calendar/event_editor_sheet.dart';
 import '../calendar/event_providers.dart';
 import '../family/family_screen.dart';
 import '../members/member_settings.dart';
-import '../search/search_screen.dart';
-import '../settings/settings_screen.dart';
 import '../tasks/task_item.dart';
 import '../tasks/task_providers.dart';
 import 'dashboard_providers.dart';
@@ -45,7 +43,9 @@ class HomeScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final account = ref.watch(accountProvider).value;
-    final events = ref.watch(visibleEventsProvider);
+    // Startseite zeigt bewusst ALLE Kalender (nur eigener Home-Filter zählt),
+    // unabhängig vom Sichtbarkeits-Filter des Kalender-Tabs.
+    final events = ref.watch(homeBaseEventsProvider);
     final memberSettings = ref.watch(memberSettingsProvider).value ?? const {};
     final taskLists = ref.watch(tasksControllerProvider).value ?? const [];
     final pendingSync = ref.watch(pendingSyncCountProvider).value ?? 0;
@@ -263,9 +263,9 @@ class _TopBar extends StatelessWidget {
             shadowColor: Colors.black26,
             child: InkWell(
               customBorder: const CircleBorder(),
-              onTap: () => Navigator.of(
-                context,
-              ).push(MaterialPageRoute(builder: (_) => const SearchScreen())),
+              // Als Unterroute des Home-Branch, damit „Start" tippen zuverlässig
+              // hierher zurückkehrt (statt imperativem Navigator.push).
+              onTap: () => context.push('/home/search'),
               child: Padding(
                 padding: const EdgeInsets.all(9),
                 child: Icon(Icons.search, color: scheme.onSurface),
@@ -280,9 +280,7 @@ class _TopBar extends StatelessWidget {
             shadowColor: Colors.black26,
             child: InkWell(
               customBorder: const CircleBorder(),
-              onTap: () => Navigator.of(
-                context,
-              ).push(MaterialPageRoute(builder: (_) => const SettingsScreen())),
+              onTap: () => context.push('/home/settings'),
               child: Padding(
                 padding: const EdgeInsets.all(9),
                 child: Icon(Icons.settings_outlined, color: scheme.onSurface),

@@ -126,14 +126,11 @@ class EventsController extends AsyncNotifier<List<CalendarEvent>> {
   }
 
   /// Nach einer lokalen Änderung: **sofort** aus dem bereits aktualisierten
-  /// Cache neu aufbauen, damit der Termin ohne manuelles „Aktualisieren"
-  /// erscheint.
-  ///
-  /// Bewusst KEIN sofortiger Server-Sync: `putObject`/`deleteObject` haben den
-  /// Cache schon aktualisiert; ein direkter REPORT würde den Cache evtl. mit
-  /// einem noch nicht propagierten Server-Stand überschreiben (dann „verschwände"
-  /// der neue Termin). Der Abgleich passiert über den Hintergrund-Sync, den
-  /// „Aktualisieren"-Knopf bzw. den nächsten App-Start.
+  /// Cache neu aufbauen (damit der Termin ohne manuelles „Aktualisieren"
+  /// sofort erscheint) und **direkt danach** einmal autoritativ mit dem Server
+  /// abgleichen (Delta-Sync per CTag – nur die geänderte Collection wird neu
+  /// geladen). So stimmt der Stand überall, ohne dass der Nutzer den
+  /// „Aktualisieren"-Knopf drücken muss.
   Future<void> _refresh(NextcloudAccount account) async {
     final repo = ref.read(caldavRepositoryProvider);
     final cached = await repo.cachedSnapshot(account);
@@ -142,6 +139,9 @@ class EventsController extends AsyncNotifier<List<CalendarEvent>> {
       state = AsyncData(buildEventsFromSnapshot(cached));
     }
     _setOnline();
+    // Autoritativer Nachlauf (Nextcloud ist nach erfolgreichem PUT sofort
+    // konsistent, der neue Eintrag bleibt also erhalten).
+    Future.microtask(() => _backgroundRefresh(account, repo));
   }
 
   /// Löscht nur eine einzelne Serien-Instanz: setzt ein EXDATE und schreibt
@@ -376,6 +376,15 @@ final visibleEventsProvider = Provider.autoDispose<List<CalendarEvent>>((ref) {
   final events = ref.watch(eventsControllerProvider).value ?? const [];
   final settings = ref.watch(memberSettingsProvider).value ?? const {};
   return filterVisibleEvents(events, settings);
+});
+
+/// Basis-Termine für die Startseite: **alle** Kalender (nur Farb-Override),
+/// unabhängig vom im Kalender gesetzten Sichtbarkeits-Filter. Die Startseite
+/// wendet danach ihren eigenen Filter (`homeCalendarFilterProvider`) an.
+final homeBaseEventsProvider = Provider.autoDispose<List<CalendarEvent>>((ref) {
+  final events = ref.watch(eventsControllerProvider).value ?? const [];
+  final settings = ref.watch(memberSettingsProvider).value ?? const {};
+  return applyMemberColors(events, settings);
 });
 
 /// Termine gruppiert nach Tag – praktisch als `eventLoader` für table_calendar.

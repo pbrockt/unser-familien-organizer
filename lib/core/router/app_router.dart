@@ -5,6 +5,8 @@ import 'package:go_router/go_router.dart';
 import '../../features/calendar/calendar_screen.dart';
 import '../../features/home/home_screen.dart';
 import '../../features/school/school_screen.dart';
+import '../../features/search/search_screen.dart';
+import '../../features/settings/settings_screen.dart';
 import '../../features/shopping/shopping_screen.dart';
 import '../../features/tasks/tasks_screen.dart';
 import '../../shared/widgets/app_shell.dart';
@@ -24,6 +26,19 @@ final routerProvider = Provider<GoRouter>((ref) {
               GoRoute(
                 path: '/home',
                 builder: (context, state) => const HomeScreen(),
+                routes: [
+                  // Als Unterrouten des Home-Branch: bleiben innerhalb des
+                  // Shell-Navigators (Bottom-Bar sichtbar) und werden durch
+                  // erneutes Tippen auf „Start" zuverlässig geschlossen.
+                  GoRoute(
+                    path: 'settings',
+                    builder: (context, state) => const SettingsScreen(),
+                  ),
+                  GoRoute(
+                    path: 'search',
+                    builder: (context, state) => const SearchScreen(),
+                  ),
+                ],
               ),
             ],
           ),

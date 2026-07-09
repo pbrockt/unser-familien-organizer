@@ -165,14 +165,11 @@ class _AppShellState extends ConsumerState<AppShell> {
       return;
     }
     final cur = widget.navigationShell.currentIndex;
-    // „Liste" erneut tippen (schon im Listen-Bereich = tasks/shopping) → Menü.
+    // „Liste" tippen → immer die Aufgaben-Übersicht. Das Listen-/Einkauf-Menü
+    // öffnet der kleine Aufwärtspfeil über dem Tab (siehe _buildBottomBar).
     if (display == _listeDisplay) {
-      if (cur == 2 || cur == 3) {
-        _showListMenu();
-        return;
-      }
       ref.read(focusedTaskListProvider.notifier).set(null);
-      widget.navigationShell.goBranch(2, initialLocation: false);
+      widget.navigationShell.goBranch(2, initialLocation: cur == 2);
       return;
     }
     final branch = _branchForDisplay(display);
@@ -364,7 +361,9 @@ class _AppShellState extends ConsumerState<AppShell> {
   /// Bottom-Navigation für schmale Fenster (Handy).
   Widget _buildBottomBar(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    return NavigationBar(
+    final onListe =
+        _displayForBranch(widget.navigationShell.currentIndex) == _listeDisplay;
+    final bar = NavigationBar(
       selectedIndex: _displayForBranch(widget.navigationShell.currentIndex),
       onDestinationSelected: _onDestination,
       destinations: [
@@ -402,6 +401,43 @@ class _AppShellState extends ConsumerState<AppShell> {
         ),
       ],
     );
+    // Kleiner Aufwärtspfeil über dem „Liste"-Tab: Tippen auf den Pfeil öffnet
+    // das Listen-/Einkauf-Menü, Tippen auf „Liste" selbst öffnet die Aufgaben.
+    return LayoutBuilder(
+      builder: (context, c) {
+        const btn = 26.0;
+        final slotW = c.maxWidth / 5;
+        final left = slotW * (_listeDisplay + 0.5) - btn / 2;
+        return Stack(
+          children: [
+            bar,
+            Positioned(
+              left: left,
+              top: 1,
+              child: Material(
+                color: Colors.transparent,
+                shape: const CircleBorder(),
+                child: InkWell(
+                  customBorder: const CircleBorder(),
+                  onTap: _showListMenu,
+                  child: SizedBox(
+                    width: btn,
+                    height: btn,
+                    child: Icon(
+                      Icons.keyboard_arrow_up,
+                      size: 20,
+                      color: onListe
+                          ? scheme.onSecondaryContainer
+                          : scheme.onSurfaceVariant,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ],
+        );
+      },
+    );
   }
 
   /// Seiten-Navigation für breite Fenster (Desktop/Tablet). „Neu" sitzt als
@@ -420,27 +456,43 @@ class _AppShellState extends ConsumerState<AppShell> {
           child: const Icon(Icons.add),
         ),
       ),
-      destinations: const [
-        NavigationRailDestination(
+      destinations: [
+        const NavigationRailDestination(
           icon: Icon(Icons.home_outlined),
           selectedIcon: Icon(Icons.home),
           label: Text('Start'),
         ),
-        NavigationRailDestination(
+        const NavigationRailDestination(
           icon: Icon(Icons.calendar_month_outlined),
           selectedIcon: Icon(Icons.calendar_month),
           label: Text('Kalender'),
         ),
         NavigationRailDestination(
-          icon: Icon(Icons.checklist_outlined),
-          selectedIcon: Icon(Icons.checklist),
-          label: Text('Liste'),
+          icon: _railListeIcon(false),
+          selectedIcon: _railListeIcon(true),
+          label: const Text('Liste'),
         ),
-        NavigationRailDestination(
+        const NavigationRailDestination(
           icon: Icon(Icons.school_outlined),
           selectedIcon: Icon(Icons.school),
           label: Text('Schule'),
         ),
+      ],
+    );
+  }
+
+  /// Listen-Icon für die Seiten-Navigation mit tippbarem Aufwärtspfeil darüber
+  /// (öffnet das Listen-/Einkauf-Menü).
+  Widget _railListeIcon(bool selected) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTap: _showListMenu,
+          child: const Icon(Icons.keyboard_arrow_up, size: 16),
+        ),
+        Icon(selected ? Icons.checklist : Icons.checklist_outlined),
       ],
     );
   }
