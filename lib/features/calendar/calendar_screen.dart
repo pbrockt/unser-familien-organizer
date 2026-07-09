@@ -395,26 +395,15 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
             ),
           ),
           Expanded(
-            // Alles in einer Zeile: Wetter · KW + Tag · Wetter. Skaliert bei
-            // wenig Platz herunter, statt umzubrechen.
-            child: FittedBox(
-              fit: BoxFit.scaleDown,
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  _weatherBadge(_selectedDay),
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 8),
-                    child: Text(
-                      'KW ${isoWeekNumber(_selectedDay)} · $label',
-                      style: Theme.of(context).textTheme.titleMedium,
-                    ),
-                  ),
-                  _weatherBadge(_selectedDay),
-                ],
-              ),
+            child: Text(
+              'KW ${isoWeekNumber(_selectedDay)} · $label',
+              textAlign: TextAlign.center,
+              overflow: TextOverflow.ellipsis,
+              style: _headerTitleStyle(context),
             ),
           ),
+          // Wetter nur rechts.
+          _weatherBadge(_selectedDay),
           IconButton(
             icon: const Icon(Icons.chevron_right),
             tooltip: 'Nächster Tag',
@@ -427,6 +416,70 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
             onPressed: isToday
                 ? null
                 : () => _dayPager.jumpToPage(_pageOf(DateTime.now())),
+            child: const Text('Heute'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Gemeinsamer Titelstil für Tages- und Monatskopf (gleiche Schriftgröße).
+  TextStyle? _headerTitleStyle(BuildContext context) =>
+      Theme.of(context).textTheme.titleMedium;
+
+  /// Wechselt den angezeigten Monat um [delta] (−1/+1), geklemmt auf den
+  /// erlaubten Bereich – der TableCalendar folgt dem geänderten `focusedDay`.
+  void _shiftMonth(int delta) {
+    final target = DateTime(_focusedDay.year, _focusedDay.month + delta, 1);
+    final min = DateTime(2020, 1, 1);
+    final max = DateTime(2035, 12, 31);
+    setState(() {
+      _focusedDay = target.isBefore(min)
+          ? min
+          : (target.isAfter(max) ? max : target);
+    });
+  }
+
+  /// Kopfzeile der Monatsansicht – analog zur Tagesansicht: ‹ ›-Pfeile für
+  /// Vor-/Folgemonat, mittig der Monatsname, plus „Heute".
+  Widget _monthHeader() {
+    final label = DateFormat('MMMM yyyy', 'de_DE').format(_focusedDay);
+    final now = DateTime.now();
+    final isCurrentMonth =
+        _focusedDay.year == now.year && _focusedDay.month == now.month;
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+      child: Row(
+        children: [
+          IconButton(
+            icon: const Icon(Icons.chevron_left),
+            tooltip: 'Vorheriger Monat',
+            onPressed: () => _shiftMonth(-1),
+          ),
+          Expanded(
+            child: Text(
+              label,
+              textAlign: TextAlign.center,
+              overflow: TextOverflow.ellipsis,
+              style: _headerTitleStyle(context),
+            ),
+          ),
+          IconButton(
+            icon: const Icon(Icons.chevron_right),
+            tooltip: 'Nächster Monat',
+            onPressed: () => _shiftMonth(1),
+          ),
+          TextButton(
+            onPressed: isCurrentMonth
+                ? null
+                : () {
+                    final today = DateTime.now();
+                    setState(() {
+                      _selectedDay = today;
+                      _focusedDay = today;
+                    });
+                    ref.read(calendarSelectedDayProvider.notifier).set(today);
+                  },
             child: const Text('Heute'),
           ),
         ],
@@ -581,40 +634,13 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
                         Expanded(
                           child: ListView(
                             children: [
-                              // „Heute" springt in den aktuellen Monat/Tag zurück
-                              // (den Monat wechselt man sonst per Wischen ‹ ›).
-                              Align(
-                                alignment: Alignment.centerRight,
-                                child: Padding(
-                                  padding: const EdgeInsets.only(
-                                    right: 8,
-                                    top: 2,
-                                  ),
-                                  child: TextButton.icon(
-                                    onPressed: () {
-                                      final today = DateTime.now();
-                                      setState(() {
-                                        _selectedDay = today;
-                                        _focusedDay = today;
-                                      });
-                                      ref
-                                          .read(
-                                            calendarSelectedDayProvider
-                                                .notifier,
-                                          )
-                                          .set(today);
-                                    },
-                                    icon: const Icon(
-                                      Icons.today_outlined,
-                                      size: 18,
-                                    ),
-                                    label: const Text('Heute'),
-                                  ),
-                                ),
-                              ),
+                              // Eigene Kopfzeile (Pfeile + „Heute") wie in der
+                              // Tagesansicht – statt der eingebauten Zeile.
+                              _monthHeader(),
                               TableCalendar<CalendarEvent>(
                                 firstDay: DateTime.utc(2020, 1, 1),
                                 lastDay: DateTime.utc(2035, 12, 31),
+                                headerVisible: false,
                                 focusedDay: _focusedDay,
                                 locale: 'de_DE',
                                 startingDayOfWeek: StartingDayOfWeek.monday,
