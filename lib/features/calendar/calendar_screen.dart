@@ -5,6 +5,7 @@ import 'package:table_calendar/table_calendar.dart';
 
 import '../../core/auth/account_providers.dart';
 import '../../shared/utils/week.dart';
+import '../../shared/widgets/blob_background.dart';
 import '../../shared/widgets/running_badge.dart';
 import '../members/member_settings.dart';
 import '../search/search_screen.dart';
@@ -394,22 +395,24 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
             ),
           ),
           Expanded(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  label,
-                  textAlign: TextAlign.center,
-                  style: Theme.of(context).textTheme.titleMedium,
-                ),
-                Text(
-                  'KW ${isoWeekNumber(_selectedDay)}',
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+            // Alles in einer Zeile: Wetter · KW + Tag · Wetter. Skaliert bei
+            // wenig Platz herunter, statt umzubrechen.
+            child: FittedBox(
+              fit: BoxFit.scaleDown,
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  _weatherBadge(_selectedDay),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 8),
+                    child: Text(
+                      'KW ${isoWeekNumber(_selectedDay)} · $label',
+                      style: Theme.of(context).textTheme.titleMedium,
+                    ),
                   ),
-                ),
-                _weatherBadge(_selectedDay),
-              ],
+                  _weatherBadge(_selectedDay),
+                ],
+              ),
             ),
           ),
           IconButton(
@@ -472,23 +475,17 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
         ref.watch(birthdayConfigProvider).value ?? const BirthdayConfig();
 
     return Scaffold(
+      // Gleicher, ruhiger Verlauf-Hintergrund wie auf der Startseite.
+      backgroundColor: Colors.transparent,
+      extendBodyBehindAppBar: true,
       appBar: AppBar(
         title: const Text('Kalender'),
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        scrolledUnderElevation: 0,
         actions: [
           _viewToggle(),
           const SizedBox(width: 4),
-          IconButton(
-            tooltip: 'Heute',
-            icon: const Icon(Icons.today_outlined),
-            onPressed: () {
-              final today = DateTime.now();
-              setState(() {
-                _selectedDay = today;
-                _focusedDay = today;
-              });
-              ref.read(calendarSelectedDayProvider.notifier).set(today);
-            },
-          ),
           IconButton(
             tooltip: 'Suchen',
             icon: const Icon(Icons.search),
@@ -511,246 +508,306 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
           ),
         ],
       ),
-      body: accountAsync.maybeWhen(
-        orElse: () => const Center(child: CircularProgressIndicator()),
-        data: (account) {
-          if (account == null) return const _ConnectPrompt();
-          return Column(
-            children: [
-              if (_view == _CalView.day) ...[
-                _dayHeader(),
-                Expanded(
-                  child: eventsAsync.when(
-                    loading: () =>
-                        const Center(child: CircularProgressIndicator()),
-                    error: (e, _) => _ErrorView(
-                      message: '$e',
-                      onRetry: () => ref.invalidate(eventsControllerProvider),
-                    ),
-                    data: (_) => PageView.builder(
-                      // Key an den Controller binden: bei _enterDay wird ein
-                      // frischer Controller erzeugt -> PageView baut neu auf und
-                      // zeigt garantiert die Zielseite.
-                      key: ValueKey(_dayPager),
-                      controller: _dayPager,
-                      onPageChanged: (i) {
-                        setState(() {
-                          _selectedDay = _dateOf(i);
-                          _focusedDay = _selectedDay;
-                        });
-                        ref
-                            .read(calendarSelectedDayProvider.notifier)
-                            .set(_selectedDay);
-                      },
-                      itemBuilder: (context, index) {
-                        final date = _dateOf(index);
-                        final dayEvents =
-                            eventsByDay[_dayKey(date)] ??
-                            const <CalendarEvent>[];
-                        final focus =
-                            (_focusTime != null && isSameDay(date, _focusTime!))
-                            ? _focusTime
-                            : null;
-                        return DayTimeline(
-                          day: date,
-                          events: dayEvents,
-                          focusTime: focus,
-                          onEventLongPress: (e) =>
-                              showEventActions(context, ref, e),
-                          onCreateAt: (start) =>
-                              showEventEditor(context, initialStart: start),
-                        );
-                      },
-                    ),
-                  ),
-                ),
-              ] else ...[
-                // Kalender + Terminliste scrollen gemeinsam als eine Seite
-                // (der Kalender scrollt mit nach oben weg).
-                Expanded(
-                  child: ListView(
+      body: Stack(
+        children: [
+          const Positioned.fill(child: BlobBackground()),
+          SafeArea(
+            bottom: false,
+            child: Padding(
+              // Platz für die (transparente) AppBar, hinter der der Verlauf
+              // durchscheint.
+              padding: const EdgeInsets.only(top: kToolbarHeight),
+              child: accountAsync.maybeWhen(
+                orElse: () => const Center(child: CircularProgressIndicator()),
+                data: (account) {
+                  if (account == null) return const _ConnectPrompt();
+                  return Column(
                     children: [
-                      TableCalendar<CalendarEvent>(
-                        firstDay: DateTime.utc(2020, 1, 1),
-                        lastDay: DateTime.utc(2035, 12, 31),
-                        focusedDay: _focusedDay,
-                        locale: 'de_DE',
-                        startingDayOfWeek: StartingDayOfWeek.monday,
-                        calendarFormat: _format,
-                        // Etwas kompakter, damit der Kalender weniger Höhe
-                        // einnimmt (Default-Zeilenhöhe 52 → 46).
-                        rowHeight: 46,
-                        daysOfWeekHeight: 18,
-                        // Kalenderwochen-Spalte links anzeigen.
-                        weekNumbersVisible: true,
-                        // Nur Monatsansicht – kein Umschalter (2 Wochen/Woche).
-                        availableCalendarFormats: const {
-                          CalendarFormat.month: 'Monat',
-                        },
-                        headerStyle: const HeaderStyle(
-                          formatButtonVisible: false,
-                        ),
-                        // KW gleich gedämpft wie die Wochentags-Beschriftung.
-                        daysOfWeekStyle: DaysOfWeekStyle(
-                          weekdayStyle: TextStyle(
-                            color: Theme.of(
-                              context,
-                            ).colorScheme.onSurfaceVariant,
-                          ),
-                          weekendStyle: TextStyle(
-                            color: Theme.of(
-                              context,
-                            ).colorScheme.onSurfaceVariant,
-                          ),
-                        ),
-                        selectedDayPredicate: (d) => isSameDay(d, _selectedDay),
-                        eventLoader: loader,
-                        onFormatChanged: (f) => setState(() => _format = f),
-                        onPageChanged: (day) => _focusedDay = day,
-                        onDaySelected: (selected, focused) {
-                          setState(() {
-                            _selectedDay = selected;
-                            _focusedDay = focused;
-                          });
-                          ref
-                              .read(calendarSelectedDayProvider.notifier)
-                              .set(selected);
-                        },
-                        calendarStyle: CalendarStyle(
-                          markersMaxCount: 4,
-                          weekNumberTextStyle: TextStyle(
-                            fontSize: 12,
-                            color: Theme.of(
-                              context,
-                            ).colorScheme.onSurfaceVariant,
-                          ),
-                          // Tage des aktuellen Monats leicht hinterlegen, Tage außerhalb
-                          // klar abgesetzt (blasser, ohne Hintergrund).
-                          defaultDecoration: BoxDecoration(
-                            color: Theme.of(
-                              context,
-                            ).colorScheme.primary.withValues(alpha: 0.035),
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          weekendDecoration: BoxDecoration(
-                            color: Theme.of(
-                              context,
-                            ).colorScheme.primary.withValues(alpha: 0.035),
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          outsideDecoration: const BoxDecoration(
-                            color: Colors.transparent,
-                          ),
-                          outsideTextStyle: TextStyle(
-                            color: Theme.of(
-                              context,
-                            ).colorScheme.onSurface.withValues(alpha: 0.32),
-                          ),
-                          todayDecoration: BoxDecoration(
-                            color: Theme.of(
-                              context,
-                            ).colorScheme.primaryContainer,
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          todayTextStyle: TextStyle(
-                            color: Theme.of(
-                              context,
-                            ).colorScheme.onPrimaryContainer,
-                          ),
-                          selectedDecoration: BoxDecoration(
-                            color: Theme.of(context).colorScheme.primary,
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                        ),
-                        calendarBuilders: CalendarBuilders<CalendarEvent>(
-                          markerBuilder: (context, day, events) {
-                            if (events.isEmpty) return null;
-                            final now = DateTime.now();
-                            final today = DateTime(
-                              now.year,
-                              now.month,
-                              now.day,
-                            );
-                            final dayOnly = DateTime(
-                              day.year,
-                              day.month,
-                              day.day,
-                            );
-                            final pastDay = dayOnly.isBefore(today);
-                            return Row(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: events.take(4).map((e) {
-                                // Vergangene Tage – und heute bereits erledigte
-                                // Termine – nur noch schwach sichtbar.
-                                final faint =
-                                    pastDay ||
-                                    (dayOnly == today && e.hasPassed(now));
-                                // Geburtstage als Krone statt Punkt – in fester
-                                // Box, damit sie die Marker-Reihe nicht höher
-                                // zieht als die Punkte.
-                                if (isBirthday(e, birthdayCfg)) {
-                                  return Opacity(
-                                    opacity: faint ? 0.3 : 1,
-                                    child: const SizedBox(
-                                      width: 11,
-                                      height: 8,
-                                      child: FittedBox(
-                                        fit: BoxFit.contain,
-                                        child: Text(
-                                          '👑',
-                                          style: TextStyle(height: 1),
-                                        ),
-                                      ),
-                                    ),
-                                  );
-                                }
-                                final base =
-                                    e.color ??
-                                    Theme.of(context).colorScheme.primary;
-                                return Container(
-                                  width: 6,
-                                  height: 6,
-                                  margin: const EdgeInsets.symmetric(
-                                    horizontal: 1,
-                                  ),
-                                  decoration: BoxDecoration(
-                                    shape: BoxShape.circle,
-                                    color: base.withValues(
-                                      alpha: faint ? 0.3 : 1,
-                                    ),
+                      if (_view == _CalView.day) ...[
+                        _dayHeader(),
+                        Expanded(
+                          child: eventsAsync.when(
+                            loading: () => const Center(
+                              child: CircularProgressIndicator(),
+                            ),
+                            error: (e, _) => _ErrorView(
+                              message: '$e',
+                              onRetry: () =>
+                                  ref.invalidate(eventsControllerProvider),
+                            ),
+                            data: (_) => PageView.builder(
+                              // Key an den Controller binden: bei _enterDay wird ein
+                              // frischer Controller erzeugt -> PageView baut neu auf und
+                              // zeigt garantiert die Zielseite.
+                              key: ValueKey(_dayPager),
+                              controller: _dayPager,
+                              onPageChanged: (i) {
+                                setState(() {
+                                  _selectedDay = _dateOf(i);
+                                  _focusedDay = _selectedDay;
+                                });
+                                ref
+                                    .read(calendarSelectedDayProvider.notifier)
+                                    .set(_selectedDay);
+                              },
+                              itemBuilder: (context, index) {
+                                final date = _dateOf(index);
+                                final dayEvents =
+                                    eventsByDay[_dayKey(date)] ??
+                                    const <CalendarEvent>[];
+                                final focus =
+                                    (_focusTime != null &&
+                                        isSameDay(date, _focusTime!))
+                                    ? _focusTime
+                                    : null;
+                                return DayTimeline(
+                                  day: date,
+                                  events: dayEvents,
+                                  focusTime: focus,
+                                  onEventLongPress: (e) =>
+                                      showEventActions(context, ref, e),
+                                  onCreateAt: (start) => showEventEditor(
+                                    context,
+                                    initialStart: start,
                                   ),
                                 );
-                              }).toList(),
-                            );
-                          },
+                              },
+                            ),
+                          ),
                         ),
-                      ),
-                      eventsAsync.when(
-                        loading: () => const Padding(
-                          padding: EdgeInsets.all(32),
-                          child: Center(child: CircularProgressIndicator()),
+                      ] else ...[
+                        // Kalender + Terminliste scrollen gemeinsam als eine Seite
+                        // (der Kalender scrollt mit nach oben weg).
+                        Expanded(
+                          child: ListView(
+                            children: [
+                              // „Heute" springt in den aktuellen Monat/Tag zurück
+                              // (den Monat wechselt man sonst per Wischen ‹ ›).
+                              Align(
+                                alignment: Alignment.centerRight,
+                                child: Padding(
+                                  padding: const EdgeInsets.only(
+                                    right: 8,
+                                    top: 2,
+                                  ),
+                                  child: TextButton.icon(
+                                    onPressed: () {
+                                      final today = DateTime.now();
+                                      setState(() {
+                                        _selectedDay = today;
+                                        _focusedDay = today;
+                                      });
+                                      ref
+                                          .read(
+                                            calendarSelectedDayProvider
+                                                .notifier,
+                                          )
+                                          .set(today);
+                                    },
+                                    icon: const Icon(
+                                      Icons.today_outlined,
+                                      size: 18,
+                                    ),
+                                    label: const Text('Heute'),
+                                  ),
+                                ),
+                              ),
+                              TableCalendar<CalendarEvent>(
+                                firstDay: DateTime.utc(2020, 1, 1),
+                                lastDay: DateTime.utc(2035, 12, 31),
+                                focusedDay: _focusedDay,
+                                locale: 'de_DE',
+                                startingDayOfWeek: StartingDayOfWeek.monday,
+                                calendarFormat: _format,
+                                // Etwas kompakter, damit der Kalender weniger Höhe
+                                // einnimmt (Default-Zeilenhöhe 52 → 46).
+                                rowHeight: 46,
+                                daysOfWeekHeight: 18,
+                                // Kalenderwochen-Spalte links anzeigen.
+                                weekNumbersVisible: true,
+                                // Nur Monatsansicht – kein Umschalter (2 Wochen/Woche).
+                                availableCalendarFormats: const {
+                                  CalendarFormat.month: 'Monat',
+                                },
+                                headerStyle: const HeaderStyle(
+                                  formatButtonVisible: false,
+                                ),
+                                // KW gleich gedämpft wie die Wochentags-Beschriftung.
+                                daysOfWeekStyle: DaysOfWeekStyle(
+                                  weekdayStyle: TextStyle(
+                                    color: Theme.of(
+                                      context,
+                                    ).colorScheme.onSurfaceVariant,
+                                  ),
+                                  weekendStyle: TextStyle(
+                                    color: Theme.of(
+                                      context,
+                                    ).colorScheme.onSurfaceVariant,
+                                  ),
+                                ),
+                                selectedDayPredicate: (d) =>
+                                    isSameDay(d, _selectedDay),
+                                eventLoader: loader,
+                                onFormatChanged: (f) =>
+                                    setState(() => _format = f),
+                                onPageChanged: (day) => _focusedDay = day,
+                                onDaySelected: (selected, focused) {
+                                  setState(() {
+                                    _selectedDay = selected;
+                                    _focusedDay = focused;
+                                  });
+                                  ref
+                                      .read(
+                                        calendarSelectedDayProvider.notifier,
+                                      )
+                                      .set(selected);
+                                },
+                                calendarStyle: CalendarStyle(
+                                  markersMaxCount: 4,
+                                  weekNumberTextStyle: TextStyle(
+                                    fontSize: 12,
+                                    color: Theme.of(
+                                      context,
+                                    ).colorScheme.onSurfaceVariant,
+                                  ),
+                                  // Tage des aktuellen Monats leicht hinterlegen, Tage außerhalb
+                                  // klar abgesetzt (blasser, ohne Hintergrund).
+                                  defaultDecoration: BoxDecoration(
+                                    color: Theme.of(context).colorScheme.primary
+                                        .withValues(alpha: 0.035),
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                  weekendDecoration: BoxDecoration(
+                                    color: Theme.of(context).colorScheme.primary
+                                        .withValues(alpha: 0.035),
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                  outsideDecoration: const BoxDecoration(
+                                    color: Colors.transparent,
+                                  ),
+                                  outsideTextStyle: TextStyle(
+                                    color: Theme.of(context)
+                                        .colorScheme
+                                        .onSurface
+                                        .withValues(alpha: 0.32),
+                                  ),
+                                  todayDecoration: BoxDecoration(
+                                    color: Theme.of(
+                                      context,
+                                    ).colorScheme.primaryContainer,
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                  todayTextStyle: TextStyle(
+                                    color: Theme.of(
+                                      context,
+                                    ).colorScheme.onPrimaryContainer,
+                                  ),
+                                  selectedDecoration: BoxDecoration(
+                                    color: Theme.of(
+                                      context,
+                                    ).colorScheme.primary,
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                ),
+                                calendarBuilders: CalendarBuilders<CalendarEvent>(
+                                  markerBuilder: (context, day, events) {
+                                    if (events.isEmpty) return null;
+                                    final now = DateTime.now();
+                                    final today = DateTime(
+                                      now.year,
+                                      now.month,
+                                      now.day,
+                                    );
+                                    final dayOnly = DateTime(
+                                      day.year,
+                                      day.month,
+                                      day.day,
+                                    );
+                                    final pastDay = dayOnly.isBefore(today);
+                                    return Row(
+                                      mainAxisAlignment:
+                                          MainAxisAlignment.center,
+                                      children: events.take(4).map((e) {
+                                        // Vergangene Tage – und heute bereits erledigte
+                                        // Termine – nur noch schwach sichtbar.
+                                        final faint =
+                                            pastDay ||
+                                            (dayOnly == today &&
+                                                e.hasPassed(now));
+                                        // Geburtstage als Krone statt Punkt – in fester
+                                        // Box, damit sie die Marker-Reihe nicht höher
+                                        // zieht als die Punkte.
+                                        if (isBirthday(e, birthdayCfg)) {
+                                          return Opacity(
+                                            opacity: faint ? 0.3 : 1,
+                                            child: const SizedBox(
+                                              width: 11,
+                                              height: 8,
+                                              child: FittedBox(
+                                                fit: BoxFit.contain,
+                                                child: Text(
+                                                  '👑',
+                                                  style: TextStyle(height: 1),
+                                                ),
+                                              ),
+                                            ),
+                                          );
+                                        }
+                                        final base =
+                                            e.color ??
+                                            Theme.of(
+                                              context,
+                                            ).colorScheme.primary;
+                                        return Container(
+                                          width: 6,
+                                          height: 6,
+                                          margin: const EdgeInsets.symmetric(
+                                            horizontal: 1,
+                                          ),
+                                          decoration: BoxDecoration(
+                                            shape: BoxShape.circle,
+                                            color: base.withValues(
+                                              alpha: faint ? 0.3 : 1,
+                                            ),
+                                          ),
+                                        );
+                                      }).toList(),
+                                    );
+                                  },
+                                ),
+                              ),
+                              eventsAsync.when(
+                                loading: () => const Padding(
+                                  padding: EdgeInsets.all(32),
+                                  child: Center(
+                                    child: CircularProgressIndicator(),
+                                  ),
+                                ),
+                                error: (e, _) => _ErrorView(
+                                  message: '$e',
+                                  onRetry: () =>
+                                      ref.invalidate(eventsControllerProvider),
+                                ),
+                                data: (_) => _DayEventList(
+                                  day: _selectedDay,
+                                  events: selectedEvents,
+                                  weather: _weatherBadge(_selectedDay),
+                                  birthdayConfig: birthdayCfg,
+                                  onEventLongPress: (e) =>
+                                      showEventActions(context, ref, e),
+                                ),
+                              ),
+                            ],
+                          ),
                         ),
-                        error: (e, _) => _ErrorView(
-                          message: '$e',
-                          onRetry: () =>
-                              ref.invalidate(eventsControllerProvider),
-                        ),
-                        data: (_) => _DayEventList(
-                          day: _selectedDay,
-                          events: selectedEvents,
-                          weather: _weatherBadge(_selectedDay),
-                          birthdayConfig: birthdayCfg,
-                          onEventLongPress: (e) =>
-                              showEventActions(context, ref, e),
-                        ),
-                      ),
+                      ],
                     ],
-                  ),
-                ),
-              ],
-            ],
-          );
-        },
+                  );
+                },
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
