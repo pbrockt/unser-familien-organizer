@@ -17,10 +17,29 @@ class TasksScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final accountAsync = ref.watch(accountProvider);
     final tasksAsync = ref.watch(tasksControllerProvider);
+    final focused = ref.watch(focusedTaskListProvider);
+    final shoppingHref = ref.watch(shoppingListHrefProvider).value;
+
+    // Titel: bei Fokus der Listenname, sonst „Liste".
+    var title = 'Liste';
+    final all = tasksAsync.value ?? const <TaskList>[];
+    if (focused != null) {
+      for (final l in all) {
+        if (l.href == focused) title = l.name;
+      }
+    }
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Aufgaben'),
+        leading: focused != null
+            ? IconButton(
+                tooltip: 'Alle Listen',
+                icon: const Icon(Icons.arrow_back),
+                onPressed: () =>
+                    ref.read(focusedTaskListProvider.notifier).set(null),
+              )
+            : null,
+        title: Text(title),
         actions: [
           IconButton(
             tooltip: 'Aktualisieren',
@@ -42,12 +61,19 @@ class TasksScreen extends ConsumerWidget {
             ),
             data: (lists) {
               if (lists.isEmpty) return const _EmptyTasks();
+              // Fokus auf eine Liste, sonst alle außer der Einkaufsliste.
+              final shown = focused != null
+                  ? lists.where((l) => l.href == focused).toList()
+                  : lists
+                        .where((l) => !isShoppingList(l, shoppingHref))
+                        .toList();
+              if (shown.isEmpty) return const _EmptyTasks();
               return RefreshIndicator(
                 onRefresh: () async {
                   ref.invalidate(tasksControllerProvider);
                   await ref.read(tasksControllerProvider.future);
                 },
-                child: _TaskListsView(lists: lists),
+                child: _TaskListsView(lists: shown),
               );
             },
           );

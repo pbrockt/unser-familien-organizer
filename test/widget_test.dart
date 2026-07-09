@@ -36,10 +36,11 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.byType(NavigationBar), findsOneWidget);
-    expect(find.text('Aufgaben'), findsOneWidget);
-    expect(find.text('Einkauf'), findsOneWidget);
+    expect(find.text('Liste'), findsOneWidget);
+    expect(find.text('Schule'), findsOneWidget);
     expect(find.text('Neu'), findsOneWidget);
-    // 'Familie' ist kein Tab mehr (jetzt unter Einstellungen).
+    // 'Einkauf'/'Aufgaben' sind keine eigenen Tabs mehr (jetzt „Liste").
+    expect(find.text('Einkauf'), findsNothing);
     expect(find.text('Familie'), findsNothing);
   });
 }

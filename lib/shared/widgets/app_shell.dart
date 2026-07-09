@@ -14,7 +14,9 @@ import '../../features/calendar/quick_entry_sheet.dart';
 import '../../features/onboarding/onboarding_screen.dart';
 import '../../features/study/study_planner_sheet.dart';
 import '../../features/tasks/task_editor_sheet.dart';
+import '../../features/tasks/task_item.dart';
 import '../../features/tasks/task_providers.dart';
+import '../../features/tasks/tasks_view_providers.dart';
 import '../../features/update/update_prompt.dart';
 
 /// Grundgerüst mit persistenter Bottom-Navigation: Start, Kalender, Aufgaben,
@@ -37,7 +39,26 @@ class _AppShellState extends ConsumerState<AppShell> {
   StreamSubscription<Uri?>? _widgetSub;
 
   /// Index der „+"-Schaltfläche (keine echte Seite, sondern eine Aktion).
-  static const int _plusIndex = 5;
+  // Anzeige-Ziele: Start(0) · Kalender(1) · Liste(2) · Schule(3) · +(4).
+  // „Einkauf" ist kein Tab mehr, bleibt aber als Branch (3) erreichbar.
+  static const int _plusIndex = 4;
+  static const int _listeDisplay = 2;
+
+  /// Anzeige-Index → Branch-Index.
+  int _branchForDisplay(int display) => switch (display) {
+    0 => 0, // Start
+    1 => 1, // Kalender
+    2 => 2, // Liste → Aufgaben
+    3 => 4, // Schule
+    _ => 0,
+  };
+
+  /// Branch-Index → Anzeige-Index (für selectedIndex).
+  int _displayForBranch(int branch) => switch (branch) {
+    3 => _listeDisplay, // Einkauf hebt „Liste" hervor
+    4 => 3, // Schule
+    _ => branch, // 0,1,2
+  };
 
   @override
   void initState() {
@@ -138,15 +159,75 @@ class _AppShellState extends ConsumerState<AppShell> {
     await showEventEditor(context, initialDay: DateTime.now());
   }
 
-  void _onDestination(int index) {
-    if (index == _plusIndex) {
+  void _onDestination(int display) {
+    if (display == _plusIndex) {
       _showCreateMenu();
       return;
     }
-    widget.navigationShell.goBranch(
-      index,
-      initialLocation: index == widget.navigationShell.currentIndex,
+    final cur = widget.navigationShell.currentIndex;
+    // „Liste" erneut tippen (schon im Listen-Bereich = tasks/shopping) → Menü.
+    if (display == _listeDisplay) {
+      if (cur == 2 || cur == 3) {
+        _showListMenu();
+        return;
+      }
+      ref.read(focusedTaskListProvider.notifier).set(null);
+      widget.navigationShell.goBranch(2, initialLocation: false);
+      return;
+    }
+    final branch = _branchForDisplay(display);
+    widget.navigationShell.goBranch(branch, initialLocation: branch == cur);
+  }
+
+  /// Menü mit allen Listen (+ Einkauf), um direkt in den Bereich zu springen.
+  Future<void> _showListMenu() async {
+    final lists = ref.read(tasksControllerProvider).value ?? const <TaskList>[];
+    final shoppingHref = ref.read(shoppingListHrefProvider).value;
+    final normal = lists
+        .where((l) => !isShoppingList(l, shoppingHref))
+        .toList();
+    final choice = await showModalBottomSheet<String>(
+      context: context,
+      showDragHandle: true,
+      builder: (ctx) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              leading: const Icon(Icons.checklist),
+              title: const Text('Aufgaben (alle)'),
+              onTap: () => Navigator.pop(ctx, '__all__'),
+            ),
+            for (final l in normal)
+              ListTile(
+                leading: CircleAvatar(
+                  radius: 8,
+                  backgroundColor: l.color ?? Theme.of(ctx).colorScheme.primary,
+                ),
+                title: Text(l.name),
+                onTap: () => Navigator.pop(ctx, 'list:${l.href}'),
+              ),
+            const Divider(height: 1),
+            ListTile(
+              leading: const Icon(Icons.shopping_cart_outlined),
+              title: const Text('Einkauf'),
+              onTap: () => Navigator.pop(ctx, '__shopping__'),
+            ),
+          ],
+        ),
+      ),
     );
+    if (choice == null || !mounted) return;
+    final focus = ref.read(focusedTaskListProvider.notifier);
+    if (choice == '__all__') {
+      focus.set(null);
+      widget.navigationShell.goBranch(2, initialLocation: false);
+    } else if (choice == '__shopping__') {
+      widget.navigationShell.goBranch(3, initialLocation: false);
+    } else if (choice.startsWith('list:')) {
+      focus.set(choice.substring(5));
+      widget.navigationShell.goBranch(2, initialLocation: false);
+    }
   }
 
   void _handleBack() {
@@ -284,7 +365,7 @@ class _AppShellState extends ConsumerState<AppShell> {
   Widget _buildBottomBar(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     return NavigationBar(
-      selectedIndex: widget.navigationShell.currentIndex,
+      selectedIndex: _displayForBranch(widget.navigationShell.currentIndex),
       onDestinationSelected: _onDestination,
       destinations: [
         const NavigationDestination(
@@ -298,14 +379,9 @@ class _AppShellState extends ConsumerState<AppShell> {
           label: 'Kalender',
         ),
         const NavigationDestination(
-          icon: Icon(Icons.check_circle_outline),
-          selectedIcon: Icon(Icons.check_circle),
-          label: 'Aufgaben',
-        ),
-        const NavigationDestination(
-          icon: Icon(Icons.shopping_cart_outlined),
-          selectedIcon: Icon(Icons.shopping_cart),
-          label: 'Einkauf',
+          icon: Icon(Icons.checklist_outlined),
+          selectedIcon: Icon(Icons.checklist),
+          label: 'Liste',
         ),
         const NavigationDestination(
           icon: Icon(Icons.school_outlined),
@@ -332,7 +408,7 @@ class _AppShellState extends ConsumerState<AppShell> {
   /// FAB oben; die vier Bereiche darunter.
   Widget _buildRail(BuildContext context) {
     return NavigationRail(
-      selectedIndex: widget.navigationShell.currentIndex,
+      selectedIndex: _displayForBranch(widget.navigationShell.currentIndex),
       onDestinationSelected: _onDestination,
       labelType: NavigationRailLabelType.all,
       leading: Padding(
@@ -356,14 +432,9 @@ class _AppShellState extends ConsumerState<AppShell> {
           label: Text('Kalender'),
         ),
         NavigationRailDestination(
-          icon: Icon(Icons.check_circle_outline),
-          selectedIcon: Icon(Icons.check_circle),
-          label: Text('Aufgaben'),
-        ),
-        NavigationRailDestination(
-          icon: Icon(Icons.shopping_cart_outlined),
-          selectedIcon: Icon(Icons.shopping_cart),
-          label: Text('Einkauf'),
+          icon: Icon(Icons.checklist_outlined),
+          selectedIcon: Icon(Icons.checklist),
+          label: Text('Liste'),
         ),
         NavigationRailDestination(
           icon: Icon(Icons.school_outlined),

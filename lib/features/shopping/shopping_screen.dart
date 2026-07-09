@@ -5,6 +5,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../../core/auth/account_providers.dart';
 import '../tasks/task_item.dart';
 import '../tasks/task_providers.dart';
+import '../tasks/tasks_view_providers.dart';
 
 /// Einkaufsliste – nutzt dieselbe VTODO/Aufgaben-Mechanik wie der Aufgaben-Tab,
 /// nur mit einkaufs-optimierter Oberfläche. Der Nutzer wählt, welche
@@ -42,8 +43,9 @@ class _ShoppingScreenState extends ConsumerState<ShoppingScreen> {
   }
 
   Future<void> _savePref(String href) async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString(_prefKey, href);
+    // Über den gemeinsamen Provider speichern, damit der „Liste"-Tab die
+    // Einkaufsliste sofort korrekt ausblendet.
+    await ref.read(shoppingListHrefProvider.notifier).set(href);
   }
 
   /// Effektive Einkaufsliste: gespeicherte Wahl, sonst eine Liste namens
@@ -57,7 +59,9 @@ class _ShoppingScreenState extends ConsumerState<ShoppingScreen> {
     }
     for (final l in lists) {
       final n = l.name.toLowerCase();
-      if (n.contains('einkauf') || n.contains('shopping') || n.contains('einkaufs')) {
+      if (n.contains('einkauf') ||
+          n.contains('shopping') ||
+          n.contains('einkaufs')) {
         return l;
       }
     }
@@ -108,8 +112,8 @@ class _ShoppingScreenState extends ConsumerState<ShoppingScreen> {
     }
   }
 
-  void _snack(String msg) => ScaffoldMessenger.of(context)
-      .showSnackBar(SnackBar(content: Text(msg)));
+  void _snack(String msg) =>
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
 
   @override
   Widget build(BuildContext context) {
@@ -206,10 +210,9 @@ class _ShoppingBody extends StatelessWidget {
                 isDense: true,
               ),
               items: lists
-                  .map((l) => DropdownMenuItem(
-                        value: l.href,
-                        child: Text(l.name),
-                      ))
+                  .map(
+                    (l) => DropdownMenuItem(value: l.href, child: Text(l.name)),
+                  )
                   .toList(),
               onChanged: (v) {
                 if (v != null) onSelectList(v);
@@ -267,8 +270,10 @@ class _ShoppingBody extends StatelessWidget {
                         child: Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
-                            Text('Im Wagen (${done.length})',
-                                style: theme.textTheme.titleSmall),
+                            Text(
+                              'Im Wagen (${done.length})',
+                              style: theme.textTheme.titleSmall,
+                            ),
                             TextButton.icon(
                               onPressed: onClearCompleted,
                               icon: const Icon(Icons.delete_sweep, size: 18),
@@ -347,11 +352,15 @@ class _EmptyList extends StatelessWidget {
     return ListView(
       children: [
         const SizedBox(height: 100),
-        Icon(Icons.shopping_cart_outlined,
-            size: 64, color: theme.colorScheme.primary),
+        Icon(
+          Icons.shopping_cart_outlined,
+          size: 64,
+          color: theme.colorScheme.primary,
+        ),
         const SizedBox(height: 16),
         Center(
-            child: Text('Liste ist leer', style: theme.textTheme.titleLarge)),
+          child: Text('Liste ist leer', style: theme.textTheme.titleLarge),
+        ),
         const SizedBox(height: 8),
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 32),
@@ -381,8 +390,11 @@ class _NoLists extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.playlist_add,
-                size: 64, color: theme.colorScheme.primary),
+            Icon(
+              Icons.playlist_add,
+              size: 64,
+              color: theme.colorScheme.primary,
+            ),
             const SizedBox(height: 16),
             Text('Keine Liste vorhanden', style: theme.textTheme.titleLarge),
             const SizedBox(height: 8),
@@ -413,8 +425,11 @@ class _ConnectPrompt extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.cloud_off_outlined,
-                size: 64, color: theme.colorScheme.primary),
+            Icon(
+              Icons.cloud_off_outlined,
+              size: 64,
+              color: theme.colorScheme.primary,
+            ),
             const SizedBox(height: 16),
             Text('Nicht verbunden', style: theme.textTheme.titleLarge),
             const SizedBox(height: 8),
