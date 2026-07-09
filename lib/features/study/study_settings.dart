@@ -139,3 +139,26 @@ class StudyCalendarHrefController extends AsyncNotifier<String?> {
     state = AsyncData(href);
   }
 }
+
+/// Ist dieses Gerät ein „Eltern-Gerät"? Dann dürfen Schularbeiten bearbeitet
+/// und beliebige Lern-Einheiten abgehakt werden. Auf Kinder-Geräten darf nur
+/// der zugewiesene Nutzer seine eigenen Lern-Einheiten abhaken. Gerätelokal.
+final parentModeProvider = AsyncNotifierProvider<ParentModeController, bool>(
+  ParentModeController.new,
+);
+
+class ParentModeController extends AsyncNotifier<bool> {
+  static const _key = 'parent_mode';
+
+  @override
+  Future<bool> build() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getBool(_key) ?? false;
+  }
+
+  Future<void> set(bool value) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_key, value);
+    state = AsyncData(value);
+  }
+}

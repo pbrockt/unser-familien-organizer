@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 
 import '../../core/auth/account_providers.dart';
@@ -8,6 +7,7 @@ import '../calendar/calendar_event.dart';
 import '../calendar/event_actions.dart';
 import '../calendar/event_providers.dart';
 import '../study/study_planner_sheet.dart';
+import 'exam_detail_screen.dart';
 import 'school_logic.dart';
 
 /// „Schule"-Tab: listet anstehende Schularbeiten – gruppiert nach Person.
@@ -51,14 +51,13 @@ class SchoolScreen extends ConsumerWidget {
                       exam: exam,
                       today: today,
                       sessions: plannedSessions(events, exam, now),
-                      onOpen: () {
-                        ref
-                            .read(calendarJumpProvider.notifier)
-                            .set(
-                              CalendarJumpTarget(exam.start, openDay: false),
-                            );
-                        context.go('/calendar');
-                      },
+                      // Tippen → Lern-Tage-Übersicht (abhaken); lange drücken →
+                      // schnell im Kalender öffnen / bearbeiten.
+                      onOpen: () => Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (_) => ExamDetailScreen(examUid: exam.uid),
+                        ),
+                      ),
                       onLongPress: () => showEventActions(context, ref, exam),
                     ),
                 ],

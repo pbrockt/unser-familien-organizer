@@ -1,7 +1,11 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
+import '../../core/auth/account_providers.dart';
+import '../../core/caldav/caldav_sharing.dart';
 import '../calendar/event_providers.dart';
 import '../members/member_settings.dart';
 import 'study_planner.dart';
@@ -39,32 +43,11 @@ class _StudyPlannerSheetState extends ConsumerState<_StudyPlannerSheet> {
   bool _busy = false;
 
   Future<void> _addPerson() async {
-    final ctrl = TextEditingController();
+    // Nextcloud-Nutzer auswählen (Login-Name) – nur diese Person kann später
+    // ihre Lern-Einheiten abhaken. Freier Name als Fallback möglich.
     final name = await showDialog<String>(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Neue Person'),
-        content: TextField(
-          controller: ctrl,
-          autofocus: true,
-          textCapitalization: TextCapitalization.words,
-          decoration: const InputDecoration(
-            labelText: 'Name',
-            hintText: 'z. B. Vincent',
-          ),
-          onSubmitted: (v) => Navigator.pop(ctx, v.trim()),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text('Abbrechen'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(ctx, ctrl.text.trim()),
-            child: const Text('Hinzufügen'),
-          ),
-        ],
-      ),
+      builder: (_) => const _UserPickerDialog(),
     );
     if (name == null || name.isEmpty) return;
     await ref.read(studyPersonsProvider.notifier).add(name);
@@ -261,7 +244,7 @@ class _StudyPlannerSheetState extends ConsumerState<_StudyPlannerSheet> {
                   DropdownMenuItem(value: p, child: Text(p)),
                 const DropdownMenuItem(
                   value: '__add__',
-                  child: Text('＋ Neue Person …'),
+                  child: Text('＋ Nextcloud-Nutzer wählen …'),
                 ),
               ],
               onChanged: (v) {
@@ -339,6 +322,138 @@ class _StudyPlannerSheetState extends ConsumerState<_StudyPlannerSheet> {
           ],
         ),
       ),
+    );
+  }
+}
+
+/// Dialog zur Auswahl eines Nextcloud-Nutzers (für „wer lernt?"). Sucht per
+/// [CalDavClient.searchPrincipals]; alternativ kann ein freier Name eingegeben
+/// werden (z. B. wenn die Suche als Nicht-Admin nichts liefert).
+class _UserPickerDialog extends ConsumerStatefulWidget {
+  const _UserPickerDialog();
+
+  @override
+  ConsumerState<_UserPickerDialog> createState() => _UserPickerDialogState();
+}
+
+class _UserPickerDialogState extends ConsumerState<_UserPickerDialog> {
+  final _ctrl = TextEditingController();
+  Timer? _debounce;
+  bool _searching = false;
+  List<Principal> _results = const [];
+  String? _error;
+
+  @override
+  void dispose() {
+    _debounce?.cancel();
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  void _onChanged(String q) {
+    _debounce?.cancel();
+    _debounce = Timer(const Duration(milliseconds: 400), () => _search(q));
+  }
+
+  Future<void> _search(String q) async {
+    final account = ref.read(accountProvider).value;
+    if (account == null || q.trim().length < 2) {
+      setState(() => _results = const []);
+      return;
+    }
+    setState(() {
+      _searching = true;
+      _error = null;
+    });
+    try {
+      final res = await ref
+          .read(caldavClientProvider)
+          .searchPrincipals(account, q.trim());
+      if (!mounted) return;
+      setState(() {
+        _results = res.where((p) => !p.isGroup).toList();
+        _searching = false;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _searching = false;
+        _error = '$e';
+      });
+    }
+  }
+
+  /// Nextcloud-Benutzername aus dem Share-Href (letztes Pfadsegment).
+  String _usernameOf(Principal p) {
+    final h = p.shareHref;
+    final i = h.lastIndexOf('/');
+    return i < 0 ? h : h.substring(i + 1);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('Wer lernt?'),
+      content: SizedBox(
+        width: double.maxFinite,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              controller: _ctrl,
+              autofocus: true,
+              decoration: const InputDecoration(
+                labelText: 'Nextcloud-Nutzer suchen',
+                hintText: 'Name eingeben …',
+                prefixIcon: Icon(Icons.search),
+              ),
+              onChanged: _onChanged,
+            ),
+            const SizedBox(height: 8),
+            if (_searching)
+              const Padding(
+                padding: EdgeInsets.all(8),
+                child: LinearProgressIndicator(),
+              ),
+            if (_error != null)
+              Padding(
+                padding: const EdgeInsets.all(4),
+                child: Text(
+                  'Suche nicht möglich: $_error',
+                  style: TextStyle(color: Theme.of(context).colorScheme.error),
+                ),
+              ),
+            Flexible(
+              child: ListView(
+                shrinkWrap: true,
+                children: [
+                  for (final p in _results)
+                    ListTile(
+                      leading: const Icon(Icons.person_outline),
+                      title: Text(p.displayName),
+                      subtitle: Text(_usernameOf(p)),
+                      onTap: () => Navigator.pop(context, _usernameOf(p)),
+                    ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('Abbrechen'),
+        ),
+        // Fallback: den eingetippten Text als freien Namen übernehmen.
+        TextButton(
+          onPressed: () {
+            final t = _ctrl.text.trim();
+            if (t.isNotEmpty) Navigator.pop(context, t);
+          },
+          child: const Text('Als Name übernehmen'),
+        ),
+      ],
     );
   }
 }

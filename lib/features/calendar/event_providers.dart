@@ -244,6 +244,25 @@ class EventsController extends AsyncNotifier<List<CalendarEvent>> {
     await _refresh(account);
   }
 
+  /// Setzt die CATEGORIES eines Termins neu (Rest bleibt erhalten). Genutzt
+  /// z. B. zum Ab-/Anhaken von Lern-Einheiten (Kategorie „Gelernt").
+  Future<void> setEventCategories(
+    CalendarEvent event,
+    List<String> categories,
+  ) async {
+    final account = await ref.read(accountProvider.future);
+    if (account == null) return;
+    final repo = ref.read(caldavRepositoryProvider);
+    final ical = _builder.setEventCategories(event.rawIcal, categories);
+    await repo.putObject(
+      account,
+      event.objectHref,
+      ical,
+      ifMatchEtag: event.etag.isEmpty ? null : event.etag,
+    );
+    await _refresh(account);
+  }
+
   /// Ändert nur eine einzelne Serien-Instanz (legt einen Override an), ohne
   /// die restliche Serie zu verändern.
   Future<void> updateOccurrence(

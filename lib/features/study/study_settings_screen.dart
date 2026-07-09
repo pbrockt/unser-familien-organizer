@@ -79,6 +79,19 @@ class StudySettingsScreen extends ConsumerWidget {
       appBar: AppBar(title: const Text('Lernen')),
       body: ListView(
         children: [
+          header('DIESES GERÄT'),
+          SwitchListTile(
+            secondary: const Icon(Icons.supervisor_account_outlined),
+            title: const Text('Eltern-Gerät'),
+            subtitle: const Text(
+              'Auf Eltern-Geräten dürfen Arbeiten bearbeitet und alle '
+              'Lern-Tage abgehakt werden. Auf Kinder-Geräten kann nur der '
+              'zugewiesene Nutzer seine eigenen Lern-Tage abhaken.',
+            ),
+            value: ref.watch(parentModeProvider).value ?? false,
+            onChanged: (v) => ref.read(parentModeProvider.notifier).set(v),
+          ),
+          const Divider(),
           header('STANDARD-LERN-KALENDER'),
           ListTile(
             leading: const Icon(Icons.folder_shared_outlined),

@@ -109,6 +109,14 @@ class IcalBuilder {
     return _withAlarm(withRrule, reminderMinutes, summary);
   }
 
+  /// Ersetzt die `CATEGORIES` eines VEVENT: entfernt vorhandene Zeilen und
+  /// setzt die neuen (leere Liste = keine Kategorien). Der Rest des Objekts
+  /// bleibt unverändert.
+  String setEventCategories(String rawIcal, List<String> categories) {
+    final stripped = rawIcal.replaceAll(RegExp(r'CATEGORIES[^\r\n]*\r?\n'), '');
+    return _withCategories(stripped, categories);
+  }
+
   /// Fügt eine `CATEGORIES:a,b`-Zeile vor dem ersten `END:VEVENT` ein.
   String _withCategories(String text, List<String>? categories) {
     if (categories == null || categories.isEmpty) return text;

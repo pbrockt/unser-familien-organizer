@@ -2,6 +2,7 @@ import '../calendar/calendar_event.dart';
 
 const String kExamCategory = 'Schularbeit';
 const String kStudyCategory = 'Lernen';
+const String kDoneCategory = 'Gelernt';
 const String kExamPrefix = '📝 Arbeit:';
 const String kStudyPrefix = '📚 Lernen:';
 const String kNoPerson = 'Ohne Person';
@@ -17,7 +18,10 @@ bool isStudySession(CalendarEvent e) =>
 /// Person (Schüler:in) des Eintrags aus den Kategorien; sonst „Ohne Person".
 String personOf(CalendarEvent e) {
   for (final c in e.categories) {
-    if (c != kExamCategory && c != kStudyCategory && c.trim().isNotEmpty) {
+    if (c != kExamCategory &&
+        c != kStudyCategory &&
+        c != kDoneCategory &&
+        c.trim().isNotEmpty) {
       return c.trim();
     }
   }
@@ -87,3 +91,50 @@ int plannedSessions(
       )
       .length;
 }
+
+/// Wurde diese Lern-Einheit als „gelernt" abgehakt?
+bool isSessionDone(CalendarEvent e) => e.categories.contains(kDoneCategory);
+
+/// Alle Lern-Einheiten zu einer Arbeit (gleiche Person + Fach), nach Datum
+/// sortiert – inklusive bereits vergangener, damit man sie abhaken kann.
+List<CalendarEvent> studySessionsFor(
+  List<CalendarEvent> events,
+  CalendarEvent exam,
+) {
+  final person = personOf(exam);
+  final subject = subjectOf(exam.summary).toLowerCase();
+  final list = events
+      .where(
+        (e) =>
+            isStudySession(e) &&
+            personOf(e) == person &&
+            subjectOf(e.summary).toLowerCase() == subject,
+      )
+      .toList();
+  list.sort((a, b) => a.start.compareTo(b.start));
+  return list;
+}
+
+/// Kategorien einer Lern-Einheit mit oder ohne „Gelernt"-Markierung. Behält die
+/// übrigen Kategorien (Typ + Person) unverändert.
+List<String> sessionCategoriesToggled(CalendarEvent session, bool done) {
+  final cats = session.categories.where((c) => c != kDoneCategory).toList();
+  if (done) cats.add(kDoneCategory);
+  return cats;
+}
+
+/// Darf [username] auf diesem Gerät eine Lern-Einheit von [assignedPerson]
+/// abhaken? Eltern-Geräte immer; sonst nur der zugewiesene Nutzer selbst.
+/// Ohne Zuweisung (kein/​„Ohne Person") darf jeder abhaken.
+bool canCheckStudy({
+  required String? assignedPerson,
+  required String? username,
+  required bool parentMode,
+}) {
+  if (parentMode) return true;
+  if (assignedPerson == null || assignedPerson == kNoPerson) return true;
+  return username != null && username == assignedPerson;
+}
+
+/// Bearbeiten/Verschieben/Löschen einer Arbeit ist Eltern-Geräten vorbehalten.
+bool canEditStudy({required bool parentMode}) => parentMode;
