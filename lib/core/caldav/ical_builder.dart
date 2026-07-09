@@ -75,6 +75,7 @@ class IcalBuilder {
     String? location,
     int? reminderMinutes,
     String? rrule,
+    List<String>? categories,
   }) {
     final calendar = VCalendar()
       ..version = '2.0'
@@ -103,8 +104,19 @@ class IcalBuilder {
 
     final text = calendar.toString();
     final withDay = allDay ? _applyAllDay(text, start, effectiveEnd) : text;
-    final withRrule = _withRrule(withDay, rrule);
+    final withCat = _withCategories(withDay, categories);
+    final withRrule = _withRrule(withCat, rrule);
     return _withAlarm(withRrule, reminderMinutes, summary);
+  }
+
+  /// Fügt eine `CATEGORIES:a,b`-Zeile vor dem ersten `END:VEVENT` ein.
+  String _withCategories(String text, List<String>? categories) {
+    if (categories == null || categories.isEmpty) return text;
+    final value = categories.map(_escapeText).join(',');
+    final idx = text.indexOf('END:VEVENT');
+    if (idx < 0) return text;
+    return '${text.substring(0, idx)}CATEGORIES:$value\r\n'
+        '${text.substring(idx)}';
   }
 
   /// Fügt eine `RRULE:`-Zeile vor dem ersten `END:VEVENT` ein (Serientermin).

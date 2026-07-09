@@ -75,6 +75,44 @@ class StudyWindowsController extends AsyncNotifier<List<StudyWindow>> {
   }
 }
 
+/// Personen (Schüler), für die Arbeiten angelegt werden. Persistiert.
+final studyPersonsProvider =
+    AsyncNotifierProvider<StudyPersonsController, List<String>>(
+      StudyPersonsController.new,
+    );
+
+class StudyPersonsController extends AsyncNotifier<List<String>> {
+  static const _key = 'study_persons';
+
+  @override
+  Future<List<String>> build() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getStringList(_key) ?? const [];
+  }
+
+  Future<void> _save(List<String> list) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setStringList(_key, list);
+    state = AsyncData(list);
+  }
+
+  /// Fügt einen Namen hinzu (falls neu) und behält die Reihenfolge alphabetisch.
+  Future<void> add(String name) async {
+    final n = name.trim();
+    if (n.isEmpty) return;
+    final cur = List<String>.of(state.value ?? const []);
+    if (cur.any((e) => e.toLowerCase() == n.toLowerCase())) return;
+    cur.add(n);
+    cur.sort((a, b) => a.toLowerCase().compareTo(b.toLowerCase()));
+    await _save(cur);
+  }
+
+  Future<void> remove(String name) async {
+    final cur = List<String>.of(state.value ?? const [])..remove(name);
+    await _save(cur);
+  }
+}
+
 /// Href des Kalenders, in den die Lern-Termine angelegt werden.
 final studyCalendarHrefProvider =
     AsyncNotifierProvider<StudyCalendarHrefController, String?>(

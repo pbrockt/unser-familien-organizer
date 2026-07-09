@@ -35,7 +35,41 @@ class _StudyPlannerSheetState extends ConsumerState<_StudyPlannerSheet> {
   DateTime _date = DateTime.now().add(const Duration(days: 7));
   StudyIntensity _intensity = StudyIntensity.mittel;
   String? _calHref; // gewählter Kalender (überschreibt den Standard)
+  String? _person; // Schüler:in, für die die Arbeit ist
   bool _busy = false;
+
+  Future<void> _addPerson() async {
+    final ctrl = TextEditingController();
+    final name = await showDialog<String>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Neue Person'),
+        content: TextField(
+          controller: ctrl,
+          autofocus: true,
+          textCapitalization: TextCapitalization.words,
+          decoration: const InputDecoration(
+            labelText: 'Name',
+            hintText: 'z. B. Vincent',
+          ),
+          onSubmitted: (v) => Navigator.pop(ctx, v.trim()),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Abbrechen'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, ctrl.text.trim()),
+            child: const Text('Hinzufügen'),
+          ),
+        ],
+      ),
+    );
+    if (name == null || name.isEmpty) return;
+    await ref.read(studyPersonsProvider.notifier).add(name);
+    if (mounted) setState(() => _person = name);
+  }
 
   @override
   void dispose() {
@@ -95,12 +129,22 @@ class _StudyPlannerSheetState extends ConsumerState<_StudyPlannerSheet> {
     await ref.read(studyCalendarHrefProvider.notifier).set(calHref);
     final ctrl = ref.read(eventsControllerProvider.notifier);
     final dateStr = DateFormat('d. MMM', 'de_DE').format(_date);
+    final person = _person?.trim();
+    final examCats = [
+      'Schularbeit',
+      if (person != null && person.isNotEmpty) person,
+    ];
+    final learnCats = [
+      'Lernen',
+      if (person != null && person.isNotEmpty) person,
+    ];
     try {
       await ctrl.createEvent(
         calendarHref: calHref,
         summary: '📝 Arbeit: $fach',
         start: DateTime(_date.year, _date.month, _date.day),
         allDay: true,
+        categories: examCats,
       );
       final n = sessions.length;
       for (var i = 0; i < n; i++) {
@@ -111,6 +155,7 @@ class _StudyPlannerSheetState extends ConsumerState<_StudyPlannerSheet> {
           start: s.start,
           end: s.end,
           description: 'Lernen für die Arbeit am $dateStr',
+          categories: learnCats,
         );
       }
       if (!mounted) return;
@@ -143,6 +188,10 @@ class _StudyPlannerSheetState extends ConsumerState<_StudyPlannerSheet> {
     final defaultHref = ref.watch(studyCalendarHrefProvider).value;
     final selected = _calHref ?? defaultHref;
     final value = calendars.any((m) => m.href == selected) ? selected : null;
+    final persons = ref.watch(studyPersonsProvider).value ?? const [];
+    final personValue = (_person != null && persons.contains(_person))
+        ? _person
+        : null;
 
     return SafeArea(
       child: SingleChildScrollView(
@@ -197,6 +246,31 @@ class _StudyPlannerSheetState extends ConsumerState<_StudyPlannerSheet> {
                   ),
               ],
               onChanged: (v) => setState(() => _calHref = v),
+            ),
+            const SizedBox(height: 12),
+            DropdownButtonFormField<String>(
+              initialValue: personValue,
+              isExpanded: true,
+              decoration: const InputDecoration(
+                labelText: 'Für wen? (optional)',
+                prefixIcon: Icon(Icons.person_outline),
+                border: OutlineInputBorder(),
+              ),
+              items: [
+                for (final p in persons)
+                  DropdownMenuItem(value: p, child: Text(p)),
+                const DropdownMenuItem(
+                  value: '__add__',
+                  child: Text('＋ Neue Person …'),
+                ),
+              ],
+              onChanged: (v) {
+                if (v == '__add__') {
+                  _addPerson();
+                } else {
+                  setState(() => _person = v);
+                }
+              },
             ),
             const SizedBox(height: 12),
             ListTile(

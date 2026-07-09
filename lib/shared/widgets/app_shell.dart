@@ -37,7 +37,7 @@ class _AppShellState extends ConsumerState<AppShell> {
   StreamSubscription<Uri?>? _widgetSub;
 
   /// Index der „+"-Schaltfläche (keine echte Seite, sondern eine Aktion).
-  static const int _plusIndex = 4;
+  static const int _plusIndex = 5;
 
   @override
   void initState() {
@@ -115,6 +115,9 @@ class _AppShellState extends ConsumerState<AppShell> {
         break;
       case 'shopping':
         widget.navigationShell.goBranch(3, initialLocation: false);
+        break;
+      case 'school':
+        widget.navigationShell.goBranch(4, initialLocation: false);
         break;
       case 'home':
         widget.navigationShell.goBranch(0, initialLocation: false);
@@ -304,6 +307,11 @@ class _AppShellState extends ConsumerState<AppShell> {
           selectedIcon: Icon(Icons.shopping_cart),
           label: 'Einkauf',
         ),
+        const NavigationDestination(
+          icon: Icon(Icons.school_outlined),
+          selectedIcon: Icon(Icons.school),
+          label: 'Schule',
+        ),
         NavigationDestination(
           icon: Container(
             width: 38,
@@ -356,6 +364,11 @@ class _AppShellState extends ConsumerState<AppShell> {
           icon: Icon(Icons.shopping_cart_outlined),
           selectedIcon: Icon(Icons.shopping_cart),
           label: Text('Einkauf'),
+        ),
+        NavigationRailDestination(
+          icon: Icon(Icons.school_outlined),
+          selectedIcon: Icon(Icons.school),
+          label: Text('Schule'),
         ),
       ],
     );

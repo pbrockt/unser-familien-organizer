@@ -102,6 +102,29 @@ class StudySettingsScreen extends ConsumerWidget {
               onTap: () => _share(context, ref, calHref),
             ),
           const Divider(),
+          header('PERSONEN'),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 2, 16, 4),
+            child: Text(
+              'Schüler:innen, für die Arbeiten angelegt werden. Neue Personen '
+              'legst du direkt beim Erstellen einer Schularbeit an.',
+              style: Theme.of(
+                context,
+              ).textTheme.bodySmall?.copyWith(color: scheme.onSurfaceVariant),
+            ),
+          ),
+          for (final p in ref.watch(studyPersonsProvider).value ?? const [])
+            ListTile(
+              leading: const Icon(Icons.person_outline),
+              title: Text(p),
+              trailing: IconButton(
+                icon: const Icon(Icons.delete_outline),
+                tooltip: 'Entfernen',
+                onPressed: () =>
+                    ref.read(studyPersonsProvider.notifier).remove(p),
+              ),
+            ),
+          const Divider(),
           header('LERNZEITEN'),
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 2, 16, 4),

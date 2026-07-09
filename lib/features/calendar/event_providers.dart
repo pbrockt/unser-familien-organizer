@@ -182,6 +182,7 @@ class EventsController extends AsyncNotifier<List<CalendarEvent>> {
     String? location,
     int? reminderMinutes,
     String? rrule,
+    List<String>? categories,
   }) async {
     final account = await ref.read(accountProvider.future);
     if (account == null) return;
@@ -198,6 +199,7 @@ class EventsController extends AsyncNotifier<List<CalendarEvent>> {
       location: location,
       reminderMinutes: reminderMinutes,
       rrule: rrule,
+      categories: categories,
     );
     await repo.putObject(account, _objectHref(calendarHref, uid), ical);
     await _refresh(account);

@@ -15,6 +15,7 @@ class ParsedEvent {
     this.recurrenceId,
     this.exDates = const [],
     this.reminderMinutes,
+    this.categories = const [],
   });
 
   final String uid;
@@ -25,6 +26,9 @@ class ParsedEvent {
   final String? location;
   final bool allDay;
   final bool isRecurring;
+
+  /// iCal-Kategorien (CATEGORIES).
+  final List<String> categories;
 
   /// Minuten vor Beginn, zu denen erinnert werden soll (aus VALARM). `null` =
   /// keine Erinnerung.
@@ -155,6 +159,7 @@ class IcalParser {
                     .toList() ??
                 const [],
             reminderMinutes: _alarmMinutes(c),
+            categories: c.categories ?? const [],
           ),
         );
       }

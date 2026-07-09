@@ -23,6 +23,7 @@ class CalendarEvent {
     this.rawIcal = '',
     this.recurrenceDate,
     this.reminderMinutes,
+    this.categories = const [],
   });
 
   final String uid;
@@ -55,6 +56,9 @@ class CalendarEvent {
   /// Minuten vor Beginn für die Erinnerung (VALARM). `null` = keine Erinnerung.
   final int? reminderMinutes;
 
+  /// iCal-Kategorien (CATEGORIES), z.B. „Schularbeit", Personenname.
+  final List<String> categories;
+
   factory CalendarEvent.fromParsed(
     ParsedEvent e, {
     Color? color,
@@ -83,6 +87,7 @@ class CalendarEvent {
       rawIcal: rawIcal,
       recurrenceDate: recurrenceDate,
       reminderMinutes: e.reminderMinutes,
+      categories: e.categories,
     );
   }
 
@@ -110,6 +115,7 @@ class CalendarEvent {
       rawIcal: rawIcal,
       recurrenceDate: recurrenceDate ?? this.recurrenceDate,
       reminderMinutes: reminderMinutes,
+      categories: categories,
     );
   }
 
