@@ -9,6 +9,7 @@ import '../../shared/widgets/blob_background.dart';
 import '../../shared/widgets/running_badge.dart';
 import '../members/member_settings.dart';
 import '../search/search_screen.dart';
+import '../settings/theme_provider.dart';
 import '../weather/weather_service.dart';
 import 'birthdays.dart';
 import 'calendar_event.dart';
@@ -491,7 +492,8 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
   /// Vorhersage vorhanden).
   Widget _monthDayCell(
     DateTime day,
-    Map<String, DayWeather> weather, {
+    Map<String, DayWeather> weather,
+    Color accent, {
     required Color bg,
     required Color fg,
   }) {
@@ -510,9 +512,13 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
         ),
         if (w != null)
           Positioned(
-            top: 0,
-            right: 0,
-            child: Icon(weatherIcon(w.code), size: 11, color: fg),
+            top: 3,
+            right: 3,
+            child: Icon(
+              weatherIcon(w.code),
+              size: 11,
+              color: accent.withValues(alpha: 0.7),
+            ),
           ),
       ],
     );
@@ -559,6 +565,9 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
         ref.watch(birthdayConfigProvider).value ?? const BirthdayConfig();
     final weather =
         ref.watch(weatherProvider).value ?? const <String, DayWeather>{};
+    final accent =
+        ref.watch(accentColorProvider).value ??
+        Theme.of(context).colorScheme.primary;
 
     // Verlauf hinter das ganze Scaffold legen (wie auf der Startseite), damit
     // AppBar + Inhalt ohne manuellen Offset bündig sitzen.
@@ -760,6 +769,7 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
                                   _monthDayCell(
                                     day,
                                     weather,
+                                    accent,
                                     bg: Theme.of(context).colorScheme.primary
                                         .withValues(alpha: 0.035),
                                     fg: Theme.of(context).colorScheme.onSurface,
@@ -767,6 +777,7 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
                               todayBuilder: (context, day, _) => _monthDayCell(
                                 day,
                                 weather,
+                                accent,
                                 bg: Theme.of(
                                   context,
                                 ).colorScheme.primaryContainer,
@@ -778,6 +789,7 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
                                   _monthDayCell(
                                     day,
                                     weather,
+                                    accent,
                                     bg: Theme.of(context).colorScheme.primary,
                                     fg: Theme.of(context).colorScheme.onPrimary,
                                   ),
@@ -785,6 +797,7 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
                                   _monthDayCell(
                                     day,
                                     weather,
+                                    accent,
                                     bg: Colors.transparent,
                                     fg: Theme.of(context).colorScheme.onSurface
                                         .withValues(alpha: 0.32),

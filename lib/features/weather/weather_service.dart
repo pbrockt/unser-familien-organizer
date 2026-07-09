@@ -18,8 +18,9 @@ class DayWeather {
 }
 
 /// Persistierte Postleitzahl fürs Wetter (leer = aus).
-final weatherPlzProvider =
-    AsyncNotifierProvider<WeatherPlzController, String>(WeatherPlzController.new);
+final weatherPlzProvider = AsyncNotifierProvider<WeatherPlzController, String>(
+  WeatherPlzController.new,
+);
 
 class WeatherPlzController extends AsyncNotifier<String> {
   static const _key = 'weather_plz';
@@ -52,9 +53,12 @@ final weatherProvider = FutureProvider<Map<String, DayWeather>>((ref) async {
     final lat = places.first['latitude'];
     final lon = places.first['longitude'];
 
-    final url = 'https://api.open-meteo.com/v1/forecast?latitude=$lat'
+    final url =
+        'https://api.open-meteo.com/v1/forecast?latitude=$lat'
         '&longitude=$lon&daily=weather_code,temperature_2m_max,'
-        'temperature_2m_min&timezone=auto&forecast_days=14';
+        'temperature_2m_min&timezone=auto&forecast_days=10'
+        // Deutsches DWD-ICON-Modell (europäisch/offiziell) statt Default-Mix.
+        '&models=icon_seamless';
     final resp = await http.get(Uri.parse(url));
     if (resp.statusCode != 200) return const {};
     final daily = jsonDecode(resp.body)['daily'] as Map<String, dynamic>?;

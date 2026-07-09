@@ -22,6 +22,7 @@ import '../calendar/event_providers.dart';
 import '../family/family_screen.dart';
 import '../members/member_settings.dart';
 import '../members/user_groups.dart';
+import '../settings/theme_provider.dart';
 import '../weather/weather_service.dart';
 import '../tasks/task_item.dart';
 import '../tasks/task_providers.dart';
@@ -154,6 +155,9 @@ class HomeScreen extends ConsumerWidget {
                       events: homeEvents,
                       birthdayConfig: birthdayCfg,
                       weather: ref.watch(weatherProvider).value ?? const {},
+                      accent:
+                          ref.watch(accentColorProvider).value ??
+                          Theme.of(context).colorScheme.primary,
                       onTapDay: openDay,
                     ),
                     const _SectionLabel('Anstehende Termine'),
@@ -479,12 +483,14 @@ class _TwoWeekCalendar extends StatelessWidget {
     required this.events,
     required this.birthdayConfig,
     required this.weather,
+    required this.accent,
     required this.onTapDay,
   });
   final DateTime today;
   final List<CalendarEvent> events;
   final BirthdayConfig birthdayConfig;
   final Map<String, DayWeather> weather;
+  final Color accent;
   final void Function(DateTime day) onTapDay;
 
   @override
@@ -546,12 +552,12 @@ class _TwoWeekCalendar extends StatelessWidget {
                       if (weather[DateFormat('yyyy-MM-dd').format(day)]
                           case final w?)
                         Positioned(
-                          top: -3,
-                          right: -3,
+                          top: 0,
+                          right: 0,
                           child: Icon(
                             weatherIcon(w.code),
                             size: 12,
-                            color: isToday ? scheme.onPrimary : scheme.primary,
+                            color: accent.withValues(alpha: 0.7),
                           ),
                         ),
                     ],
@@ -1362,11 +1368,14 @@ class _NextcloudAvatarState extends ConsumerState<_NextcloudAvatar> {
         d == null ? '—' : DateFormat('d. MMM y, HH:mm:ss', 'de_DE').format(d);
 
     final groups = ref.read(userGroupsProvider).value ?? const <String>[];
+    final plz = (ref.read(weatherPlzProvider).value ?? '').trim();
+    final weatherDays = ref.read(weatherProvider).value?.length ?? 0;
     final lines = <String>[
       'Verbindung: ${a == null ? 'NICHT verbunden ⚠️' : 'verbunden'}',
       if (a != null) 'Benutzer: ${a.username}',
       if (a != null) 'Gruppen: ${groups.isEmpty ? '—' : groups.join(', ')}',
       if (a != null) 'Server: ${a.baseUrl}',
+      'Wetter: ${plz.isEmpty ? 'aus' : 'PLZ $plz, $weatherDays Tage'}',
       'Status: ${_statusLabel(sync.status)}',
       'Letzter Versuch: ${fmt(sync.lastAttemptAt)}',
       'Letzter erfolgreicher Sync: ${fmt(sync.lastSuccessAt)}',
@@ -1392,6 +1401,17 @@ class _NextcloudAvatarState extends ConsumerState<_NextcloudAvatar> {
               },
               child: const Text('Verbindung testen'),
             ),
+          TextButton(
+            onPressed: () {
+              final messenger = ScaffoldMessenger.of(context);
+              ref.invalidate(weatherProvider);
+              Navigator.pop(ctx);
+              messenger.showSnackBar(
+                const SnackBar(content: Text('Wetter wird neu geladen…')),
+              );
+            },
+            child: const Text('Wetter neu laden'),
+          ),
           TextButton(
             onPressed: () {
               Navigator.pop(ctx);
