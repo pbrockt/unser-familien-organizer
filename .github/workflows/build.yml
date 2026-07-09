@@ -76,7 +76,21 @@ jobs:
         run: flutter test
 
       - name: Build Release APK
-        run: flutter build apk --release
+        # Bis zu 3 Versuche: der native-assets-Download von sqlite3 liefert
+        # gelegentlich eine korrupte Datei (Hash-Mismatch) und bricht sonst hart
+        # ab. Zwischen den Versuchen die (evtl. kaputten) Downloads verwerfen.
+        run: |
+          set +e
+          for attempt in 1 2 3; do
+            echo "== APK-Build Versuch $attempt =="
+            flutter build apk --release
+            code=$?
+            if [ $code -eq 0 ]; then exit 0; fi
+            echo "Versuch $attempt fehlgeschlagen (exit $code) – Native-Asset-Cache leeren und erneut versuchen…"
+            rm -rf .dart_tool/hooks_runner
+            sleep 15
+          done
+          exit 1
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
