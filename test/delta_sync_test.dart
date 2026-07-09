@@ -18,16 +18,21 @@ class _FakeCache extends CalDavCache {
   @override
   Future<int> pendingCount(String account) async => 0;
   @override
-  Future<void> addPendingOp(String account,
-      {required String kind,
-      required String objectHref,
-      String? icalData,
-      String? ifMatchEtag}) async {}
+  Future<void> addPendingOp(
+    String account, {
+    required String kind,
+    required String objectHref,
+    String? icalData,
+    String? ifMatchEtag,
+  }) async {}
   @override
   Future<void> removePendingOp(int id) async {}
   @override
   Future<void> upsertObject(
-      String account, String collectionHref, CalDavObject object) async {}
+    String account,
+    String collectionHref,
+    CalDavObject object,
+  ) async {}
   @override
   Future<void> removeObject(String account, String objectHref) async {}
 }
@@ -43,47 +48,74 @@ class _FakeClient implements CalDavClient {
 
   @override
   Future<List<CalDavObject>> listObjects(
-      NextcloudAccount a, String href) async {
+    NextcloudAccount a,
+    String href,
+  ) async {
     listObjectsCalls++;
     return [CalDavObject(href: '${href}o.ics', etag: 'e', icalData: 'X')];
   }
 
   @override
-  Future<String> putObject(NextcloudAccount a, String href, String ical,
-          {String? ifMatchEtag}) async =>
-      'e';
+  Future<String> putObject(
+    NextcloudAccount a,
+    String href,
+    String ical, {
+    String? ifMatchEtag,
+  }) async => 'e';
   @override
-  Future<void> deleteObject(NextcloudAccount a, String href,
-      {String? ifMatchEtag}) async {}
+  Future<void> deleteObject(
+    NextcloudAccount a,
+    String href, {
+    String? ifMatchEtag,
+  }) async {}
   @override
   Future<String?> fetchCTag(NextcloudAccount a, String href) async => null;
 
   @override
-  Future<List<Principal>> searchPrincipals(NextcloudAccount a, String q)
-      async => const [];
+  Future<List<Principal>> searchPrincipals(
+    NextcloudAccount a,
+    String q,
+  ) async => const [];
 
   @override
-  Future<List<CollectionShare>> listShares(NextcloudAccount a, String h)
-      async => const [];
+  Future<List<String>> fetchUserGroups(NextcloudAccount a) async => const [];
 
   @override
-  Future<void> setShare(NextcloudAccount a, String h,
-      {required String shareHref, required bool readWrite}) async {}
+  Future<List<CollectionShare>> listShares(
+    NextcloudAccount a,
+    String h,
+  ) async => const [];
 
   @override
-  Future<void> removeShare(NextcloudAccount a, String h,
-      {required String shareHref}) async {}
+  Future<void> setShare(
+    NextcloudAccount a,
+    String h, {
+    required String shareHref,
+    required bool readWrite,
+  }) async {}
 
   @override
-  Future<void> createCalendar(NextcloudAccount a,
-      {required String displayName,
-      required bool events,
-      required bool todos,
-      String? color}) async {}
+  Future<void> removeShare(
+    NextcloudAccount a,
+    String h, {
+    required String shareHref,
+  }) async {}
 
   @override
-  Future<void> renameCalendar(NextcloudAccount a, String h, String name)
-      async {}
+  Future<void> createCalendar(
+    NextcloudAccount a, {
+    required String displayName,
+    required bool events,
+    required bool todos,
+    String? color,
+  }) async {}
+
+  @override
+  Future<void> renameCalendar(
+    NextcloudAccount a,
+    String h,
+    String name,
+  ) async {}
 
   @override
   Future<void> deleteCalendar(NextcloudAccount a, String h) async {}
@@ -91,13 +123,20 @@ class _FakeClient implements CalDavClient {
 
 void main() {
   final account = const NextcloudAccount(
-      baseUrl: 'https://x', username: 'u', appPassword: 'p');
+    baseUrl: 'https://x',
+    username: 'u',
+    appPassword: 'p',
+  );
 
   test('Delta-Sync: unveränderte Collection (gleiches CTag) wird nicht neu '
       'geladen', () async {
     final client = _FakeClient([
       const CalDavCollection(
-          href: '/c1/', displayName: 'C1', ctag: 'A', supportsEvents: true),
+        href: '/c1/',
+        displayName: 'C1',
+        ctag: 'A',
+        supportsEvents: true,
+      ),
     ]);
     final repo = CalDavRepository(client, _FakeCache());
 
@@ -109,7 +148,11 @@ void main() {
 
     client.collections = [
       const CalDavCollection(
-          href: '/c1/', displayName: 'C1', ctag: 'B', supportsEvents: true),
+        href: '/c1/',
+        displayName: 'C1',
+        ctag: 'B',
+        supportsEvents: true,
+      ),
     ];
     await repo.sync(account); // CTag geändert
     expect(client.listObjectsCalls, 2, reason: 'jetzt neu geladen');
@@ -118,7 +161,11 @@ void main() {
   test('cachedSnapshot liefert sofort den gespeicherten Stand', () async {
     final client = _FakeClient([
       const CalDavCollection(
-          href: '/c1/', displayName: 'C1', ctag: 'A', supportsEvents: true),
+        href: '/c1/',
+        displayName: 'C1',
+        ctag: 'A',
+        supportsEvents: true,
+      ),
     ]);
     final repo = CalDavRepository(client, _FakeCache());
 

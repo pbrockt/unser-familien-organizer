@@ -6,7 +6,7 @@ import '../../core/auth/account_providers.dart';
 import '../calendar/calendar_event.dart';
 import '../calendar/event_actions.dart';
 import '../calendar/event_providers.dart';
-import '../study/study_settings.dart';
+import '../members/user_groups.dart';
 import 'school_logic.dart';
 
 /// Detail einer Schularbeit: listet die geplanten Lern-Tage auf. Der
@@ -22,7 +22,8 @@ class ExamDetailScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final events = ref.watch(visibleEventsProvider);
     final account = ref.watch(accountProvider).value;
-    final parentMode = ref.watch(parentModeProvider).value ?? false;
+    // Eltern-Rechte: manueller Geräte-Schalter ODER Mitglied der Eltern-Gruppe.
+    final parentMode = ref.watch(effectiveParentModeProvider);
 
     CalendarEvent? exam;
     for (final e in events) {

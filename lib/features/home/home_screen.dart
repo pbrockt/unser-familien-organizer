@@ -21,6 +21,7 @@ import '../calendar/event_editor_sheet.dart';
 import '../calendar/event_providers.dart';
 import '../family/family_screen.dart';
 import '../members/member_settings.dart';
+import '../members/user_groups.dart';
 import '../tasks/task_item.dart';
 import '../tasks/task_providers.dart';
 import 'dashboard_providers.dart';
@@ -114,6 +115,7 @@ class HomeScreen extends ConsumerWidget {
               onRefresh: () async {
                 ref.invalidate(eventsControllerProvider);
                 ref.invalidate(tasksControllerProvider);
+                ref.invalidate(userGroupsProvider);
               },
               child: ListView(
                 padding: const EdgeInsets.only(bottom: 28),
@@ -1079,7 +1081,15 @@ class _CountdownCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     final color = event.color ?? scheme.primary;
-    final days = event.startDay.difference(today).inDays;
+    // Läuft der Termin bereits (mehrtägig, Start ≤ heute ≤ Ende)? Dann Restdauer
+    // bis zum Ende zeigen, sonst Tage bis zum Beginn.
+    final started = !event.startDay.isAfter(today);
+    final remaining = event.endDayInclusive.difference(today).inDays;
+    final untilStart = event.startDay.difference(today).inDays;
+    final badgeDays = started ? remaining : untilStart;
+    final smallLabel = started
+        ? (remaining <= 0 ? 'läuft' : null)
+        : (untilStart == 0 ? 'Heute' : (untilStart == 1 ? 'Morgen' : null));
     final dateStr = DateFormat('EEE, d. MMM', 'de_DE').format(event.start);
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
@@ -1102,9 +1112,9 @@ class _CountdownCard extends StatelessWidget {
                   borderRadius: BorderRadius.circular(11),
                 ),
                 child: Center(
-                  child: days <= 1
+                  child: smallLabel != null
                       ? Text(
-                          days == 0 ? 'Heute' : 'Morgen',
+                          smallLabel,
                           textAlign: TextAlign.center,
                           style: TextStyle(
                             fontSize: 10,
@@ -1116,7 +1126,7 @@ class _CountdownCard extends StatelessWidget {
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
                             Text(
-                              '$days',
+                              '$badgeDays',
                               style: TextStyle(
                                 fontSize: 16,
                                 height: 1,
@@ -1125,7 +1135,7 @@ class _CountdownCard extends StatelessWidget {
                               ),
                             ),
                             Text(
-                              'Tage',
+                              badgeDays == 1 ? 'Tag' : 'Tage',
                               style: TextStyle(fontSize: 8, color: color),
                             ),
                           ],
@@ -1149,7 +1159,14 @@ class _CountdownCard extends StatelessWidget {
                     ),
                     const SizedBox(height: 1),
                     Text(
-                      days <= 1 ? dateStr : 'Noch $days Tage · $dateStr',
+                      started
+                          ? (remaining <= 0
+                                ? 'läuft · letzter Tag'
+                                : 'läuft · noch $remaining '
+                                      '${remaining == 1 ? 'Tag' : 'Tage'}')
+                          : (untilStart <= 1
+                                ? dateStr
+                                : 'Noch $untilStart Tage · $dateStr'),
                       style: TextStyle(
                         fontSize: 12,
                         color: scheme.onSurfaceVariant,
@@ -1287,6 +1304,7 @@ class _NextcloudAvatarState extends ConsumerState<_NextcloudAvatar> {
     ref.invalidate(eventsControllerProvider);
     ref.invalidate(tasksControllerProvider);
     ref.invalidate(pendingSyncCountProvider);
+    ref.invalidate(userGroupsProvider);
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
         content: Text('Synchronisiere mit der Nextcloud…'),
@@ -1314,9 +1332,11 @@ class _NextcloudAvatarState extends ConsumerState<_NextcloudAvatar> {
     String fmt(DateTime? d) =>
         d == null ? '—' : DateFormat('d. MMM y, HH:mm:ss', 'de_DE').format(d);
 
+    final groups = ref.read(userGroupsProvider).value ?? const <String>[];
     final lines = <String>[
       'Verbindung: ${a == null ? 'NICHT verbunden ⚠️' : 'verbunden'}',
       if (a != null) 'Benutzer: ${a.username}',
+      if (a != null) 'Gruppen: ${groups.isEmpty ? '—' : groups.join(', ')}',
       if (a != null) 'Server: ${a.baseUrl}',
       'Status: ${_statusLabel(sync.status)}',
       'Letzter Versuch: ${fmt(sync.lastAttemptAt)}',

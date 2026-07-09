@@ -85,10 +85,7 @@ abstract class CalDavClient {
 
   /// Aktuelles CTag einer Collection abfragen, um billig zu prüfen,
   /// ob sich seit dem letzten Sync etwas geändert hat.
-  Future<String?> fetchCTag(
-    NextcloudAccount account,
-    String collectionHref,
-  );
+  Future<String?> fetchCTag(NextcloudAccount account, String collectionHref);
 
   /// Legt eine neue Kalender-/Aufgaben-Collection an (MKCALENDAR).
   Future<void> createCalendar(
@@ -107,10 +104,7 @@ abstract class CalDavClient {
   );
 
   /// Löscht eine Collection samt Inhalt (DELETE).
-  Future<void> deleteCalendar(
-    NextcloudAccount account,
-    String collectionHref,
-  );
+  Future<void> deleteCalendar(NextcloudAccount account, String collectionHref);
 
   // ---- Freigabe (CalDAV-Sharing) ----
 
@@ -120,6 +114,10 @@ abstract class CalDavClient {
     NextcloudAccount account,
     String query,
   );
+
+  /// Gruppen, in denen der angemeldete Benutzer Mitglied ist (Gruppen-IDs).
+  /// Über DAV `group-membership` auf dem eigenen Principal.
+  Future<List<String>> fetchUserGroups(NextcloudAccount account);
 
   /// Listet die aktuellen Freigaben einer Collection.
   Future<List<CollectionShare>> listShares(

@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/auth/account_providers.dart';
 import '../family/share_calendar_sheet.dart';
 import '../members/member_settings.dart';
+import '../members/user_groups.dart';
 import 'study_settings.dart';
 import 'study_windows_editor.dart';
 
@@ -79,14 +80,76 @@ class StudySettingsScreen extends ConsumerWidget {
       appBar: AppBar(title: const Text('Lernen')),
       body: ListView(
         children: [
-          header('DIESES GERÄT'),
+          header('ELTERN-RECHTE'),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 2, 16, 4),
+            child: Text(
+              'Eltern dürfen Arbeiten bearbeiten und alle Lern-Tage abhaken. '
+              'Kinder können nur ihre eigenen (zugewiesenen) Lern-Tage abhaken. '
+              'Eltern-Rechte gelten automatisch, wenn du in der Eltern-Gruppe '
+              'bist – oder über den Geräte-Schalter unten.',
+              style: Theme.of(
+                context,
+              ).textTheme.bodySmall?.copyWith(color: scheme.onSurfaceVariant),
+            ),
+          ),
+          Builder(
+            builder: (context) {
+              final groups =
+                  ref.watch(userGroupsProvider).value ?? const <String>[];
+              final selected = ref.watch(parentGroupProvider).value;
+              final isParent = ref.watch(effectiveParentModeProvider);
+              return Column(
+                children: [
+                  ListTile(
+                    leading: const Icon(Icons.groups_outlined),
+                    title: const Text('Nextcloud-Gruppen'),
+                    subtitle: Text(
+                      groups.isEmpty
+                          ? 'Noch keine geladen – bitte synchronisieren '
+                                '(Avatar antippen)'
+                          : groups.join(', '),
+                    ),
+                  ),
+                  ListTile(
+                    leading: Icon(
+                      isParent
+                          ? Icons.verified_user_outlined
+                          : Icons.supervisor_account_outlined,
+                      color: isParent ? scheme.primary : null,
+                    ),
+                    title: const Text('Eltern-Gruppe'),
+                    subtitle: Text(
+                      isParent
+                          ? 'Du hast Eltern-Rechte ✓'
+                          : 'Keine Eltern-Rechte über eine Gruppe',
+                    ),
+                    trailing: DropdownButton<String>(
+                      value: (selected != null && groups.contains(selected))
+                          ? selected
+                          : '__auto__',
+                      items: [
+                        const DropdownMenuItem(
+                          value: '__auto__',
+                          child: Text('Automatisch'),
+                        ),
+                        for (final g in groups)
+                          DropdownMenuItem(value: g, child: Text(g)),
+                      ],
+                      onChanged: (v) => ref
+                          .read(parentGroupProvider.notifier)
+                          .set(v == '__auto__' ? null : v),
+                    ),
+                  ),
+                ],
+              );
+            },
+          ),
           SwitchListTile(
-            secondary: const Icon(Icons.supervisor_account_outlined),
-            title: const Text('Eltern-Gerät'),
+            secondary: const Icon(Icons.smartphone_outlined),
+            title: const Text('Eltern-Gerät (dieses Gerät)'),
             subtitle: const Text(
-              'Auf Eltern-Geräten dürfen Arbeiten bearbeitet und alle '
-              'Lern-Tage abgehakt werden. Auf Kinder-Geräten kann nur der '
-              'zugewiesene Nutzer seine eigenen Lern-Tage abhaken.',
+              'Override: gewährt diesem Gerät Eltern-Rechte, auch ohne Gruppe.',
             ),
             value: ref.watch(parentModeProvider).value ?? false,
             onChanged: (v) => ref.read(parentModeProvider.notifier).set(v),

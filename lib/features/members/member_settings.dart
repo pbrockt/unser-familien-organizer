@@ -199,11 +199,15 @@ List<CalendarEvent> countdownEvents(
   Map<String, MemberSetting> settings,
   DateTime today,
 ) {
-  // Anstehende Countdown-Termine je Kalender sammeln.
+  // Anstehende **und laufende** Countdown-Termine je Kalender sammeln. Ein
+  // gerade laufender (mehrtägiger) Termin wird per ENDE geprüft, damit er nicht
+  // fälschlich zugunsten des nächsten übersprungen wird.
   final byCal = <String, List<CalendarEvent>>{};
   for (final e in events) {
     final s = settings[e.calendarHref];
-    if (s == null || !s.countdown || e.startDay.isBefore(today)) continue;
+    if (s == null || !s.countdown || e.endDayInclusive.isBefore(today)) {
+      continue;
+    }
     byCal.putIfAbsent(e.calendarHref, () => []).add(e);
   }
   final out = <CalendarEvent>[];

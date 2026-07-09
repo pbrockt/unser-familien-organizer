@@ -13,28 +13,37 @@ class _FakeCache extends CalDavCache {
   int _nextId = 1;
 
   @override
-  Future<void> addPendingOp(String account,
-      {required String kind,
-      required String objectHref,
-      String? icalData,
-      String? ifMatchEtag}) async {
-    ops.add(PendingOp(
+  Future<void> addPendingOp(
+    String account, {
+    required String kind,
+    required String objectHref,
+    String? icalData,
+    String? ifMatchEtag,
+  }) async {
+    ops.add(
+      PendingOp(
         id: _nextId++,
         kind: kind,
         objectHref: objectHref,
         icalData: icalData,
-        ifMatchEtag: ifMatchEtag));
+        ifMatchEtag: ifMatchEtag,
+      ),
+    );
   }
 
   @override
   Future<List<PendingOp>> pendingOps(String account) async => List.of(ops);
   @override
-  Future<void> removePendingOp(int id) async => ops.removeWhere((o) => o.id == id);
+  Future<void> removePendingOp(int id) async =>
+      ops.removeWhere((o) => o.id == id);
   @override
   Future<int> pendingCount(String account) async => ops.length;
   @override
   Future<void> upsertObject(
-      String account, String collectionHref, CalDavObject object) async {}
+    String account,
+    String collectionHref,
+    CalDavObject object,
+  ) async {}
   @override
   Future<void> removeObject(String account, String objectHref) async {}
 }
@@ -44,8 +53,12 @@ class _FakeClient implements CalDavClient {
   int forcedPuts = 0;
 
   @override
-  Future<String> putObject(NextcloudAccount a, String href, String ical,
-      {String? ifMatchEtag}) async {
+  Future<String> putObject(
+    NextcloudAccount a,
+    String href,
+    String ical, {
+    String? ifMatchEtag,
+  }) async {
     if (mode == 'offline') throw const SocketException('offline');
     if (mode == 'conflict' && ifMatchEtag != null) {
       throw CalDavException.fromStatus(412);
@@ -55,13 +68,17 @@ class _FakeClient implements CalDavClient {
   }
 
   @override
-  Future<void> deleteObject(NextcloudAccount a, String href,
-      {String? ifMatchEtag}) async {
+  Future<void> deleteObject(
+    NextcloudAccount a,
+    String href, {
+    String? ifMatchEtag,
+  }) async {
     if (mode == 'offline') throw const SocketException('offline');
   }
 
   @override
-  Future<List<CalDavCollection>> listCollections(NextcloudAccount a) async => [];
+  Future<List<CalDavCollection>> listCollections(NextcloudAccount a) async =>
+      [];
   @override
   Future<List<CalDavObject>> listObjects(NextcloudAccount a, String h) async =>
       [];
@@ -69,31 +86,50 @@ class _FakeClient implements CalDavClient {
   Future<String?> fetchCTag(NextcloudAccount a, String h) async => null;
 
   @override
-  Future<List<Principal>> searchPrincipals(NextcloudAccount a, String q)
-      async => const [];
+  Future<List<Principal>> searchPrincipals(
+    NextcloudAccount a,
+    String q,
+  ) async => const [];
 
   @override
-  Future<List<CollectionShare>> listShares(NextcloudAccount a, String hr)
-      async => const [];
+  Future<List<String>> fetchUserGroups(NextcloudAccount a) async => const [];
 
   @override
-  Future<void> setShare(NextcloudAccount a, String hr,
-      {required String shareHref, required bool readWrite}) async {}
+  Future<List<CollectionShare>> listShares(
+    NextcloudAccount a,
+    String hr,
+  ) async => const [];
 
   @override
-  Future<void> removeShare(NextcloudAccount a, String hr,
-      {required String shareHref}) async {}
+  Future<void> setShare(
+    NextcloudAccount a,
+    String hr, {
+    required String shareHref,
+    required bool readWrite,
+  }) async {}
 
   @override
-  Future<void> createCalendar(NextcloudAccount a,
-      {required String displayName,
-      required bool events,
-      required bool todos,
-      String? color}) async {}
+  Future<void> removeShare(
+    NextcloudAccount a,
+    String hr, {
+    required String shareHref,
+  }) async {}
 
   @override
-  Future<void> renameCalendar(NextcloudAccount a, String hr, String name)
-      async {}
+  Future<void> createCalendar(
+    NextcloudAccount a, {
+    required String displayName,
+    required bool events,
+    required bool todos,
+    String? color,
+  }) async {}
+
+  @override
+  Future<void> renameCalendar(
+    NextcloudAccount a,
+    String hr,
+    String name,
+  ) async {}
 
   @override
   Future<void> deleteCalendar(NextcloudAccount a, String hr) async {}
@@ -101,26 +137,31 @@ class _FakeClient implements CalDavClient {
 
 void main() {
   final account = const NextcloudAccount(
-      baseUrl: 'https://x', username: 'u', appPassword: 'p');
+    baseUrl: 'https://x',
+    username: 'u',
+    appPassword: 'p',
+  );
 
-  test('Konflikt beim Abspielen der Queue: Offline-Änderung gewinnt (force)',
-      () async {
-    final client = _FakeClient();
-    final repo = CalDavRepository(client, _FakeCache());
+  test(
+    'Konflikt beim Abspielen der Queue: Offline-Änderung gewinnt (force)',
+    () async {
+      final client = _FakeClient();
+      final repo = CalDavRepository(client, _FakeCache());
 
-    // 1) Offline eine Änderung einreihen (mit altem ETag).
-    client.mode = 'offline';
-    await repo.putObject(account, '/c/a.ics', 'ICAL', ifMatchEtag: 'old');
-    expect(await repo.pendingCount(account), 1);
+      // 1) Offline eine Änderung einreihen (mit altem ETag).
+      client.mode = 'offline';
+      await repo.putObject(account, '/c/a.ics', 'ICAL', ifMatchEtag: 'old');
+      expect(await repo.pendingCount(account), 1);
 
-    // 2) Online, aber Server hat sich geändert → 412 beim If-Match.
-    client.mode = 'conflict';
-    await repo.flushQueue(account);
+      // 2) Online, aber Server hat sich geändert → 412 beim If-Match.
+      client.mode = 'conflict';
+      await repo.flushQueue(account);
 
-    // Offline-Änderung wurde ohne If-Match erzwungen, Queue ist leer.
-    expect(client.forcedPuts, 1);
-    expect(await repo.pendingCount(account), 0);
-  });
+      // Offline-Änderung wurde ohne If-Match erzwungen, Queue ist leer.
+      expect(client.forcedPuts, 1);
+      expect(await repo.pendingCount(account), 0);
+    },
+  );
 
   test('isConflict erkennt HTTP 412', () {
     expect(CalDavException.fromStatus(412).isConflict, isTrue);

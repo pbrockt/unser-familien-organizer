@@ -347,6 +347,37 @@ class HttpCalDavClient implements CalDavClient {
   }
 
   @override
+  Future<List<String>> fetchUserGroups(NextcloudAccount account) async {
+    final client = _clientFor(account);
+    try {
+      final principal =
+          '${account.baseUrl}/remote.php/dav/principals/users/'
+          '${account.username}/';
+      final request = http.Request('PROPFIND', Uri.parse(principal))
+        ..headers.addAll({
+          ..._authHeaders(account),
+          'Depth': '0',
+          'Content-Type': 'application/xml; charset=utf-8',
+        })
+        ..body = '''
+<?xml version="1.0" encoding="utf-8" ?>
+<d:propfind xmlns:d="DAV:">
+  <d:prop><d:group-membership/></d:prop>
+</d:propfind>''';
+      final streamed = await client.send(request);
+      final response = await http.Response.fromStream(streamed);
+      if (response.statusCode != 207 && response.statusCode != 200) {
+        throw CalDavException.fromStatus(response.statusCode);
+      }
+      return parseUserGroups(response.body);
+    } on SocketException catch (e) {
+      throw CalDavException('Keine Verbindung zum Server: ${e.message}');
+    } finally {
+      client.close();
+    }
+  }
+
+  @override
   Future<List<CollectionShare>> listShares(
     NextcloudAccount account,
     String collectionHref,
@@ -586,6 +617,29 @@ class HttpCalDavClient implements CalDavClient {
     }
     return null;
   }
+}
+
+/// Extrahiert die Gruppen-IDs aus einer DAV `group-membership`-Antwort
+/// (`…/principals/groups/<id>/`). Namespace-agnostisch, reine Funktion (testbar).
+List<String> parseUserGroups(String body) {
+  final doc = XmlDocument.parse(body);
+  const marker = '/principals/groups/';
+  final out = <String>[];
+  final seen = <String>{};
+  final hrefs = doc.descendants
+      .whereType<XmlElement>()
+      .where((e) => e.name.local == 'group-membership')
+      .expand((gm) => gm.descendants.whereType<XmlElement>())
+      .where((e) => e.name.local == 'href');
+  for (final href in hrefs) {
+    final h = href.innerText.trim();
+    final i = h.indexOf(marker);
+    if (i < 0) continue;
+    final id = h.substring(i + marker.length).replaceAll(RegExp(r'/+$'), '');
+    if (id.isEmpty) continue;
+    if (seen.add(id.toLowerCase())) out.add(id);
+  }
+  return out;
 }
 
 const _propfindCollectionsBody = '''

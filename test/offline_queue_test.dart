@@ -14,17 +14,22 @@ class _FakeCache extends CalDavCache {
   final Map<String, CalDavObject> objects = {};
 
   @override
-  Future<void> addPendingOp(String account,
-      {required String kind,
-      required String objectHref,
-      String? icalData,
-      String? ifMatchEtag}) async {
-    ops.add(PendingOp(
+  Future<void> addPendingOp(
+    String account, {
+    required String kind,
+    required String objectHref,
+    String? icalData,
+    String? ifMatchEtag,
+  }) async {
+    ops.add(
+      PendingOp(
         id: _nextId++,
         kind: kind,
         objectHref: objectHref,
         icalData: icalData,
-        ifMatchEtag: ifMatchEtag));
+        ifMatchEtag: ifMatchEtag,
+      ),
+    );
   }
 
   @override
@@ -39,8 +44,10 @@ class _FakeCache extends CalDavCache {
 
   @override
   Future<void> upsertObject(
-          String account, String collectionHref, CalDavObject object) async =>
-      objects[object.href] = object;
+    String account,
+    String collectionHref,
+    CalDavObject object,
+  ) async => objects[object.href] = object;
 
   @override
   Future<void> removeObject(String account, String objectHref) async =>
@@ -59,20 +66,28 @@ class _FakeClient implements CalDavClient {
 
   @override
   Future<List<CalDavObject>> listObjects(
-          NextcloudAccount a, String href) async =>
-      [];
+    NextcloudAccount a,
+    String href,
+  ) async => [];
 
   @override
-  Future<String> putObject(NextcloudAccount a, String href, String ical,
-      {String? ifMatchEtag}) async {
+  Future<String> putObject(
+    NextcloudAccount a,
+    String href,
+    String ical, {
+    String? ifMatchEtag,
+  }) async {
     if (offline) throw const SocketException('offline');
     puts.add(href);
     return 'etag-new';
   }
 
   @override
-  Future<void> deleteObject(NextcloudAccount a, String href,
-      {String? ifMatchEtag}) async {
+  Future<void> deleteObject(
+    NextcloudAccount a,
+    String href, {
+    String? ifMatchEtag,
+  }) async {
     if (offline) throw const SocketException('offline');
     deletes.add(href);
   }
@@ -81,31 +96,50 @@ class _FakeClient implements CalDavClient {
   Future<String?> fetchCTag(NextcloudAccount a, String href) async => null;
 
   @override
-  Future<List<Principal>> searchPrincipals(NextcloudAccount a, String q)
-      async => const [];
+  Future<List<Principal>> searchPrincipals(
+    NextcloudAccount a,
+    String q,
+  ) async => const [];
 
   @override
-  Future<List<CollectionShare>> listShares(NextcloudAccount a, String h)
-      async => const [];
+  Future<List<String>> fetchUserGroups(NextcloudAccount a) async => const [];
 
   @override
-  Future<void> setShare(NextcloudAccount a, String h,
-      {required String shareHref, required bool readWrite}) async {}
+  Future<List<CollectionShare>> listShares(
+    NextcloudAccount a,
+    String h,
+  ) async => const [];
 
   @override
-  Future<void> removeShare(NextcloudAccount a, String h,
-      {required String shareHref}) async {}
+  Future<void> setShare(
+    NextcloudAccount a,
+    String h, {
+    required String shareHref,
+    required bool readWrite,
+  }) async {}
 
   @override
-  Future<void> createCalendar(NextcloudAccount a,
-      {required String displayName,
-      required bool events,
-      required bool todos,
-      String? color}) async {}
+  Future<void> removeShare(
+    NextcloudAccount a,
+    String h, {
+    required String shareHref,
+  }) async {}
 
   @override
-  Future<void> renameCalendar(NextcloudAccount a, String h, String name)
-      async {}
+  Future<void> createCalendar(
+    NextcloudAccount a, {
+    required String displayName,
+    required bool events,
+    required bool todos,
+    String? color,
+  }) async {}
+
+  @override
+  Future<void> renameCalendar(
+    NextcloudAccount a,
+    String h,
+    String name,
+  ) async {}
 
   @override
   Future<void> deleteCalendar(NextcloudAccount a, String h) async {}
@@ -113,7 +147,10 @@ class _FakeClient implements CalDavClient {
 
 void main() {
   final account = const NextcloudAccount(
-      baseUrl: 'https://x', username: 'u', appPassword: 'p');
+    baseUrl: 'https://x',
+    username: 'u',
+    appPassword: 'p',
+  );
 
   late _FakeClient client;
   late _FakeCache cache;
@@ -127,8 +164,7 @@ void main() {
 
   test('Offline-PUT wird eingereiht und optimistisch gecacht', () async {
     client.offline = true;
-    final etag =
-        await repo.putObject(account, '/cal/u/personal/a.ics', 'ICAL');
+    final etag = await repo.putObject(account, '/cal/u/personal/a.ics', 'ICAL');
     expect(etag, isNull);
     expect(await repo.pendingCount(account), 1);
     expect(cache.objects.containsKey('/cal/u/personal/a.ics'), isTrue);
@@ -155,8 +191,7 @@ void main() {
   });
 
   test('Online-PUT geht direkt durch (keine Queue)', () async {
-    final etag =
-        await repo.putObject(account, '/cal/u/personal/c.ics', 'ICAL');
+    final etag = await repo.putObject(account, '/cal/u/personal/c.ics', 'ICAL');
     expect(etag, 'etag-new');
     expect(await repo.pendingCount(account), 0);
   });
