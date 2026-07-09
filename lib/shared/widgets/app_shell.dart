@@ -378,8 +378,8 @@ class _AppShellState extends ConsumerState<AppShell> {
           label: 'Kalender',
         ),
         const NavigationDestination(
-          icon: Icon(Icons.checklist_outlined),
-          selectedIcon: Icon(Icons.checklist),
+          icon: Icon(Icons.list_alt_outlined),
+          selectedIcon: Icon(Icons.list_alt),
           label: 'Liste',
         ),
         const NavigationDestination(
@@ -407,7 +407,8 @@ class _AppShellState extends ConsumerState<AppShell> {
       builder: (context, c) {
         const btn = 26.0;
         final slotW = c.maxWidth / 5;
-        final left = slotW * (_listeDisplay + 0.5) - btn / 2;
+        // Rechts neben dem Listen-Symbol (nicht mittig darüber).
+        final left = slotW * (_listeDisplay + 0.5) + 9;
         return Stack(
           children: [
             bar,
@@ -492,7 +493,7 @@ class _AppShellState extends ConsumerState<AppShell> {
           onTap: _showListMenu,
           child: const Icon(Icons.keyboard_arrow_up, size: 16),
         ),
-        Icon(selected ? Icons.checklist : Icons.checklist_outlined),
+        Icon(selected ? Icons.list_alt : Icons.list_alt_outlined),
       ],
     );
   }

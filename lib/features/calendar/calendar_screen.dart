@@ -81,7 +81,7 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
 
   /// Farb-Legende der Mitglieder, zugleich Schnellfilter (Tippen blendet
   /// einen Kalender ein/aus).
-  Widget _legend(List<Member> members) {
+  Widget _legend(WidgetRef ref, List<Member> members) {
     if (members.length < 2) return const SizedBox.shrink();
     return SizedBox(
       height: 46,
@@ -132,7 +132,7 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
 
   /// Filter-Preset-Leiste: ein Chip je Preset (Tippen = anwenden, lange drücken
   /// = löschen) plus „+ Filter" zum Anlegen eines neuen Presets.
-  Widget _presetBar(List<Member> calendars) {
+  Widget _presetBar(WidgetRef ref, List<Member> calendars) {
     if (calendars.length < 2) return const SizedBox.shrink();
     final presets = ref.watch(calendarPresetsProvider).value ?? const [];
     final allVisible = calendars.every((m) => !m.hidden);
@@ -180,6 +180,47 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  /// Blendet die Filter (Presets + Kalender-Legende) in einem Bottom-Sheet ein –
+  /// hält den Kalender-Tab aufgeräumt (statt zwei Dauer-Zeilen).
+  void _showFilterSheet() {
+    showModalBottomSheet<void>(
+      context: context,
+      showDragHandle: true,
+      builder: (_) => Consumer(
+        builder: (context, ref, _) {
+          final calendars = ref
+              .watch(membersProvider)
+              .where((m) => m.supportsEvents)
+              .toList();
+          return SafeArea(
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      const Icon(Icons.filter_alt_outlined, size: 20),
+                      const SizedBox(width: 8),
+                      Text(
+                        'Filter',
+                        style: Theme.of(context).textTheme.titleMedium,
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  _presetBar(ref, calendars),
+                  _legend(ref, calendars),
+                ],
+              ),
+            ),
+          );
+        },
       ),
     );
   }
@@ -395,6 +436,12 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
     final accountAsync = ref.watch(accountProvider);
     final eventsAsync = ref.watch(eventsControllerProvider);
     final eventsByDay = ref.watch(eventsByDayProvider);
+    final eventCalendars = ref
+        .watch(membersProvider)
+        .where((m) => m.supportsEvents)
+        .toList();
+    // Ist gerade gefiltert? (Mind. ein Kalender ausgeblendet.)
+    final filterActive = eventCalendars.any((m) => m.hidden);
 
     // Sprung-Anforderung von der Startseite.
     final jump = ref.watch(calendarJumpProvider);
@@ -449,6 +496,14 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
               context,
             ).push(MaterialPageRoute(builder: (_) => const SearchScreen())),
           ),
+          if (eventCalendars.length >= 2)
+            IconButton(
+              tooltip: 'Filter',
+              isSelected: filterActive,
+              icon: const Icon(Icons.filter_alt_outlined),
+              selectedIcon: const Icon(Icons.filter_alt),
+              onPressed: () => _showFilterSheet(),
+            ),
           IconButton(
             tooltip: 'Aktualisieren',
             icon: const Icon(Icons.refresh),
@@ -460,14 +515,8 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
         orElse: () => const Center(child: CircularProgressIndicator()),
         data: (account) {
           if (account == null) return const _ConnectPrompt();
-          final eventCalendars = ref
-              .watch(membersProvider)
-              .where((m) => m.supportsEvents)
-              .toList();
           return Column(
             children: [
-              _presetBar(eventCalendars),
-              _legend(eventCalendars),
               if (_view == _CalView.day) ...[
                 _dayHeader(),
                 Expanded(
