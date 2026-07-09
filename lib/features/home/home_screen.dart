@@ -22,6 +22,7 @@ import '../calendar/event_providers.dart';
 import '../family/family_screen.dart';
 import '../members/member_settings.dart';
 import '../members/user_groups.dart';
+import '../weather/weather_service.dart';
 import '../tasks/task_item.dart';
 import '../tasks/task_providers.dart';
 import 'dashboard_providers.dart';
@@ -44,6 +45,9 @@ class HomeScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final account = ref.watch(accountProvider).value;
+    // Gruppen früh laden + am Leben halten, damit sie in der Sync-Diagnose
+    // schon ohne manuellen Sync stehen (und aus dem Cache).
+    ref.watch(userGroupsProvider);
     // Startseite zeigt bewusst ALLE Kalender (nur eigener Home-Filter zählt),
     // unabhängig vom Sichtbarkeits-Filter des Kalender-Tabs.
     final events = ref.watch(homeBaseEventsProvider);
@@ -149,6 +153,7 @@ class HomeScreen extends ConsumerWidget {
                       today: today,
                       events: homeEvents,
                       birthdayConfig: birthdayCfg,
+                      weather: ref.watch(weatherProvider).value ?? const {},
                       onTapDay: openDay,
                     ),
                     const _SectionLabel('Anstehende Termine'),
@@ -376,7 +381,7 @@ class _SectionLabel extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: EdgeInsets.fromLTRB(20, 22, trailing == null ? 20 : 12, 12),
+      padding: EdgeInsets.fromLTRB(20, 15, trailing == null ? 20 : 12, 8),
       child: Row(
         children: [
           Expanded(
@@ -473,11 +478,13 @@ class _TwoWeekCalendar extends StatelessWidget {
     required this.today,
     required this.events,
     required this.birthdayConfig,
+    required this.weather,
     required this.onTapDay,
   });
   final DateTime today;
   final List<CalendarEvent> events;
   final BirthdayConfig birthdayConfig;
+  final Map<String, DayWeather> weather;
   final void Function(DateTime day) onTapDay;
 
   @override
@@ -504,28 +511,50 @@ class _TwoWeekCalendar extends StatelessWidget {
             padding: const EdgeInsets.symmetric(vertical: 4),
             child: Column(
               children: [
-                Container(
+                SizedBox(
                   width: 30,
                   height: 30,
-                  alignment: Alignment.center,
-                  decoration: BoxDecoration(
-                    // Dezenter Tages-Hintergrund wie im Kalender-Reiter.
-                    color: isToday
-                        ? scheme.primary
-                        : scheme.primary.withValues(alpha: 0.035),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Text(
-                    '${day.day}',
-                    style: TextStyle(
-                      fontSize: 13,
-                      fontWeight: isToday ? FontWeight.w700 : FontWeight.w500,
-                      color: isToday
-                          ? scheme.onPrimary
-                          : isPast
-                          ? scheme.onSurfaceVariant.withValues(alpha: 0.5)
-                          : scheme.onSurface,
-                    ),
+                  child: Stack(
+                    clipBehavior: Clip.none,
+                    children: [
+                      Container(
+                        width: 30,
+                        height: 30,
+                        alignment: Alignment.center,
+                        decoration: BoxDecoration(
+                          // Dezenter Tages-Hintergrund wie im Kalender-Reiter.
+                          color: isToday
+                              ? scheme.primary
+                              : scheme.primary.withValues(alpha: 0.035),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Text(
+                          '${day.day}',
+                          style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: isToday
+                                ? FontWeight.w700
+                                : FontWeight.w500,
+                            color: isToday
+                                ? scheme.onPrimary
+                                : isPast
+                                ? scheme.onSurfaceVariant.withValues(alpha: 0.5)
+                                : scheme.onSurface,
+                          ),
+                        ),
+                      ),
+                      if (weather[DateFormat('yyyy-MM-dd').format(day)]
+                          case final w?)
+                        Positioned(
+                          top: -3,
+                          right: -3,
+                          child: Icon(
+                            weatherIcon(w.code),
+                            size: 12,
+                            color: isToday ? scheme.onPrimary : scheme.primary,
+                          ),
+                        ),
+                    ],
                   ),
                 ),
                 const SizedBox(height: 3),
@@ -689,7 +718,7 @@ class _UpcomingStripState extends State<_UpcomingStrip> {
     final passed = widget.passed;
     final upcoming = widget.upcoming;
     return SizedBox(
-      height: 118,
+      height: 108,
       child: LayoutBuilder(
         builder: (context, constraints) {
           // Trailing-Platz, damit die Liste weit genug scrollen kann, um die
@@ -776,7 +805,7 @@ class _EventCard extends StatelessWidget {
     final color = event.color ?? scheme.primary;
     final soon = _soon();
     return Padding(
-      padding: const EdgeInsets.only(right: 12, top: 2, bottom: 6),
+      padding: const EdgeInsets.only(right: 12, top: 2, bottom: 4),
       child: Opacity(
         opacity: passed ? 0.5 : 1,
         child: GestureDetector(
@@ -784,7 +813,7 @@ class _EventCard extends StatelessWidget {
           onLongPress: onLongPress,
           child: Container(
             width: 185,
-            padding: const EdgeInsets.all(12),
+            padding: const EdgeInsets.all(10),
             decoration: BoxDecoration(
               color: Theme.of(context).cardColor,
               borderRadius: BorderRadius.circular(18),

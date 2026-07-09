@@ -23,7 +23,9 @@ class UserGroupsController extends AsyncNotifier<List<String>> {
     ref.onDispose(() => _disposed = true);
     final prefs = await SharedPreferences.getInstance();
     final cached = prefs.getStringList(_key) ?? const <String>[];
-    final account = ref.read(accountProvider).value;
+    // watch statt read: sobald das Konto (spät) geladen ist, baut der Provider
+    // neu und holt die Gruppen frisch – nicht erst bei manueller Sync.
+    final account = ref.watch(accountProvider).value;
     if (account != null) {
       // Sofort den Cache zeigen, im Hintergrund frisch holen.
       Future.microtask(() => _refresh(account));

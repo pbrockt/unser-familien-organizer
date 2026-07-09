@@ -487,6 +487,37 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
     );
   }
 
+  /// Eine Monats-Zelle: Tageszahl + kleines Wetter-Icon oben rechts (falls
+  /// Vorhersage vorhanden).
+  Widget _monthDayCell(
+    DateTime day,
+    Map<String, DayWeather> weather, {
+    required Color bg,
+    required Color fg,
+  }) {
+    final w = weather[DateFormat('yyyy-MM-dd').format(day)];
+    return Stack(
+      clipBehavior: Clip.none,
+      children: [
+        Container(
+          margin: const EdgeInsets.all(4),
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            color: bg,
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Text('${day.day}', style: TextStyle(color: fg)),
+        ),
+        if (w != null)
+          Positioned(
+            top: 0,
+            right: 0,
+            child: Icon(weatherIcon(w.code), size: 11, color: fg),
+          ),
+      ],
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final accountAsync = ref.watch(accountProvider);
@@ -526,6 +557,8 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
     final selectedEvents = loader(_selectedDay);
     final birthdayCfg =
         ref.watch(birthdayConfigProvider).value ?? const BirthdayConfig();
+    final weather =
+        ref.watch(weatherProvider).value ?? const <String, DayWeather>{};
 
     // Verlauf hinter das ganze Scaffold legen (wie auf der Startseite), damit
     // AppBar + Inhalt ohne manuellen Offset bündig sitzen.
@@ -723,6 +756,39 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
                               ),
                             ),
                             calendarBuilders: CalendarBuilders<CalendarEvent>(
+                              defaultBuilder: (context, day, _) =>
+                                  _monthDayCell(
+                                    day,
+                                    weather,
+                                    bg: Theme.of(context).colorScheme.primary
+                                        .withValues(alpha: 0.035),
+                                    fg: Theme.of(context).colorScheme.onSurface,
+                                  ),
+                              todayBuilder: (context, day, _) => _monthDayCell(
+                                day,
+                                weather,
+                                bg: Theme.of(
+                                  context,
+                                ).colorScheme.primaryContainer,
+                                fg: Theme.of(
+                                  context,
+                                ).colorScheme.onPrimaryContainer,
+                              ),
+                              selectedBuilder: (context, day, _) =>
+                                  _monthDayCell(
+                                    day,
+                                    weather,
+                                    bg: Theme.of(context).colorScheme.primary,
+                                    fg: Theme.of(context).colorScheme.onPrimary,
+                                  ),
+                              outsideBuilder: (context, day, _) =>
+                                  _monthDayCell(
+                                    day,
+                                    weather,
+                                    bg: Colors.transparent,
+                                    fg: Theme.of(context).colorScheme.onSurface
+                                        .withValues(alpha: 0.32),
+                                  ),
                               markerBuilder: (context, day, events) {
                                 if (events.isEmpty) return null;
                                 final now = DateTime.now();
@@ -869,7 +935,17 @@ class _DayEventList extends StatelessWidget {
         if (index == 0) {
           return Padding(
             padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
-            child: Text(header, style: Theme.of(context).textTheme.titleSmall),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    header,
+                    style: Theme.of(context).textTheme.titleSmall,
+                  ),
+                ),
+                weather,
+              ],
+            ),
           );
         }
         final e = events[index - 1];
