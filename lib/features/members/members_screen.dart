@@ -2,14 +2,24 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../shared/utils/hex_color.dart';
+import '../../shared/widgets/color_picker_sheet.dart';
 import 'member_settings.dart';
 
 /// Farbpalette für Mitglieder (als Hex, damit keine Color→Hex-Konvertierung
 /// nötig ist).
 const _palette = [
-  '#EF5350', '#42A5F5', '#66BB6A', '#FFA726',
-  '#AB47BC', '#26C6DA', '#EC407A', '#8D6E63',
-  '#5C6BC0', '#26A69A', '#FF7043', '#9CCC65',
+  '#EF5350',
+  '#42A5F5',
+  '#66BB6A',
+  '#FFA726',
+  '#AB47BC',
+  '#26C6DA',
+  '#EC407A',
+  '#8D6E63',
+  '#5C6BC0',
+  '#26A69A',
+  '#FF7043',
+  '#9CCC65',
 ];
 
 /// Verwaltung der Familienmitglieder: jeder Kalender bekommt Name, Farbe und
@@ -33,7 +43,8 @@ class MembersScreen extends ConsumerWidget {
                   'im Tab „Familie".',
                   textAlign: TextAlign.center,
                   style: theme.textTheme.bodyMedium?.copyWith(
-                      color: theme.colorScheme.onSurfaceVariant),
+                    color: theme.colorScheme.onSurfaceVariant,
+                  ),
                 ),
               ),
             )
@@ -46,11 +57,11 @@ class MembersScreen extends ConsumerWidget {
                     'Person). Ausgeblendete Kalender erscheinen nicht im '
                     'Kalender und Dashboard. Gilt nur auf diesem Gerät.',
                     style: theme.textTheme.bodySmall?.copyWith(
-                        color: theme.colorScheme.onSurfaceVariant),
+                      color: theme.colorScheme.onSurfaceVariant,
+                    ),
                   ),
                 ),
-                for (final m in members)
-                  _MemberTile(member: m),
+                for (final m in members) _MemberTile(member: m),
               ],
             ),
     );
@@ -110,16 +121,20 @@ class _MemberTile extends ConsumerWidget {
         ),
         actions: [
           TextButton(
-              onPressed: () => Navigator.pop(ctx),
-              child: const Text('Abbrechen')),
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Abbrechen'),
+          ),
           FilledButton(
-              onPressed: () => Navigator.pop(ctx, controller.text),
-              child: const Text('Speichern')),
+            onPressed: () => Navigator.pop(ctx, controller.text),
+            child: const Text('Speichern'),
+          ),
         ],
       ),
     );
     if (name != null) {
-      await ref.read(memberSettingsProvider.notifier).setName(member.href, name);
+      await ref
+          .read(memberSettingsProvider.notifier)
+          .setName(member.href, name);
     }
   }
 
@@ -134,8 +149,10 @@ class _MemberTile extends ConsumerWidget {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('Farbe für „${member.name}"',
-                  style: Theme.of(ctx).textTheme.titleMedium),
+              Text(
+                'Farbe für „${member.name}"',
+                style: Theme.of(ctx).textTheme.titleMedium,
+              ),
               const SizedBox(height: 16),
               Wrap(
                 spacing: 12,
@@ -158,6 +175,23 @@ class _MemberTile extends ConsumerWidget {
                 ],
               ),
               const SizedBox(height: 12),
+              TextButton.icon(
+                onPressed: () async {
+                  final picked = await showColorPickerSheet(
+                    ctx,
+                    initial: member.color,
+                    title: 'Farbe für „${member.name}"',
+                  );
+                  if (picked != null) {
+                    ref
+                        .read(memberSettingsProvider.notifier)
+                        .setColorHex(member.href, toHexRgb(picked));
+                  }
+                  if (ctx.mounted) Navigator.pop(ctx);
+                },
+                icon: const Icon(Icons.palette_outlined),
+                label: const Text('Eigene Farbe mischen…'),
+              ),
               TextButton.icon(
                 onPressed: () {
                   ref

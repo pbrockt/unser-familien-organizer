@@ -6,6 +6,7 @@ import '../../core/background/background_sync.dart';
 import '../../core/platform/platform_support.dart';
 import '../calendar/birthdays.dart';
 import '../../shared/theme/app_theme.dart';
+import '../../shared/widgets/color_picker_sheet.dart';
 import '../calendar/event_providers.dart';
 import '../calendar/event_templates.dart';
 import '../family/family_screen.dart';
@@ -256,6 +257,28 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                               ),
                             ),
                         ],
+                      ),
+                    ),
+                    Align(
+                      alignment: Alignment.centerLeft,
+                      child: Padding(
+                        padding: const EdgeInsets.only(left: 8),
+                        child: TextButton.icon(
+                          onPressed: () async {
+                            final picked = await showColorPickerSheet(
+                              context,
+                              initial: accent,
+                              title: 'Akzentfarbe',
+                            );
+                            if (picked != null) {
+                              await ref
+                                  .read(accentColorProvider.notifier)
+                                  .set(picked);
+                            }
+                          },
+                          icon: const Icon(Icons.palette_outlined),
+                          label: const Text('Eigene Farbe mischen…'),
+                        ),
                       ),
                     ),
                     SwitchListTile(
