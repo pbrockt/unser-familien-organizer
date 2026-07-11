@@ -1116,9 +1116,9 @@ class _CountdownCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     final color = event.color ?? scheme.primary;
-    // Läuft der Termin bereits (mehrtägig, Start ≤ heute ≤ Ende)? Dann Restdauer
-    // bis zum Ende zeigen, sonst Tage bis zum Beginn.
-    final started = !event.startDay.isAfter(today);
+    // „läuft"-Anzeige nur bei MEHRTÄGIGEN Terminen, die schon begonnen haben.
+    // Eintägige Termine (auch heute) laufen in die normale Anzeige.
+    final started = event.isMultiDay && !event.startDay.isAfter(today);
     final remaining = event.endDayInclusive.difference(today).inDays;
     final untilStart = event.startDay.difference(today).inDays;
     final badgeDays = started ? remaining : untilStart;
