@@ -85,7 +85,7 @@ class HomeScreen extends ConsumerWidget {
     // Bereits abgeschlossene Termine von heute – ans Ende der horizontalen
     // Liste gehängt, sichtbar beim Wischen nach links.
     final passedToday = _passedToday(homeEvents, now, today);
-    final countdowns = countdownEvents(events, memberSettings, today);
+    final countdowns = countdownEvents(events, memberSettings, now);
     final birthdayCfg =
         ref.watch(birthdayConfigProvider).value ?? const BirthdayConfig();
     // Geburtstage auf der Startseite nur eine Woche im Voraus.

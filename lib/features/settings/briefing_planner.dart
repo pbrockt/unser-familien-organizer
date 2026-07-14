@@ -39,6 +39,8 @@ ScheduledReminder? planDailyBriefing({
       day: day,
     ),
     when: when,
+    // Täglich wiederholen: feuert auch, wenn die App länger nicht offen war.
+    repeatDaily: true,
   );
 }
 

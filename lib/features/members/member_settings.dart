@@ -197,15 +197,15 @@ List<CalendarEvent> filterHomeEvents(
 List<CalendarEvent> countdownEvents(
   List<CalendarEvent> events,
   Map<String, MemberSetting> settings,
-  DateTime today,
+  DateTime now,
 ) {
-  // Anstehende **und laufende** Countdown-Termine je Kalender sammeln. Ein
-  // gerade laufender (mehrtägiger) Termin wird per ENDE geprüft, damit er nicht
-  // fälschlich zugunsten des nächsten übersprungen wird.
+  // Anstehende **und laufende** Countdown-Termine je Kalender sammeln. Über
+  // `hasPassed(now)` (Uhrzeit-genau) fällt ein heute bereits beendeter Termin
+  // raus, sodass der nächste angezeigt wird; ein laufender mehrtägiger bleibt.
   final byCal = <String, List<CalendarEvent>>{};
   for (final e in events) {
     final s = settings[e.calendarHref];
-    if (s == null || !s.countdown || e.endDayInclusive.isBefore(today)) {
+    if (s == null || !s.countdown || e.hasPassed(now)) {
       continue;
     }
     byCal.putIfAbsent(e.calendarHref, () => []).add(e);

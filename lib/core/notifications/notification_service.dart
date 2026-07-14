@@ -1,3 +1,4 @@
+import 'package:flutter/services.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:flutter_timezone/flutter_timezone.dart';
 import 'package:timezone/data/latest_all.dart' as tzdata;
@@ -12,12 +13,17 @@ class ScheduledReminder {
     required this.title,
     required this.body,
     required this.when,
+    this.repeatDaily = false,
   });
 
   final int id;
   final String title;
   final String body;
   final DateTime when;
+
+  /// Täglich zur gleichen Uhrzeit wiederholen (z. B. Morgen-Briefing) – damit es
+  /// auch dann feuert, wenn die App tagelang nicht geöffnet wird.
+  final bool repeatDaily;
 }
 
 /// Kapselt lokale Benachrichtigungen (flutter_local_notifications) inkl.
@@ -107,14 +113,26 @@ class NotificationService {
     final now = DateTime.now();
     for (final r in reminders) {
       if (!r.when.isAfter(now)) continue;
-      await _plugin.zonedSchedule(
+      // Erst exakt versuchen; ist die Exact-Alarm-Berechtigung nicht erteilt
+      // (wirft PlatformException), auf ungenau ausweichen – so kommt die
+      // Benachrichtigung trotzdem (nur evtl. um Minuten verschoben). Fehler pro
+      // Eintrag abfangen, damit ein Ausfall nicht alle anderen verhindert.
+      Future<void> put(AndroidScheduleMode mode) => _plugin.zonedSchedule(
         id: r.id,
         title: r.title,
         body: r.body,
         scheduledDate: tz.TZDateTime.from(r.when, tz.local),
         notificationDetails: details,
-        androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
+        androidScheduleMode: mode,
+        matchDateTimeComponents: r.repeatDaily ? DateTimeComponents.time : null,
       );
+      try {
+        await put(AndroidScheduleMode.exactAllowWhileIdle);
+      } on PlatformException {
+        try {
+          await put(AndroidScheduleMode.inexactAllowWhileIdle);
+        } catch (_) {}
+      } catch (_) {}
     }
   }
 

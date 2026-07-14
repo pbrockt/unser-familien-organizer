@@ -31,9 +31,17 @@ void callbackDispatcher() {
       final account = await container.read(accountProvider.future);
       if (account == null) return true;
 
-      // Frisch synchronisieren (Delta).
+      // Frisch synchronisieren (Delta). Schlägt das Netz fehl, mit dem
+      // gecachten Stand weitermachen, damit das Widget trotzdem aktualisiert.
       final repo = container.read(caldavRepositoryProvider);
-      final snapshot = await repo.sync(account);
+      final snapshot = await () async {
+        try {
+          return await repo.sync(account);
+        } catch (_) {
+          return await repo.cachedSnapshot(account);
+        }
+      }();
+      if (snapshot == null) return true;
       final memberSettings = await container.read(
         memberSettingsProvider.future,
       );
@@ -113,15 +121,18 @@ Future<void> initBackgroundSync() async {
   await Workmanager().initialize(callbackDispatcher);
 }
 
-/// Plant den periodischen Hintergrund-Sync (etwa stündlich, nur mit Netz).
+/// Plant den periodischen Hintergrund-Sync (alle 15 Min, auch ohne Netz).
 /// Aktualisiert die Home-Widgets und plant – falls aktiv – Erinnerungen neu.
 Future<void> registerBackgroundSync() async {
   if (!isAndroid) return;
   await Workmanager().registerPeriodicTask(
     _uniqueName,
     _taskName,
-    frequency: const Duration(hours: 1),
-    constraints: Constraints(networkType: NetworkType.connected),
+    // Alle 15 Minuten (Android-Minimum) und auch ohne Netz laufen, damit die
+    // Home-Widgets zuverlässig aktualisiert werden (Sync fällt sonst auf den
+    // Cache zurück).
+    frequency: const Duration(minutes: 15),
+    constraints: Constraints(networkType: NetworkType.notRequired),
     existingWorkPolicy: ExistingPeriodicWorkPolicy.update,
   );
 }

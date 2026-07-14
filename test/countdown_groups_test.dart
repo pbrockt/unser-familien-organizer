@@ -49,6 +49,31 @@ void main() {
       final out = countdownEvents([herbst, sommer, ostern], all, today);
       expect(out.map((e) => e.summary), ['Sommerferien', 'Herbstferien']);
     });
+
+    test('heute bereits beendeter Termin fällt raus, nächster gewinnt', () {
+      const s = {'/c/a': MemberSetting(countdown: true)};
+      CalendarEvent timed(String name, DateTime start, DateTime end) =>
+          CalendarEvent(
+            uid: name,
+            summary: name,
+            start: start,
+            end: end,
+            calendarHref: '/c/a',
+          );
+      final heute = timed(
+        'Arbeit',
+        DateTime(2026, 7, 9, 18),
+        DateTime(2026, 7, 9, 20),
+      );
+      final morgen = timed(
+        'Termin morgen',
+        DateTime(2026, 7, 10, 9),
+        DateTime(2026, 7, 10, 10),
+      );
+      // Es ist 21:00 – der heutige Termin (endet 20:00) ist vorbei.
+      final out = countdownEvents([heute, morgen], s, DateTime(2026, 7, 9, 21));
+      expect(out.single.summary, 'Termin morgen');
+    });
   });
 
   test('parseUserGroups liest Gruppen-IDs aus group-membership', () {
