@@ -1,6 +1,5 @@
 import 'dart:io';
 
-import 'package:family_planner/features/fitness/fitness_analysis.dart';
 import 'package:family_planner/features/fitness/fitness_models.dart';
 import 'package:family_planner/features/fitness/fitness_parsers.dart';
 import 'package:flutter_test/flutter_test.dart';
