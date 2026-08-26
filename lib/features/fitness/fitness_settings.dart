@@ -95,6 +95,29 @@ class FitnessStepGoalController extends AsyncNotifier<int> {
   }
 }
 
+/// Zielgewicht in kg. 0 = kein Ziel gesetzt.
+final fitnessGoalWeightProvider =
+    AsyncNotifierProvider<FitnessGoalWeightController, double>(
+  FitnessGoalWeightController.new,
+);
+
+class FitnessGoalWeightController extends AsyncNotifier<double> {
+  static const _key = 'fitness_goal_weight';
+
+  @override
+  Future<double> build() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getDouble(_key) ?? 0;
+  }
+
+  Future<void> set(double value) async {
+    final prefs = await SharedPreferences.getInstance();
+    final v = value.clamp(0.0, 400.0);
+    await prefs.setDouble(_key, v);
+    state = AsyncData(v);
+  }
+}
+
 /// Die Pulszonen ergeben sich aus der eingestellten HFmax.
 final fitnessZonesProvider = Provider<HrZones>((ref) {
   final maxHr = ref.watch(fitnessMaxHrProvider).value ?? 0;

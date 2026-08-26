@@ -10,6 +10,7 @@ import 'fitness_repository.dart';
 import 'fitness_settings.dart';
 import 'fitness_widgets.dart';
 import 'fitness_training_tab.dart';
+import 'fitness_weight_tab.dart';
 
 /// Ein Tag mit allem, was an ihm passiert ist.
 class FitnessDay {
@@ -58,7 +59,7 @@ class FitnessScreen extends ConsumerWidget {
     final syncing = ref.watch(fitnessSyncingProvider);
 
     return DefaultTabController(
-      length: 2,
+      length: 3,
       child: Scaffold(
       appBar: AppBar(
         title: const Text('Fitness'),
@@ -66,6 +67,7 @@ class FitnessScreen extends ConsumerWidget {
           tabs: [
             Tab(text: 'Übersicht'),
             Tab(text: 'Training'),
+            Tab(text: 'Gewicht'),
           ],
         ),
         actions: [
@@ -119,6 +121,7 @@ class FitnessScreen extends ConsumerWidget {
                 _StepsCard(days: days, goal: stepGoal),
                 const SizedBox(height: 12),
                 _SleepCard(days: days),
+                _RuhepulsCard(days: days),
                 const SizedBox(height: 20),
                 Text(
                   'Tage',
@@ -134,6 +137,7 @@ class FitnessScreen extends ConsumerWidget {
             ),
               ),
               FitnessTrainingTab(data: data),
+              const FitnessWeightTab(),
             ],
           );
         },
@@ -216,6 +220,63 @@ class _SleepCard extends StatelessWidget {
             ChartValue(_kurzDatum(d.date), d.health!.sleepHours!),
         ],
         goal: 7,
+      ),
+    );
+  }
+}
+
+/// Ruhepuls-Verlauf — das ehrlichste Fitness-Signal in diesen Daten.
+class _RuhepulsCard extends StatelessWidget {
+  const _RuhepulsCard({required this.days});
+
+  final List<FitnessDay> days;
+
+  @override
+  Widget build(BuildContext context) {
+    final trend = analyseRestingHr([
+      for (final d in days)
+        if (d.health != null) d.health!,
+    ]);
+    if (!trend.hasData) return const SizedBox.shrink();
+
+    final scheme = Theme.of(context).colorScheme;
+    final veraenderung = trend.change;
+
+    final String bewertung;
+    final Color farbe;
+    if (veraenderung == null) {
+      bewertung = 'Ab etwa zwei Monaten regelmäßiger Daten wird die Veränderung '
+          'aussagekräftig.';
+      farbe = scheme.onSurfaceVariant;
+    } else if (veraenderung <= -2) {
+      bewertung = 'Um $veraenderung bpm gesunken — das deutlichste Zeichen für '
+          'bessere Ausdauer, und es lässt sich nicht vortäuschen.';
+      farbe = scheme.primary;
+    } else if (veraenderung >= 3) {
+      bewertung = 'Um +$veraenderung bpm gestiegen. Häufige Gründe: zu wenig Schlaf, '
+          'ein Infekt im Anmarsch oder zu viel Belastung ohne Erholung.';
+      farbe = scheme.error;
+    } else {
+      bewertung = 'Weitgehend unverändert gegenüber dem Monat davor.';
+      farbe = scheme.onSurfaceVariant;
+    }
+
+    return FitnessExpandableCard(
+      title: 'Ruhepuls',
+      subtitle: trend.avg30 == null
+          ? null
+          : 'Ø ${trend.avg30} bpm im letzten Monat'
+              '${trend.lowest != null ? ' · niedrigster ${trend.lowest}' : ''}',
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          FitnessLineChart(smoothed: trend.series, height: 130),
+          const SizedBox(height: 10),
+          Text(
+            bewertung,
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(color: farbe),
+          ),
+        ],
       ),
     );
   }

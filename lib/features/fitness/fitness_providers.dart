@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../core/auth/account_providers.dart';
 import 'fitness_models.dart';
@@ -112,6 +113,25 @@ class FitnessDataController extends AsyncNotifier<FitnessData> {
   }
 }
 
+/// Liest die gespeicherte Gewichtsliste. Kaputte oder fremde Inhalte ergeben eine leere
+/// Liste statt eines Absturzes — eine unlesbare Sicherung darf die App nicht lahmlegen.
+List<WeightEntry> decodeWeightEntries(String raw) {
+  try {
+    final liste = jsonDecode(raw);
+    if (liste is! List) return const [];
+    final out = <WeightEntry>[];
+    for (final e in liste) {
+      if (e is Map<String, dynamic> && e['date'] is String && e['kg'] is num) {
+        out.add(WeightEntry.fromJson(e));
+      }
+    }
+    out.sort((a, b) => a.date.compareTo(b.date));
+    return out;
+  } catch (_) {
+    return const [];
+  }
+}
+
 /// Von Hand eingetragene Gewichtswerte.
 ///
 /// Bewusst in einer eigenen Datei und nicht im Import-Zwischenspeicher: diese Werte sind
@@ -122,32 +142,49 @@ final weightEntriesProvider =
 );
 
 class WeightController extends AsyncNotifier<List<WeightEntry>> {
-  Future<File> _file() async {
+  /// Schlüssel in den Einstellungen.
+  ///
+  /// Die Gewichte liegen bewusst **dort** und nicht in einer eigenen Datei: die
+  /// Nextcloud-Sicherung überträgt die Einstellungen, und die Gewichtswerte sind das
+  /// Einzige in der App, was sich nicht aus dem Datenordner wiederherstellen lässt.
+  /// In einer separaten Datei wären sie beim Gerätewechsel verloren gewesen.
+  /// Der Platzbedarf ist unkritisch — ein Eintrag je Tag sind rund 15 KB im Jahr.
+  static const prefsKey = 'fitness_weight_entries';
+
+  /// Frühere Ablage; wird beim ersten Start einmalig übernommen.
+  Future<File> _legacyFile() async {
     final dir = await getApplicationDocumentsDirectory();
     return File(p.join(dir.path, 'fitness_gewicht.json'));
   }
 
   Future<List<WeightEntry>> _read() async {
+    final prefs = await SharedPreferences.getInstance();
+    final raw = prefs.getString(prefsKey);
+
+    if (raw != null) return decodeWeightEntries(raw);
+
+    // Noch nichts in den Einstellungen: alte Datei übernehmen und danach dort führen.
+    final ausDatei = await _readLegacy();
+    if (ausDatei.isNotEmpty) await _write(ausDatei);
+    return ausDatei;
+  }
+
+  Future<List<WeightEntry>> _readLegacy() async {
     try {
-      final file = await _file();
+      final file = await _legacyFile();
       if (!file.existsSync()) return const [];
-      final raw = jsonDecode(await file.readAsString()) as List;
-      return raw
-          .map((e) => WeightEntry.fromJson(e as Map<String, dynamic>))
-          .toList()
-        ..sort((a, b) => a.date.compareTo(b.date));
+      return decodeWeightEntries(await file.readAsString());
     } catch (_) {
       return const [];
     }
   }
 
   Future<void> _write(List<WeightEntry> entries) async {
-    try {
-      final file = await _file();
-      await file.writeAsString(jsonEncode(entries.map((e) => e.toJson()).toList()));
-    } catch (_) {
-      // Nicht kritisch genug, um die Eingabe scheitern zu lassen.
-    }
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(
+      prefsKey,
+      jsonEncode(entries.map((e) => e.toJson()).toList()),
+    );
   }
 
   @override

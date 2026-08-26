@@ -298,6 +298,88 @@ List<String> activityTips(
   return out;
 }
 
+/// Auswertung des Ruhepulses aus den Tagesdateien.
+class RestingHrTrend {
+  const RestingHrTrend({
+    required this.latest,
+    required this.avg30,
+    required this.avgPrev30,
+    required this.lowest,
+    required this.series,
+  });
+
+  final int? latest;
+
+  /// Schnitt der letzten 30 Tage mit Daten.
+  final int? avg30;
+
+  /// Schnitt der 30 Tage davor — der Vergleichswert.
+  final int? avgPrev30;
+  final int? lowest;
+
+  /// Verlauf als (Tagesabstand zum ersten Wert, bpm).
+  final List<(int, double)> series;
+
+  /// Veränderung in bpm; negativ heißt gesunken.
+  int? get change =>
+      (avg30 != null && avgPrev30 != null) ? avg30! - avgPrev30! : null;
+
+  bool get hasData => series.length >= 2;
+}
+
+/// Wertet den Ruhepuls aus.
+///
+/// Ein sinkender Ruhepuls ist das ehrlichste Fitness-Signal, das diese Daten hergeben:
+/// er lässt sich nicht durch einen guten Tag vortäuschen, reagiert auf echtes
+/// Ausdauertraining und fällt oft, bevor sich am Gewicht etwas zeigt.
+///
+/// Genommen wird `heart_rate_min`, nicht `average_heart_rate` — der Tagesschnitt hängt
+/// daran, wie viel man sich bewegt hat, und misst damit den Tag, nicht die Form.
+RestingHrTrend analyseRestingHr(List<HealthDay> days) {
+  final werte = <MapEntry<DateTime, int>>[];
+  for (final d in days) {
+    final hr = d.hrMin ?? d.hrAvg;
+    final datum = DateTime.tryParse(d.date);
+    // Unter 30 bpm ist ein Messfehler, über 120 kein Ruhepuls mehr.
+    if (hr != null && datum != null && hr >= 30 && hr <= 120) {
+      werte.add(MapEntry(DateTime(datum.year, datum.month, datum.day), hr));
+    }
+  }
+  if (werte.isEmpty) {
+    return const RestingHrTrend(
+      latest: null, avg30: null, avgPrev30: null, lowest: null, series: [],
+    );
+  }
+  werte.sort((a, b) => a.key.compareTo(b.key));
+
+  int? schnitt(Iterable<MapEntry<DateTime, int>> e) {
+    final liste = e.toList();
+    if (liste.isEmpty) return null;
+    return (liste.map((x) => x.value).reduce((a, b) => a + b) / liste.length).round();
+  }
+
+  final letzte30 = werte.length <= 30 ? werte : werte.sublist(werte.length - 30);
+  final davor = werte.length <= 30
+      ? const <MapEntry<DateTime, int>>[]
+      : werte.sublist(
+          werte.length >= 60 ? werte.length - 60 : 0,
+          werte.length - 30,
+        );
+
+  final erster = werte.first.key;
+  return RestingHrTrend(
+    latest: werte.last.value,
+    avg30: schnitt(letzte30),
+    // Erst ab genug Vergleichsdaten — sonst wäre die Veränderung Zufall.
+    avgPrev30: davor.length >= 5 ? schnitt(davor) : null,
+    lowest: werte.map((e) => e.value).reduce((a, b) => a < b ? a : b),
+    series: [
+      for (final e in werte)
+        (e.key.difference(erster).inDays, e.value.toDouble()),
+    ],
+  );
+}
+
 /// Zusammenfassung über alle Einheiten einer Sportart.
 class SportSummary {
   const SportSummary({
