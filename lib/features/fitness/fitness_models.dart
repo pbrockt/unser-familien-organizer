@@ -17,6 +17,12 @@ String sportLabel(Sport s) => switch (s) {
       Sport.unknown => 'Unbekannt',
     };
 
+String sportIcon(Sport s) => switch (s) {
+      Sport.cycling => '\u{1F6B4}',
+      Sport.running => '\u{1F3C3}',
+      Sport.unknown => '\u{2753}',
+    };
+
 /// Art einer Einheit. Entscheidet, wie sie bewertet wird — nicht nur, wie sie heißt.
 ///
 /// Der eigentliche Zweck ist [SessionType.ausflug]: eine gemütliche Familienrunde hat ein
@@ -38,6 +44,12 @@ String sessionTypeLabel(SessionType t) => switch (t) {
       SessionType.training => 'Training',
       SessionType.intensiv => 'Intensiv',
       SessionType.ausflug => 'Ausflug',
+    };
+
+String sessionTypeIcon(SessionType t) => switch (t) {
+      SessionType.training => '\u{1F3AF}',
+      SessionType.intensiv => '\u{1F525}',
+      SessionType.ausflug => '\u{1F9FA}',
     };
 
 /// Ein Messpunkt im heruntergerechneten Verlauf einer Einheit.

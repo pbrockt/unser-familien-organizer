@@ -186,6 +186,99 @@ class SessionClassifier {
       loadScoreFromZones(zones.distribute(activity.hrHistogram));
 }
 
+/// Hinweise zu einer **einzelnen** Einheit — was war das für ein Training, und was
+/// ließe sich beim nächsten Mal besser machen.
+///
+/// Die Bewertung richtet sich nach der Art der Einheit: einem Ausflug vorzuwerfen, er sei
+/// zu langsam gewesen, wäre Unsinn, und einer Intervalleinheit, sie sei zu hart.
+List<String> activityTips(
+  Activity a,
+  Sport sport,
+  SessionType type,
+  HrZones zones,
+) {
+  final out = <String>[];
+  final hardShare = zones.hardSharePercent(a.hrHistogram);
+  final zoneSeconds = zones.distribute(a.hrHistogram);
+  final gesamt = zoneSeconds.fold<int>(0, (x, y) => x + y);
+  final istLauf = sport == Sport.running;
+
+  // 1) Charakter der Einheit einordnen.
+  switch (type) {
+    case SessionType.ausflug:
+      out.add('Als Ausflug eingestuft: zählt bei Distanz und Belastung mit, bleibt aber '
+          'aus den Leistungstrends heraus. Bewegung ist Bewegung.');
+    case SessionType.intensiv:
+      out.add('Harte Einheit — $hardShare % der Zeit über ${zones.t2} bpm. Nach so etwas '
+          'braucht der Körper einen ruhigen Tag, sonst kommt der Effekt nicht an.');
+    case SessionType.training:
+      if (gesamt > 0 && zoneSeconds[0] + zoneSeconds[1] > gesamt * 0.8) {
+        out.add('Schöne Grundlageneinheit: über 80 % der Zeit unter ${zones.t2} bpm. '
+            'Genau davon lebt die Ausdauer.');
+      } else {
+        out.add('Gemischte Einheit — $hardShare % der Zeit im intensiven Bereich '
+            'über ${zones.t2} bpm.');
+      }
+  }
+
+  // 2) Kadenz, sofern gemessen.
+  final cad = Analysis.cadenceCheck(sport, a.cadenceAvg);
+  if (cad.verdict != Verdict.noData && type != SessionType.ausflug) {
+    final einheit = Analysis.cadenceUnit(sport);
+    out.add(switch (cad.verdict) {
+      Verdict.good => 'Kadenz ${cad.effectiveValue} $einheit — guter Bereich.',
+      _ => 'Kadenz ${cad.effectiveValue} $einheit — ${cad.text}.',
+    });
+  }
+
+  // 3) Gleichmaessigkeit: springt der Puls stark, war die Einheit zerrissen.
+  final pulse = a.series.where((p) => p.hr > 0).map((p) => p.hr.toDouble()).toList();
+  if (pulse.length > 10 && type != SessionType.ausflug) {
+    final schnitt = pulse.reduce((x, y) => x + y) / pulse.length;
+    final abweichung = math.sqrt(
+      pulse.map((v) => (v - schnitt) * (v - schnitt)).reduce((x, y) => x + y) /
+          pulse.length,
+    );
+    if (abweichung > 18) {
+      out.add('Der Puls schwankt stark (±${abweichung.round()} bpm). Bei Intervallen ist '
+          'das gewollt — auf einer Grundlagenrunde deutet es auf Ampeln, Berge oder ein '
+          'zu wechselhaftes Tempo hin.');
+    } else if (abweichung < 8 && type == SessionType.training) {
+      out.add('Sehr gleichmäßiger Puls (±${abweichung.round()} bpm) — sauber '
+          'durchgezogen.');
+    }
+  }
+
+  // 4) Standzeit.
+  if (a.stoppedShare > 0.25 && type != SessionType.ausflug) {
+    out.add('${(a.stoppedShare * 100).round()} % der Zeit standest du. Für eine '
+        'Trainingswirkung ist eine Strecke ohne viele Stopps deutlich ergiebiger.');
+  }
+
+  // 5) Hoehenmeter ins Verhaeltnis setzen.
+  if (a.distanceKm > 1 && a.elevGain > 0) {
+    final proKm = a.elevGain / a.distanceKm;
+    if (proKm > 15) {
+      out.add('${proKm.round()} Höhenmeter pro Kilometer — hügelig. Ein niedrigerer '
+          'Schnitt ist hier normal und kein Rückschritt.');
+    }
+  }
+
+  // 6) Laenge einordnen.
+  if (istLauf && a.distanceKm >= 10) {
+    out.add('${a.distanceKm.toStringAsFixed(1)} km am Stück — das ist eine lange Einheit. '
+        'Danach zählt vor allem, dass du wieder auftankst.');
+  } else if (!istLauf && a.distanceKm >= 40) {
+    out.add('${a.distanceKm.toStringAsFixed(1)} km — lange Ausfahrt. Solche Einheiten '
+        'bauen die Grundlage, auf der alles andere steht.');
+  }
+
+  if (out.isEmpty) {
+    out.add('Zu dieser Einheit gibt es nichts Auffälliges zu melden.');
+  }
+  return out;
+}
+
 /// Zusammenfassung über alle Einheiten einer Sportart.
 class SportSummary {
   const SportSummary({

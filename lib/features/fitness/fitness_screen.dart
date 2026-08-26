@@ -8,6 +8,7 @@ import 'fitness_models.dart';
 import 'fitness_providers.dart';
 import 'fitness_repository.dart';
 import 'fitness_settings.dart';
+import 'fitness_training_tab.dart';
 
 /// Ein Tag mit allem, was an ihm passiert ist.
 class FitnessDay {
@@ -55,9 +56,17 @@ class FitnessScreen extends ConsumerWidget {
     final folder = ref.watch(fitnessFolderProvider).value ?? '';
     final syncing = ref.watch(fitnessSyncingProvider);
 
-    return Scaffold(
+    return DefaultTabController(
+      length: 2,
+      child: Scaffold(
       appBar: AppBar(
         title: const Text('Sport'),
+        bottom: const TabBar(
+          tabs: [
+            Tab(text: 'Übersicht'),
+            Tab(text: 'Training'),
+          ],
+        ),
         actions: [
           IconButton(
             tooltip: 'Jetzt abgleichen',
@@ -99,7 +108,9 @@ class FitnessScreen extends ConsumerWidget {
             );
           }
 
-          return RefreshIndicator(
+          return TabBarView(
+            children: [
+              RefreshIndicator(
             onRefresh: () => ref.read(fitnessDataProvider.notifier).sync(),
             child: ListView(
               padding: const EdgeInsets.fromLTRB(12, 8, 12, 24),
@@ -120,8 +131,12 @@ class FitnessScreen extends ConsumerWidget {
                   ),
               ],
             ),
+              ),
+              FitnessTrainingTab(data: data),
+            ],
           );
         },
+      ),
       ),
     );
   }

@@ -152,11 +152,11 @@ class WeightController extends AsyncNotifier<List<WeightEntry>> {
   @override
   Future<List<WeightEntry>> build() => _read();
 
-  Future<void> put(String date, double kg) async {
+  Future<void> put(String date, double kg, {String? time}) async {
     final current = state.value ?? await _read();
     final merged = [
       ...current.where((e) => e.date != date),
-      WeightEntry(date, kg),
+      WeightEntry(date, kg, time: time),
     ]..sort((a, b) => a.date.compareTo(b.date));
     await _write(merged);
     state = AsyncData(merged);
@@ -181,6 +181,7 @@ final mergedWeightProvider = Provider<List<WeightEntry>>((ref) {
   final byDate = <String, WeightEntry>{};
   for (final h in data?.healthDays ?? const <HealthDay>[]) {
     final kg = h.weightKg;
+    // Aus einer Tagesdatei kommt nur der Wert, keine Uhrzeit.
     if (kg != null) byDate[h.date] = WeightEntry(h.date, kg);
   }
   for (final e in manual) {

@@ -1,14 +1,17 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import 'fitness_analysis.dart';
-import 'fitness_charts.dart';
 import 'fitness_models.dart';
+import 'fitness_overrides.dart';
 import 'fitness_providers.dart';
 import 'fitness_screen.dart';
 import 'fitness_settings.dart';
+import 'fitness_widgets.dart';
+import 'weight_analysis.dart';
 
-/// Details eines einzelnen Tages: Gesundheitsdaten und die Einheiten dieses Tages.
+/// Details eines einzelnen Tages: Gewicht, Gesundheitsdaten und die Einheiten des Tages.
 class FitnessDayScreen extends ConsumerWidget {
   const FitnessDayScreen({super.key, required this.date});
 
@@ -17,32 +20,233 @@ class FitnessDayScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final data = ref.watch(fitnessDataProvider).value;
-    final zones = ref.watch(fitnessZonesProvider);
     final stepGoal = ref.watch(fitnessStepGoalProvider).value ?? 8000;
+    final gewichte = ref.watch(mergedWeightProvider);
 
     final day = data == null
         ? null
         : buildDays(data).where((d) => d.date == date).firstOrNull;
+    final gewichtHeute =
+        gewichte.where((e) => e.date == date).firstOrNull;
 
     return Scaffold(
       appBar: AppBar(title: Text(_langDatum(date))),
-      body: day == null
-          ? const Center(child: Text('Für diesen Tag liegen keine Daten vor.'))
-          : ListView(
-              padding: const EdgeInsets.fromLTRB(12, 8, 12, 24),
+      body: ListView(
+        padding: const EdgeInsets.fromLTRB(12, 8, 12, 28),
+        children: [
+          _GewichtCard(date: date, eintrag: gewichtHeute, alle: gewichte),
+          if (day?.health != null) _HealthCard(day!.health!, stepGoal),
+          if (day == null || day.activities.isEmpty)
+            const Padding(
+              padding: EdgeInsets.symmetric(vertical: 24),
+              child: Text(
+                'An diesem Tag ist keine Trainingseinheit aufgezeichnet.',
+                textAlign: TextAlign.center,
+              ),
+            )
+          else
+            for (final a in day.activities) _ActivityTile(activity: a),
+        ],
+      ),
+    );
+  }
+}
+
+class _GewichtCard extends ConsumerWidget {
+  const _GewichtCard({
+    required this.date,
+    required this.eintrag,
+    required this.alle,
+  });
+
+  final String date;
+  final WeightEntry? eintrag;
+  final List<WeightEntry> alle;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final scheme = Theme.of(context).colorScheme;
+    final auffaellig = WeightAnalysis.oddTimeDates(alle).contains(date);
+
+    return FitnessCard(
+      title: 'Gewicht',
+      subtitle: 'Am besten morgens nach dem Aufstehen — dann sind die Werte '
+          'untereinander vergleichbar.',
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          if (eintrag == null)
+            OutlinedButton.icon(
+              icon: const Icon(Icons.add),
+              label: const Text('Gewicht eintragen'),
+              onPressed: () => _eingabe(context, ref, date, null),
+            )
+          else ...[
+            Row(
               children: [
-                if (day.health != null) _HealthCard(day.health!, stepGoal),
-                if (day.activities.isEmpty)
-                  const Padding(
-                    padding: EdgeInsets.symmetric(vertical: 24),
-                    child: Text(
-                      'An diesem Tag ist keine Trainingseinheit aufgezeichnet.',
-                      textAlign: TextAlign.center,
-                    ),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        '${eintrag!.kg.toStringAsFixed(1)} kg',
+                        style: Theme.of(context).textTheme.headlineSmall,
+                      ),
+                      Text(
+                        eintrag!.time == null
+                            ? 'ohne Uhrzeit'
+                            : 'gewogen um ${eintrag!.time} Uhr',
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                              color: scheme.onSurfaceVariant,
+                            ),
+                      ),
+                    ],
                   ),
-                for (final a in day.activities) _ActivityCard(a, zones),
+                ),
+                IconButton(
+                  tooltip: 'Ändern',
+                  icon: const Icon(Icons.edit_outlined),
+                  onPressed: () => _eingabe(context, ref, date, eintrag),
+                ),
+                IconButton(
+                  tooltip: 'Löschen',
+                  icon: Icon(Icons.delete_outline, color: scheme.error),
+                  onPressed: () =>
+                      ref.read(weightEntriesProvider.notifier).remove(date),
+                ),
               ],
             ),
+            if (auffaellig)
+              Padding(
+                padding: const EdgeInsets.only(top: 8),
+                child: Text(
+                  'Zu einer anderen Tageszeit gewogen als sonst. Über den Tag schwankt '
+                  'das Gewicht um bis zu zwei Kilo — dieser Wert ist mit den übrigen '
+                  'nur eingeschränkt vergleichbar.',
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: scheme.tertiary,
+                      ),
+                ),
+              ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Future<void> _eingabe(
+    BuildContext context,
+    WidgetRef ref,
+    String date,
+    WeightEntry? vorhanden,
+  ) async {
+    final ergebnis = await showDialog<(double, String?)>(
+      context: context,
+      builder: (_) => _GewichtDialog(vorhanden: vorhanden),
+    );
+    if (ergebnis == null) return;
+    await ref
+        .read(weightEntriesProvider.notifier)
+        .put(date, ergebnis.$1, time: ergebnis.$2);
+  }
+}
+
+class _GewichtDialog extends StatefulWidget {
+  const _GewichtDialog({this.vorhanden});
+
+  final WeightEntry? vorhanden;
+
+  @override
+  State<_GewichtDialog> createState() => _GewichtDialogState();
+}
+
+class _GewichtDialogState extends State<_GewichtDialog> {
+  late final TextEditingController _kg = TextEditingController(
+    text: widget.vorhanden == null
+        ? ''
+        : widget.vorhanden!.kg.toStringAsFixed(1).replaceAll('.', ','),
+  );
+  late TimeOfDay? _zeit = _parse(widget.vorhanden?.time) ?? TimeOfDay.now();
+
+  static TimeOfDay? _parse(String? hhmm) {
+    if (hhmm == null || hhmm.length < 4) return null;
+    final teile = hhmm.split(':');
+    if (teile.length != 2) return null;
+    final h = int.tryParse(teile[0]);
+    final m = int.tryParse(teile[1]);
+    if (h == null || m == null) return null;
+    return TimeOfDay(hour: h, minute: m);
+  }
+
+  @override
+  void dispose() {
+    _kg.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    // Komma zulassen — auf der deutschen Zifferntastatur liegt kein Punkt.
+    final wert = double.tryParse(_kg.text.replaceAll(',', '.'));
+    final gueltig = wert != null && wert >= 20 && wert <= 400;
+
+    return AlertDialog(
+      title: const Text('Gewicht eintragen'),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          TextField(
+            controller: _kg,
+            autofocus: true,
+            keyboardType: const TextInputType.numberWithOptions(decimal: true),
+            decoration: const InputDecoration(suffixText: 'kg'),
+            onChanged: (_) => setState(() {}),
+          ),
+          const SizedBox(height: 16),
+          ListTile(
+            contentPadding: EdgeInsets.zero,
+            leading: const Icon(Icons.schedule),
+            title: Text(_zeit == null
+                ? 'Uhrzeit angeben'
+                : '${_zeit!.hour.toString().padLeft(2, '0')}:'
+                    '${_zeit!.minute.toString().padLeft(2, '0')} Uhr'),
+            subtitle: const Text('Macht Werte vergleichbar'),
+            trailing: _zeit == null
+                ? null
+                : IconButton(
+                    icon: const Icon(Icons.clear),
+                    tooltip: 'Uhrzeit entfernen',
+                    onPressed: () => setState(() => _zeit = null),
+                  ),
+            onTap: () async {
+              final gewaehlt = await showTimePicker(
+                context: context,
+                initialTime: _zeit ?? TimeOfDay.now(),
+              );
+              if (gewaehlt != null) setState(() => _zeit = gewaehlt);
+            },
+          ),
+        ],
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('Abbrechen'),
+        ),
+        FilledButton(
+          onPressed: gueltig
+              ? () => Navigator.of(context).pop((
+                  wert,
+                  _zeit == null
+                      ? null
+                      : '${_zeit!.hour.toString().padLeft(2, '0')}:'
+                          '${_zeit!.minute.toString().padLeft(2, '0')}',
+                ))
+              : null,
+          child: const Text('Speichern'),
+        ),
+      ],
     );
   }
 }
@@ -58,239 +262,111 @@ class _HealthCard extends StatelessWidget {
     final scheme = Theme.of(context).colorScheme;
     final steps = health.steps;
 
+    return FitnessCard(
+      title: 'Tagesdaten',
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          if (steps != null) ...[
+            Row(
+              children: [
+                Expanded(
+                  child: Text('$steps Schritte',
+                      style: Theme.of(context).textTheme.headlineSmall),
+                ),
+                Text(
+                  steps >= stepGoal ? 'Ziel erreicht' : 'Ziel $stepGoal',
+                  style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                        color: steps >= stepGoal
+                            ? scheme.primary
+                            : scheme.onSurfaceVariant,
+                      ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 6),
+            ClipRRect(
+              borderRadius: BorderRadius.circular(4),
+              child: LinearProgressIndicator(
+                value: (steps / stepGoal).clamp(0.0, 1.0),
+                minHeight: 7,
+              ),
+            ),
+            const SizedBox(height: 14),
+          ],
+          FitnessValueGrid(values: [
+            if (health.sleepHours != null)
+              ('Schlaf', '${health.sleepHours!.toStringAsFixed(1)} h'),
+            if (health.totalCalories != null)
+              ('Kalorien', '${health.totalCalories}'),
+            if (health.activeCalories != null)
+              ('davon aktiv', '${health.activeCalories}'),
+            if (health.hrAvg != null) ('Ø Puls', '${health.hrAvg} bpm'),
+            if (health.hrMin != null && health.hrMax != null)
+              ('Puls min/max', '${health.hrMin}/${health.hrMax}'),
+            if (health.spo2Avg != null) ('SpO₂', '${health.spo2Avg} %'),
+          ]),
+        ],
+      ),
+    );
+  }
+}
+
+class _ActivityTile extends ConsumerWidget {
+  const _ActivityTile({required this.activity});
+
+  final Activity activity;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final sport = ref.watch(effectiveSportProvider(activity));
+    final type = ref.watch(effectiveTypeProvider(activity));
+    final zones = ref.watch(fitnessZonesProvider);
+    final istLauf = sport == Sport.running;
+
     return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text('Tagesdaten', style: Theme.of(context).textTheme.titleSmall),
-            const SizedBox(height: 12),
-            if (steps != null) ...[
+      margin: const EdgeInsets.only(bottom: 12),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(12),
+        onTap: () => context.go('/fitness/einheit/${Uri.encodeComponent(activity.id)}'),
+        child: Padding(
+          padding: const EdgeInsets.all(14),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
               Row(
                 children: [
                   Expanded(
                     child: Text(
-                      '$steps Schritte',
-                      style: Theme.of(context).textTheme.headlineSmall,
+                      '${sportIcon(sport)} ${sportLabel(sport)} · '
+                      '${sessionTypeIcon(type)} ${sessionTypeLabel(type)}',
+                      style: Theme.of(context).textTheme.titleSmall,
                     ),
                   ),
                   Text(
-                    steps >= stepGoal ? 'Ziel erreicht' : 'Ziel $stepGoal',
-                    style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                          color: steps >= stepGoal
-                              ? scheme.primary
-                              : scheme.onSurfaceVariant,
-                        ),
+                    activity.timeOfDay,
+                    style: Theme.of(context).textTheme.bodySmall,
                   ),
+                  const Icon(Icons.chevron_right),
                 ],
               ),
-              const SizedBox(height: 6),
-              ClipRRect(
-                borderRadius: BorderRadius.circular(4),
-                child: LinearProgressIndicator(
-                  value: (steps / stepGoal).clamp(0.0, 1.0),
-                  minHeight: 7,
-                ),
-              ),
-              const SizedBox(height: 14),
-            ],
-            Wrap(
-              spacing: 20,
-              runSpacing: 10,
-              children: [
-                if (health.sleepHours != null)
-                  _Wert('Schlaf', '${health.sleepHours!.toStringAsFixed(1)} h'),
-                if (health.totalCalories != null)
-                  _Wert('Kalorien', '${health.totalCalories}'),
-                if (health.activeCalories != null)
-                  _Wert('davon aktiv', '${health.activeCalories}'),
-                if (health.hrAvg != null) _Wert('Ø Puls', '${health.hrAvg} bpm'),
-                if (health.hrMin != null && health.hrMax != null)
-                  _Wert('Puls min/max', '${health.hrMin}/${health.hrMax}'),
-                if (health.spo2Avg != null) _Wert('SpO₂', '${health.spo2Avg} %'),
-                if (health.weightKg != null)
-                  _Wert('Gewicht', '${health.weightKg!.toStringAsFixed(1)} kg'),
-              ],
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _ActivityCard extends StatelessWidget {
-  const _ActivityCard(this.activity, this.zones);
-
-  final Activity activity;
-  final HrZones zones;
-
-  @override
-  Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    final sport = activity.sportDetected;
-    final istLauf = sport == Sport.running;
-    final cadence = Analysis.cadenceCheck(sport, activity.cadenceAvg);
-    final zoneSeconds = zones.distribute(activity.hrHistogram);
-    final serie = activity.series;
-
-    return Card(
-      margin: const EdgeInsets.only(top: 12),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              '${istLauf ? '🏃' : '🚴'} ${sportLabel(sport)}'
-              '${activity.timeOfDay.isEmpty ? '' : ' · ${activity.timeOfDay}'}',
-              style: Theme.of(context).textTheme.titleSmall,
-            ),
-            const SizedBox(height: 12),
-            Wrap(
-              spacing: 20,
-              runSpacing: 10,
-              children: [
-                _Wert('Distanz', '${activity.distanceKm.toStringAsFixed(2)} km'),
-                _Wert('Dauer', Analysis.formatDuration(activity.durationSec)),
-                _Wert(
+              const SizedBox(height: 10),
+              FitnessValueGrid(values: [
+                ('Distanz', '${activity.distanceKm.toStringAsFixed(2)} km'),
+                ('Dauer', Analysis.formatDuration(activity.durationSec)),
+                (
                   istLauf ? 'Pace' : 'Ø Tempo',
                   istLauf
                       ? Analysis.formatPace(activity.paceSecPerKm)
-                      : '${activity.speedAvgKmh.toStringAsFixed(1)} km/h',
+                      : '${activity.speedAvgKmh.toStringAsFixed(1)} km/h'
                 ),
-                _Wert('Ø Puls', '${activity.hrAvg} bpm'),
-                _Wert('Max Puls', '${activity.hrMax} bpm'),
-                if (cadence.verdict != Verdict.noData)
-                  _Wert(
-                    'Ø Kadenz',
-                    '${cadence.effectiveValue} ${Analysis.cadenceUnit(sport)}',
-                  ),
-                if (activity.elevGain > 0)
-                  _Wert('Höhenmeter', '${activity.elevGain} hoch'),
-                _Wert('Belastung',
-                    '${SessionClassifier.loadScore(activity, zones)} P'),
-              ],
-            ),
-            const SizedBox(height: 16),
-            Text('Pulszonen', style: Theme.of(context).textTheme.labelLarge),
-            const SizedBox(height: 6),
-            _ZoneBar(zoneSeconds: zoneSeconds, labels: zones.labels),
-            if (serie.length > 1) ...[
-              const SizedBox(height: 18),
-              Text('Puls im Verlauf',
-                  style: Theme.of(context).textTheme.labelLarge),
-              const SizedBox(height: 6),
-              FitnessLineChart(
-                points: const [],
-                smoothed: [
-                  for (final p in serie)
-                    if (p.hr > 0) (p.elapsedSec, p.hr.toDouble()),
-                ],
-                goal: zones.t2.toDouble(),
-                height: 140,
-              ),
-              Padding(
-                padding: const EdgeInsets.only(top: 4),
-                child: Text(
-                  'Gestrichelt: ${zones.t2} bpm',
-                  style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                        color: scheme.onSurfaceVariant,
-                      ),
-                ),
-              ),
+                ('Ø Puls', '${activity.hrAvg} bpm'),
+                ('Belastung', '${SessionClassifier.loadScore(activity, zones)} P'),
+              ]),
             ],
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _ZoneBar extends StatelessWidget {
-  const _ZoneBar({required this.zoneSeconds, required this.labels});
-
-  final List<int> zoneSeconds;
-  final List<String> labels;
-
-  @override
-  Widget build(BuildContext context) {
-    final total = zoneSeconds.fold<int>(0, (a, b) => a + b);
-    if (total == 0) {
-      return Text(
-        'Keine Pulsdaten aufgezeichnet.',
-        style: Theme.of(context).textTheme.bodySmall,
-      );
-    }
-    final scheme = Theme.of(context).colorScheme;
-    // Von ruhig nach hart: die Abstufung soll ohne Legende lesbar sein.
-    final farben = [
-      scheme.primary.withValues(alpha: 0.35),
-      scheme.primary,
-      scheme.tertiary,
-      scheme.error,
-    ];
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        ClipRRect(
-          borderRadius: BorderRadius.circular(4),
-          child: SizedBox(
-            height: 14,
-            child: Row(
-              children: [
-                for (var i = 0; i < 4; i++)
-                  if (zoneSeconds[i] > 0)
-                    Expanded(
-                      flex: zoneSeconds[i],
-                      child: ColoredBox(color: farben[i]),
-                    ),
-              ],
-            ),
           ),
         ),
-        const SizedBox(height: 6),
-        Wrap(
-          spacing: 14,
-          children: [
-            for (var i = 0; i < 4; i++)
-              if (zoneSeconds[i] > 0)
-                Text(
-                  '${labels[i]}: ${(zoneSeconds[i] * 100 / total).round()} %',
-                  style: Theme.of(context)
-                      .textTheme
-                      .labelSmall
-                      ?.copyWith(color: farben[i]),
-                ),
-          ],
-        ),
-      ],
-    );
-  }
-}
-
-class _Wert extends StatelessWidget {
-  const _Wert(this.label, this.value);
-
-  final String label;
-  final String value;
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Text(
-          label,
-          style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                color: Theme.of(context).colorScheme.onSurfaceVariant,
-              ),
-        ),
-        Text(value, style: Theme.of(context).textTheme.titleSmall),
-      ],
+      ),
     );
   }
 }
@@ -298,8 +374,9 @@ class _Wert extends StatelessWidget {
 String _langDatum(String iso) {
   final d = DateTime.tryParse(iso);
   if (d == null) return iso;
-  const wochentage = ['Montag', 'Dienstag', 'Mittwoch', 'Donnerstag', 'Freitag',
-    'Samstag', 'Sonntag'];
+  const wochentage = [
+    'Montag', 'Dienstag', 'Mittwoch', 'Donnerstag', 'Freitag', 'Samstag', 'Sonntag',
+  ];
   final wt = wochentage[(d.weekday - 1).clamp(0, 6)];
   return '$wt, ${d.day.toString().padLeft(2, '0')}.'
       '${d.month.toString().padLeft(2, '0')}.${d.year}';
