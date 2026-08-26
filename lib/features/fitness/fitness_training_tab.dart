@@ -178,7 +178,6 @@ class _FitnessTrainingTabState extends ConsumerState<FitnessTrainingTab> {
             subtitle: 'Gestrichelt: ${zones.t2} bpm',
             child: Column(children: [
               FitnessLineChart(
-                points: const [],
                 smoothed: [
                   for (var i = 0; i < aufsteigend.length; i++)
                     (i, aufsteigend[i].hrAvg.toDouble()),
@@ -194,7 +193,6 @@ class _FitnessTrainingTabState extends ConsumerState<FitnessTrainingTab> {
             subtitle: istLauf ? 'Niedriger ist schneller' : null,
             child: Column(children: [
               FitnessLineChart(
-                points: const [],
                 smoothed: [
                   for (var i = 0; i < aufsteigend.length; i++)
                     (

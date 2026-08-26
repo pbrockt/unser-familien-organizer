@@ -20,6 +20,7 @@ import '../calendar/calendar_presets.dart';
 import '../calendar/event_editor_sheet.dart';
 import '../calendar/event_providers.dart';
 import '../family/family_screen.dart';
+import '../fitness/fitness_home_card.dart';
 import '../members/member_settings.dart';
 import '../members/user_groups.dart';
 import '../settings/theme_provider.dart';
@@ -160,6 +161,7 @@ class HomeScreen extends ConsumerWidget {
                           Theme.of(context).colorScheme.primary,
                       onTapDay: openDay,
                     ),
+                    const FitnessHomeCard(),
                     const _SectionLabel('Anstehende Termine'),
                     if (upcoming.isEmpty && passedToday.isEmpty)
                       const _EmptyHint('Keine anstehenden Termine 🎉')

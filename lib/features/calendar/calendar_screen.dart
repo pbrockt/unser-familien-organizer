@@ -10,6 +10,7 @@ import '../../shared/widgets/running_badge.dart';
 import '../members/member_settings.dart';
 import '../search/search_screen.dart';
 import '../settings/theme_provider.dart';
+import '../fitness/fitness_providers.dart';
 import '../weather/weather_service.dart';
 import 'birthdays.dart';
 import 'calendar_event.dart';
@@ -496,8 +497,12 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
     Color accent, {
     required Color bg,
     required Color fg,
+    Set<String> schrittZiel = const {},
   }) {
-    final w = weather[DateFormat('yyyy-MM-dd').format(day)];
+    final key = DateFormat('yyyy-MM-dd').format(day);
+    final w = weather[key];
+    // Turnschuh unten links — oben rechts sitzt bereits das Wetter.
+    final zielErreicht = schrittZiel.contains(key);
     return Stack(
       clipBehavior: Clip.none,
       children: [
@@ -520,6 +525,12 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
               color: accent.withValues(alpha: 0.7),
             ),
           ),
+        if (zielErreicht)
+          const Positioned(
+            bottom: 2,
+            left: 4,
+            child: Text('👟', style: TextStyle(fontSize: 10)),
+          ),
       ],
     );
   }
@@ -529,6 +540,7 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
     final accountAsync = ref.watch(accountProvider);
     final eventsAsync = ref.watch(eventsControllerProvider);
     final eventsByDay = ref.watch(eventsByDayProvider);
+    final schrittZiel = ref.watch(stepGoalDatesProvider);
     final eventCalendars = ref
         .watch(membersProvider)
         .where((m) => m.supportsEvents)
@@ -777,6 +789,7 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
                                     bg: Theme.of(context).colorScheme.primary
                                         .withValues(alpha: 0.035),
                                     fg: Theme.of(context).colorScheme.onSurface,
+                                    schrittZiel: schrittZiel,
                                   ),
                               todayBuilder: (context, day, _) => _monthDayCell(
                                 day,
@@ -788,6 +801,7 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
                                 fg: Theme.of(
                                   context,
                                 ).colorScheme.onPrimaryContainer,
+                                schrittZiel: schrittZiel,
                               ),
                               selectedBuilder: (context, day, _) =>
                                   _monthDayCell(
@@ -796,6 +810,7 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
                                     accent,
                                     bg: Theme.of(context).colorScheme.primary,
                                     fg: Theme.of(context).colorScheme.onPrimary,
+                                    schrittZiel: schrittZiel,
                                   ),
                               outsideBuilder: (context, day, _) =>
                                   _monthDayCell(
@@ -805,6 +820,7 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
                                     bg: Colors.transparent,
                                     fg: Theme.of(context).colorScheme.onSurface
                                         .withValues(alpha: 0.32),
+                                    schrittZiel: schrittZiel,
                                   ),
                               markerBuilder: (context, day, events) {
                                 if (events.isEmpty) return null;

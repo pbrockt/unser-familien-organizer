@@ -124,7 +124,6 @@ class FitnessActivityScreen extends ConsumerWidget {
               subtitle: 'Gestrichelt: ${zones.t2} bpm',
               child: Column(children: [
                 FitnessLineChart(
-                  points: const [],
                   smoothed: [
                     for (final p in serie)
                       if (p.hr > 0) (p.elapsedSec, p.hr.toDouble()),
@@ -139,7 +138,6 @@ class FitnessActivityScreen extends ConsumerWidget {
               title: 'Geschwindigkeit',
               child: Column(children: [
                 FitnessLineChart(
-                  points: const [],
                   smoothed: [
                     for (final p in serie) (p.elapsedSec, p.speedKmh),
                   ],
@@ -154,8 +152,7 @@ class FitnessActivityScreen extends ConsumerWidget {
                 subtitle: Analysis.cadenceTargetLabel(sport),
                 child: Column(children: [
                   FitnessLineChart(
-                    points: const [],
-                    smoothed: [
+                      smoothed: [
                       for (final p in serie)
                         if (p.cadence > 0)
                           (
@@ -173,7 +170,6 @@ class FitnessActivityScreen extends ConsumerWidget {
               title: 'Höhenprofil',
               child: Column(children: [
                 FitnessLineChart(
-                  points: const [],
                   smoothed: [for (final p in serie) (p.elapsedSec, p.altitude)],
                   height: 130,
                 ),
@@ -209,12 +205,28 @@ class _EinstufungCard extends ConsumerWidget {
     final vorschlag = SessionClassifier.suggest(activity, zones);
     final ctrl = ref.read(fitnessOverridesProvider.notifier);
 
-    return FitnessCard(
-      title: 'Einstufung',
-      subtitle: 'Erkannt an ${activity.metersPerCycle.toStringAsFixed(1)} m pro Zyklus '
-          '(Sicherheit ${(activity.sportConfidence * 100).round()} %). '
-          'Stimmt etwas nicht, hier ändern.',
-      child: Column(
+    // Eingeklappt, weil die Einstufung meist stimmt und nur im Ausnahmefall angefasst
+    // wird — aufgeklappt stünde sie dauerhaft zwischen den Kennzahlen und der
+    // Auswertung im Weg.
+    return Card(
+      margin: const EdgeInsets.only(bottom: 12),
+      child: ExpansionTile(
+        shape: const Border(),
+        collapsedShape: const Border(),
+        tilePadding: const EdgeInsets.symmetric(horizontal: 14),
+        childrenPadding: const EdgeInsets.fromLTRB(14, 0, 14, 14),
+        title: Text(
+          'Einstufung',
+          style: Theme.of(context).textTheme.titleSmall,
+        ),
+        subtitle: Text(
+          '${sportIcon(sport)} ${sportLabel(sport)} · '
+          '${sessionTypeIcon(type)} ${sessionTypeLabel(type)}',
+          style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+              ),
+        ),
+        children: [Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text('Sportart', style: Theme.of(context).textTheme.labelMedium),
@@ -255,7 +267,16 @@ class _EinstufungCard extends ConsumerWidget {
                 ),
             ],
           ),
+          const SizedBox(height: 10),
+          Text(
+            'Sportart erkannt an ${activity.metersPerCycle.toStringAsFixed(1)} m pro '
+            'Zyklus (Sicherheit ${(activity.sportConfidence * 100).round()} %).',
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                ),
+          ),
         ],
+      )],
       ),
     );
   }
@@ -328,7 +349,7 @@ class _KanalBlock extends StatelessWidget {
         ]),
         if (!konstant && verlauf.length > 1) ...[
           const SizedBox(height: 10),
-          FitnessLineChart(points: const [], smoothed: verlauf, height: 110),
+          FitnessLineChart(smoothed: verlauf, height: 110),
           FitnessAxisLabels(labels: labels),
         ],
       ],

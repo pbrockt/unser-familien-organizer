@@ -112,11 +112,14 @@ class _BarPainter extends CustomPainter {
       old.values != values || old.goal != goal || old.barColor != barColor;
 }
 
-/// Liniendiagramm für Verläufe mit echtem Tagesabstand.
+/// Liniendiagramm für Verläufe mit echtem X-Abstand.
+///
+/// [smoothed] ist die durchgezogene Linie, [points] sind zusätzliche Einzelpunkte
+/// (etwa Tageswerte unter einer geglätteten Gewichtskurve). Eines von beidem genügt.
 class FitnessLineChart extends StatelessWidget {
   const FitnessLineChart({
     super.key,
-    required this.points,
+    this.points = const [],
     this.smoothed = const [],
     this.goal,
     this.height = 170,
@@ -137,7 +140,9 @@ class FitnessLineChart extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    if (points.isEmpty) return const SizedBox.shrink();
+    // Beide Reihen prüfen: die meisten Diagramme liefern nur die Linie und lassen
+    // [points] leer.
+    if (points.isEmpty && smoothed.isEmpty) return const SizedBox.shrink();
     final scheme = Theme.of(context).colorScheme;
     return SizedBox(
       height: height,
@@ -227,7 +232,10 @@ class _LinePainter extends CustomPainter {
       canvas.drawCircle(Offset(x(p.$1), y(p.$2)), 2.6, dot);
     }
 
-    if (smoothed.length > 1) {
+    if (smoothed.length == 1) {
+      final p = smoothed.first;
+      canvas.drawCircle(Offset(x(p.$1), y(p.$2)), 4.5, Paint()..color = lineColor);
+    } else if (smoothed.length > 1) {
       final path = Path();
       for (var i = 0; i < smoothed.length; i++) {
         final o = Offset(x(smoothed[i].$1), y(smoothed[i].$2));

@@ -7,6 +7,7 @@ import 'package:path_provider/path_provider.dart';
 
 import '../../core/auth/account_providers.dart';
 import 'fitness_models.dart';
+import 'fitness_streak.dart';
 import 'fitness_repository.dart';
 import 'fitness_settings.dart';
 
@@ -169,6 +170,40 @@ class WeightController extends AsyncNotifier<List<WeightEntry>> {
     state = AsyncData(merged);
   }
 }
+
+/// Die Serie erreichter Schritteziele.
+///
+/// Liefert bei abgeschaltetem Sport-Bereich eine leere Serie — Startseite und Kalender
+/// fragen den Provider bedingungslos ab und sollen dann schlicht nichts anzeigen.
+final stepStreakProvider = Provider<StepStreak>((ref) {
+  final enabled = ref.watch(fitnessEnabledProvider).value ?? false;
+  if (!enabled) return StepStreak.leer;
+
+  final data = ref.watch(fitnessDataProvider).value;
+  if (data == null || data.healthDays.isEmpty) return StepStreak.leer;
+
+  final goal = ref.watch(fitnessStepGoalProvider).value ?? 8000;
+  return computeStepStreak(data.healthDays, goal, DateTime.now());
+});
+
+/// Alle Tage mit erreichtem Schritteziel — für die Markierung im Kalender.
+final stepGoalDatesProvider = Provider<Set<String>>(
+  (ref) => ref.watch(stepStreakProvider).reachedDates,
+);
+
+/// Schritte des heutigen Tages, sofern schon eingelesen.
+final todayStepsProvider = Provider<int?>((ref) {
+  final data = ref.watch(fitnessDataProvider).value;
+  if (data == null) return null;
+  final now = DateTime.now();
+  final heute = '${now.year.toString().padLeft(4, '0')}-'
+      '${now.month.toString().padLeft(2, '0')}-'
+      '${now.day.toString().padLeft(2, '0')}';
+  for (final d in data.healthDays) {
+    if (d.date == heute) return d.steps;
+  }
+  return null;
+});
 
 /// Gewichtswerte aus Eingabe und Tagesdateien zusammengeführt.
 ///
