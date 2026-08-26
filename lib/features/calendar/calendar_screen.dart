@@ -708,7 +708,11 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
                                 isSameDay(d, _selectedDay),
                             eventLoader: loader,
                             onFormatChanged: (f) => setState(() => _format = f),
-                            onPageChanged: (day) => _focusedDay = day,
+                            // Mit setState, sonst bleibt die Monats-Kopfzeile beim
+                            // Wischen stehen: sie liest _focusedDay, wird ohne
+                            // Neuaufbau aber nie aktualisiert. Über die ‹ ›-Pfeile
+                            // fiel das nicht auf, die bauen ohnehin neu auf.
+                            onPageChanged: (day) => setState(() => _focusedDay = day),
                             onDaySelected: (selected, focused) {
                               setState(() {
                                 _selectedDay = selected;

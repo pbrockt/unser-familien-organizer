@@ -9,6 +9,7 @@ import 'package:share_plus/share_plus.dart';
 import '../../core/caldav/caldav_exception.dart';
 import '../../shared/widgets/conflict_dialog.dart';
 import '../../shared/widgets/countdown_confirm_dialog.dart';
+import '../school/school_logic.dart';
 import 'calendar_event.dart';
 import 'event_editor_sheet.dart';
 import 'event_providers.dart';
@@ -155,7 +156,22 @@ Future<void> _deleteEvent(
   }
   if (!context.mounted) return;
 
+  // Wird eine Schularbeit gelöscht, sind die zugehörigen Lern-Einheiten wertlos —
+  // sie blieben sonst als verwaiste Termine im Kalender stehen. Nur bei „nur diesen
+  // Termin" einer Serie bleiben sie: dort verschwindet die Arbeit ja nicht.
+  final sessions = (!deleteOnlyThis && isExam(ev))
+      ? studySessionsFor(
+          ref.read(eventsControllerProvider).value ?? const <CalendarEvent>[],
+          ev,
+        )
+      : const <CalendarEvent>[];
+
   final dateLabel = DateFormat('d. MMM y', 'de_DE').format(ev.start);
+  final sessionHinweis = sessions.isEmpty
+      ? ''
+      : ' Die ${sessions.length} zugehörige'
+            '${sessions.length == 1 ? ' Lern-Einheit wird' : 'n Lern-Einheiten werden'}'
+            ' mitgelöscht.';
   final ok = await showCountdownDeleteDialog(
     context,
     title: deleteOnlyThis
@@ -168,7 +184,8 @@ Future<void> _deleteEvent(
         : isSeriesInstance
         ? '„${ev.summary}" – die gesamte Serie wird gelöscht. Diese Aktion '
               'kann nicht rückgängig gemacht werden.'
-        : '„${ev.summary}" wird endgültig aus der Nextcloud gelöscht.',
+        : '„${ev.summary}" wird endgültig aus der Nextcloud gelöscht.'
+              '$sessionHinweis',
   );
   if (!ok) return;
 
@@ -200,5 +217,27 @@ Future<void> _deleteEvent(
     }
   }
 
-  await run(false);
+  final geloescht = await run(false);
+
+  // Erst nach erfolgreichem Löschen der Arbeit aufräumen: schlägt das fehl, sollen
+  // die Lern-Einheiten stehen bleiben, damit der Plan nicht halb zerlegt ist.
+  if (geloescht && sessions.isNotEmpty) {
+    var fehler = 0;
+    for (final s in sessions) {
+      try {
+        await notifier.deleteEvent(s, force: true);
+      } on CalDavException {
+        fehler++;
+      }
+    }
+    if (fehler > 0 && context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            '$fehler Lern-Einheit(en) konnten nicht gelöscht werden.',
+          ),
+        ),
+      );
+    }
+  }
 }

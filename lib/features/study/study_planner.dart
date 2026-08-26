@@ -1,15 +1,20 @@
 import 'study_settings.dart';
 
 /// Lernintensität → Anzahl Lern-Tage.
-enum StudyIntensity { kurz, mittel, viel }
+///
+/// [ohne] trägt nur die Arbeit selbst ein und plant keine Lern-Einheiten — für Tests,
+/// die man nicht vorbereitet, oder wenn man die Zeiten lieber selbst setzt.
+enum StudyIntensity { ohne, kurz, mittel, viel }
 
 int studyDaysFor(StudyIntensity i) => switch (i) {
+  StudyIntensity.ohne => 0,
   StudyIntensity.kurz => 2,
   StudyIntensity.mittel => 4,
   StudyIntensity.viel => 7,
 };
 
 String studyIntensityLabel(StudyIntensity i) => switch (i) {
+  StudyIntensity.ohne => 'ohne Lernen',
   StudyIntensity.kurz => 'kurz',
   StudyIntensity.mittel => 'mittel',
   StudyIntensity.viel => 'viel',

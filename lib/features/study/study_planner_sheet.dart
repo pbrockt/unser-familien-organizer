@@ -87,25 +87,31 @@ class _StudyPlannerSheetState extends ConsumerState<_StudyPlannerSheet> {
       );
       return;
     }
+    final lernTage = studyDaysFor(_intensity);
     final windows = await ref.read(studyWindowsProvider.future);
     if (!mounted) return;
-    if (!windows.any((w) => w.enabled)) {
+    // Lernzeiten braucht nur, wer auch lernen will. Vorher scheiterte das Anlegen
+    // einer Arbeit ganz, wenn keine Lernzeiten gesetzt waren.
+    if (lernTage > 0 && !windows.any((w) => w.enabled)) {
       messenger.showSnackBar(
         const SnackBar(
           content: Text(
-            'Bitte zuerst Lernzeiten festlegen (unten „Lernzeiten anpassen").',
+            'Bitte zuerst Lernzeiten festlegen (unten „Lernzeiten anpassen") '
+            'oder „Ohne" wählen.',
           ),
         ),
       );
       return;
     }
 
-    final sessions = planStudySessions(
-      examDay: _date,
-      targetDays: studyDaysFor(_intensity),
-      windows: windows,
-      notBefore: DateTime.now(),
-    );
+    final sessions = lernTage == 0
+        ? const <StudySession>[]
+        : planStudySessions(
+            examDay: _date,
+            targetDays: lernTage,
+            windows: windows,
+            notBefore: DateTime.now(),
+          );
 
     setState(() => _busy = true);
     // Gewählten Kalender als Standard merken (nur Vorauswahl beim nächsten Mal).
@@ -146,7 +152,9 @@ class _StudyPlannerSheetState extends ConsumerState<_StudyPlannerSheet> {
       messenger.showSnackBar(
         SnackBar(
           content: Text(
-            n == 0
+            lernTage == 0
+                ? 'Arbeit am $dateStr eingetragen.'
+                : n == 0
                 ? 'Arbeit eingetragen – aber keine freien Lernzeiten vor dem '
                       'Termin gefunden.'
                 : 'Lernplan erstellt: $n Lern-Einheit(en) + Arbeit am $dateStr.',
@@ -275,6 +283,7 @@ class _StudyPlannerSheetState extends ConsumerState<_StudyPlannerSheet> {
             const SizedBox(height: 8),
             SegmentedButton<StudyIntensity>(
               segments: const [
+                ButtonSegment(value: StudyIntensity.ohne, label: Text('Ohne')),
                 ButtonSegment(value: StudyIntensity.kurz, label: Text('Kurz')),
                 ButtonSegment(
                   value: StudyIntensity.mittel,
@@ -287,7 +296,9 @@ class _StudyPlannerSheetState extends ConsumerState<_StudyPlannerSheet> {
             ),
             const SizedBox(height: 4),
             Text(
-              '${studyDaysFor(_intensity)} Lern-Tage vor der Arbeit',
+              _intensity == StudyIntensity.ohne
+                  ? 'Nur die Arbeit eintragen, keine Lern-Einheiten planen'
+                  : '${studyDaysFor(_intensity)} Lern-Tage vor der Arbeit',
               style: Theme.of(context).textTheme.bodySmall?.copyWith(
                 color: Theme.of(context).colorScheme.onSurfaceVariant,
               ),
