@@ -48,6 +48,9 @@ class TrackPoint {
     required this.speedKmh,
     required this.cadence,
     required this.altitude,
+    this.lat,
+    this.lon,
+    this.extra = const {},
   });
 
   final int elapsedSec;
@@ -56,12 +59,22 @@ class TrackPoint {
   final int cadence;
   final double altitude;
 
+  /// Position, falls der Tracker sie mitschreibt. Ohne sie gibt es keine Streckenkarte.
+  final double? lat;
+  final double? lon;
+
+  /// Alle weiteren Zahlenspalten der CSV, unter ihrem Spaltennamen.
+  final Map<String, double> extra;
+
   Map<String, dynamic> toJson() => {
         's': elapsedSec,
         'h': hr,
         'v': speedKmh,
         'c': cadence,
         'a': altitude,
+        if (lat != null) 'lat': lat,
+        if (lon != null) 'lon': lon,
+        if (extra.isNotEmpty) 'x': extra,
       };
 
   factory TrackPoint.fromJson(Map<String, dynamic> j) => TrackPoint(
@@ -70,6 +83,40 @@ class TrackPoint {
         speedKmh: (j['v'] as num?)?.toDouble() ?? 0,
         cadence: (j['c'] as num?)?.toInt() ?? 0,
         altitude: (j['a'] as num?)?.toDouble() ?? 0,
+        lat: (j['lat'] as num?)?.toDouble(),
+        lon: (j['lon'] as num?)?.toDouble(),
+        extra: (j['x'] as Map?)?.map(
+              (k, v) => MapEntry(k as String, (v as num).toDouble()),
+            ) ??
+            const {},
+      );
+}
+
+/// Kennzahlen einer beliebigen Messspalte, damit auch unbekannte Spalten etwas aussagen.
+class ChannelStat {
+  const ChannelStat({
+    required this.name,
+    required this.min,
+    required this.max,
+    required this.avg,
+    required this.count,
+  });
+
+  final String name;
+  final double min;
+  final double max;
+  final double avg;
+  final int count;
+
+  Map<String, dynamic> toJson() =>
+      {'n': name, 'lo': min, 'hi': max, 'av': avg, 'c': count};
+
+  factory ChannelStat.fromJson(Map<String, dynamic> j) => ChannelStat(
+        name: j['n'] as String,
+        min: (j['lo'] as num).toDouble(),
+        max: (j['hi'] as num).toDouble(),
+        avg: (j['av'] as num).toDouble(),
+        count: (j['c'] as num).toInt(),
       );
 }
 
@@ -98,6 +145,7 @@ class Activity {
     required this.elevLoss,
     required this.series,
     this.stoppedShare = 0,
+    this.channels = const {},
   });
 
   final String id;
@@ -125,6 +173,13 @@ class Activity {
   /// Anteil der Messpunkte im Stillstand. Trennt eine Ausflugsrunde mit vielen Pausen von
   /// einer durchgefahrenen Trainingseinheit.
   final double stoppedShare;
+
+  /// Kennzahlen zu allen weiteren Spalten der CSV — was der Tracker sonst noch liefert,
+  /// geht damit nicht verloren, auch wenn die App die Spalte nicht kennt.
+  final Map<String, ChannelStat> channels;
+
+  /// Hat die Einheit eine aufgezeichnete Strecke?
+  bool get hasTrack => series.any((p) => p.lat != null && p.lon != null);
 
   /// Meter pro Kurbel- bzw. Schrittzyklus — der Wert, an dem die Sportart hängt.
   double get metersPerCycle =>
@@ -158,6 +213,7 @@ class Activity {
         elevLoss: elevLoss,
         series: series,
         stoppedShare: stoppedShare ?? this.stoppedShare,
+        channels: channels,
       );
 
   Map<String, dynamic> toJson() => {
@@ -177,6 +233,7 @@ class Activity {
         'up': elevGain,
         'down': elevLoss,
         'stop': stoppedShare,
+        'chan': channels.map((k, v) => MapEntry(k, v.toJson())),
         'series': series.map((p) => p.toJson()).toList(),
       };
 
@@ -202,6 +259,13 @@ class Activity {
         elevGain: (j['up'] as num?)?.toInt() ?? 0,
         elevLoss: (j['down'] as num?)?.toInt() ?? 0,
         stoppedShare: (j['stop'] as num?)?.toDouble() ?? 0,
+        channels: (j['chan'] as Map?)?.map(
+              (k, v) => MapEntry(
+                k as String,
+                ChannelStat.fromJson(v as Map<String, dynamic>),
+              ),
+            ) ??
+            const {},
         series: (j['series'] as List?)
                 ?.map((e) => TrackPoint.fromJson(e as Map<String, dynamic>))
                 .toList() ??
@@ -270,15 +334,33 @@ class HealthDay {
 
 /// Ein gewogener Wert. Datum als yyyy-MM-dd, wie überall sonst.
 class WeightEntry {
-  const WeightEntry(this.date, this.kg);
+  const WeightEntry(this.date, this.kg, {this.time});
 
   final String date;
   final double kg;
 
-  Map<String, dynamic> toJson() => {'date': date, 'kg': kg};
+  /// Uhrzeit des Wiegens als `HH:mm`, falls angegeben.
+  ///
+  /// Nicht Zierde: das Gewicht schwankt über den Tag um bis zu zwei Kilo. Ein Wert vom
+  /// Abend ist mit einem Morgenwert nicht vergleichbar — die App kann darauf hinweisen,
+  /// statt den Ausreißer stillschweigend in den Trend zu rechnen.
+  final String? time;
 
-  factory WeightEntry.fromJson(Map<String, dynamic> j) =>
-      WeightEntry(j['date'] as String, (j['kg'] as num).toDouble());
+  /// Stunde des Wiegens, falls bekannt.
+  int? get hour {
+    final t = time;
+    if (t == null || t.length < 2) return null;
+    return int.tryParse(t.substring(0, 2));
+  }
+
+  Map<String, dynamic> toJson() =>
+      {'date': date, 'kg': kg, if (time != null) 'time': time};
+
+  factory WeightEntry.fromJson(Map<String, dynamic> j) => WeightEntry(
+        j['date'] as String,
+        (j['kg'] as num).toDouble(),
+        time: j['time'] as String?,
+      );
 }
 
 /// Die drei Pulszonen-Grenzen.

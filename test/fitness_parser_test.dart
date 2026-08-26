@@ -121,6 +121,82 @@ void main() {
     });
   });
 
+  group('CSV vollständig auslesen', () {
+    String csv(List<String> spalten, List<List<String>> zeilen) {
+      String q(List<String> f) => '"${f.join('","')}"';
+      return [q(spalten), ...zeilen.map(q)].join('\n');
+    }
+
+    const basis = [
+      'time', 'ALTITUDE', 'CADENCE', 'DISTANCE_m', 'HR', 'SPEED_mps',
+      'ASCENT', 'DESCENT',
+    ];
+
+    test('nimmt unbekannte Zahlenspalten als eigene Kanäle mit', () {
+      final text = csv(
+        [...basis, 'POWER_w', 'TEMPERATURE_c'],
+        [
+          ['2026-08-25 19:01:00', '10', '85', '0', '130', '6.9', '0', '0', '180', '21.5'],
+          ['2026-08-25 19:01:01', '11', '86', '7', '132', '7.0', '1', '0', '220', '21.7'],
+        ],
+      );
+      final a = parser.parse(text, '2026-08-25_190100.csv')!;
+
+      expect(a.channels.keys, containsAll(['POWER_w', 'TEMPERATURE_c']));
+      final power = a.channels['POWER_w']!;
+      expect(power.min, 180);
+      expect(power.max, 220);
+      expect(power.avg, closeTo(200, 0.001));
+      expect(power.count, 2);
+      // Auch im Verlauf, damit sie sich zeichnen lassen.
+      expect(a.series.first.extra['POWER_w'], 180);
+    });
+
+    test('nimmt auch die sensorspezifischen Doppelspalten mit', () {
+      final text = csv(
+        [...basis, 'HR (HUAWEI Band HR-B54)'],
+        [['2026-08-25 19:01:00', '10', '85', '0', '130', '6.9', '0', '0', '99']],
+      );
+      final a = parser.parse(text, '2026-08-25_190100.csv')!;
+      expect(a.hrAvg, 130, reason: 'Die generische Spalte bleibt maßgeblich');
+      expect(a.channels['HR (HUAWEI Band HR-B54)']?.avg, 99);
+    });
+
+    test('erkennt Koordinaten und meldet eine Strecke', () {
+      final text = csv(
+        [...basis, 'LATITUDE', 'LONGITUDE'],
+        [
+          ['2026-08-25 19:01:00', '10', '85', '0', '130', '6.9', '0', '0', '53.35', '7.58'],
+          ['2026-08-25 19:01:01', '11', '86', '7', '132', '7.0', '1', '0', '53.36', '7.59'],
+        ],
+      );
+      final a = parser.parse(text, '2026-08-25_190100.csv')!;
+      expect(a.hasTrack, isTrue);
+      expect(a.series.first.lat, closeTo(53.35, 0.001));
+      expect(a.series.first.lon, closeTo(7.58, 0.001));
+      expect(a.channels.containsKey('LATITUDE'), isFalse,
+          reason: 'Koordinaten sind kein freier Messkanal');
+    });
+
+    test('verwirft Nullkoordinaten', () {
+      // 0/0 liegt im Atlantik und ist praktisch immer ein Messfehler.
+      final text = csv(
+        [...basis, 'lat', 'lon'],
+        [['2026-08-25 19:01:00', '10', '85', '0', '130', '6.9', '0', '0', '0', '0']],
+      );
+      final a = parser.parse(text, '2026-08-25_190100.csv')!;
+      expect(a.hasTrack, isFalse);
+    });
+
+    test('ohne Koordinatenspalten gibt es keine Strecke', () {
+      final text = csv(
+        basis,
+        [['2026-08-25 19:01:00', '10', '85', '0', '130', '6.9', '0', '0']],
+      );
+      expect(parser.parse(text, '2026-08-25_190100.csv')!.hasTrack, isFalse);
+    });
+  });
+
   group('HealthParser', () {
     const md = '''
 ---

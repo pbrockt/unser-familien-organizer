@@ -150,6 +150,25 @@ class WeightAnalysis {
     );
   }
 
+  /// Werte, die deutlich außerhalb der sonst üblichen Wiege-Uhrzeit liegen.
+  ///
+  /// Das Gewicht schwankt über den Tag um bis zu zwei Kilo. Wer sonst morgens wiegt und
+  /// einmal abends, bekommt einen Ausreißer, der wie eine Zunahme aussieht. Die App
+  /// rechnet ihn trotzdem mit — sie sagt aber, welcher Wert es ist.
+  static Set<String> oddTimeDates(List<WeightEntry> entries) {
+    final mitZeit = entries.where((e) => e.hour != null).toList();
+    // Unter fünf Werten gibt es keine „übliche" Uhrzeit, an der man messen könnte.
+    if (mitZeit.length < 5) return const {};
+
+    final stunden = mitZeit.map((e) => e.hour!).toList()..sort();
+    final median = stunden[stunden.length ~/ 2];
+
+    return {
+      for (final e in mitZeit)
+        if ((e.hour! - median).abs() > 3) e.date,
+    };
+  }
+
   static String verdictText(RateVerdict v, double? ratePerWeek) {
     final r = ratePerWeek ?? 0;
     return switch (v) {

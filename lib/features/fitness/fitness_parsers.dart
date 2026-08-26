@@ -7,6 +7,10 @@ final RegExp _dateInName = RegExp(r'(\d{4}-\d{2}-\d{2})');
 final RegExp _timeInName = RegExp(r'_(\d{2})(\d{2})(\d{2})');
 
 /// Liest eine Trainings-CSV im Format des Trackers (sekundengenaue Telemetrie).
+///
+/// Ausgewertet werden nicht nur die bekannten Spalten: **jede** Zahlenspalte wird
+/// mitgenommen. Was die App nicht kennt, landet als freier Kanal mit Kennzahlen und im
+/// Verlauf — so geht nichts verloren, was der Tracker aufzeichnet.
 class CsvParser {
   const CsvParser();
 
@@ -22,6 +26,9 @@ class CsvParser {
     'ASCENT',
     'DESCENT',
   ];
+
+  /// Spalten, die eigene Bedeutung haben und deshalb kein freier Kanal werden.
+  static const _handled = {..._required};
 
   Activity? parse(String text, String filename) {
     final lines =
@@ -46,6 +53,18 @@ class CsvParser {
     final iAsc = idx['ASCENT']!;
     final iDesc = idx['DESCENT']!;
 
+    final iLat = _findCoord(idx, isLatitude: true);
+    final iLon = _findCoord(idx, isLatitude: false);
+
+    // Freie Kanäle: alles, was übrig bleibt und Zahlen enthält.
+    final freeColumns = <String, int>{};
+    idx.forEach((name, i) {
+      if (_handled.contains(name)) return;
+      if (i == iLat || i == iLon) return;
+      if (name.trim().isEmpty) return;
+      freeColumns[name] = i;
+    });
+
     final rows = lines.skip(1).map(_splitLine).toList(growable: false);
 
     final histogram = List<int>.filled(hrHistogramSize, 0);
@@ -55,6 +74,9 @@ class CsvParser {
     var speedMax = 0.0, distMax = 0.0;
     var lastAscent = 0.0, lastDescent = 0.0;
     String? firstTime, lastTime;
+
+    // Kennzahlen der freien Kanäle mitziehen, statt die Rohwerte zu behalten.
+    final acc = {for (final name in freeColumns.keys) name: _Acc()};
 
     for (final r in rows) {
       final t = _at(r, iTime);
@@ -96,6 +118,11 @@ class CsvParser {
       if (asc != null) lastAscent = asc;
       final desc = _num(r, iDesc);
       if (desc != null) lastDescent = desc;
+
+      freeColumns.forEach((name, i) {
+        final v = _num(r, i);
+        if (v != null) acc[name]!.add(v);
+      });
     }
 
     final start = _parseTimestamp(firstTime);
@@ -107,7 +134,9 @@ class CsvParser {
     final cadenceAvg = cadCount > 0 ? (cadSum / cadCount).round() : 0;
     final speedAvgKmh = speedCount > 0 ? speedSum / speedCount * 3.6 : 0.0;
 
-    final series = _buildSeries(rows, start, iTime, iHr, iSpeed, iCad, iAlt);
+    final series = _buildSeries(
+      rows, start, iTime, iHr, iSpeed, iCad, iAlt, iLat, iLon, freeColumns,
+    );
 
     final date = _dateInName.firstMatch(filename)?.group(1) ??
         (firstTime != null && firstTime.length >= 10
@@ -121,6 +150,12 @@ class CsvParser {
             : '');
 
     final detected = SportDetector.detect(filename, speedAvgKmh, cadenceAvg);
+
+    final channels = <String, ChannelStat>{};
+    acc.forEach((name, a) {
+      final stat = a.toStat(name);
+      if (stat != null) channels[name] = stat;
+    });
 
     return Activity(
       id: filename,
@@ -140,7 +175,25 @@ class CsvParser {
       elevLoss: lastDescent.round(),
       series: series,
       stoppedShare: speedCount > 0 ? stoppedCount / speedCount : 0,
+      channels: channels,
     );
+  }
+
+  /// Sucht die Spalte mit Breiten- bzw. Längengrad. Tracker benennen sie
+  /// unterschiedlich (`LATITUDE`, `lat`, `POSITION_lat`, …), deshalb über Teilstrings.
+  int? _findCoord(Map<String, int> idx, {required bool isLatitude}) {
+    final treffer = isLatitude
+        ? const ['latitude', 'lat_deg', '_lat', 'lat']
+        : const ['longitude', 'lon_deg', '_lon', 'lon', 'lng'];
+    for (final muster in treffer) {
+      for (final entry in idx.entries) {
+        final n = entry.key.toLowerCase();
+        if (n == muster || n.endsWith(muster) || n.startsWith('$muster ')) {
+          return entry.value;
+        }
+      }
+    }
+    return null;
   }
 
   List<TrackPoint> _buildSeries(
@@ -151,6 +204,9 @@ class CsvParser {
     int iSpeed,
     int iCad,
     int iAlt,
+    int? iLat,
+    int? iLon,
+    Map<String, int> freeColumns,
   ) {
     if (rows.isEmpty) return const [];
     final step = (rows.length ~/ _maxSeriesPoints).clamp(1, 1 << 30);
@@ -158,15 +214,28 @@ class CsvParser {
     for (var i = 0; i < rows.length; i += step) {
       final r = rows[i];
       final ts = _parseTimestamp(_at(r, iTime));
-      final elapsed = (ts != null && start != null)
-          ? ts.difference(start).inSeconds
-          : i;
+      final elapsed =
+          (ts != null && start != null) ? ts.difference(start).inSeconds : i;
+
+      final extra = <String, double>{};
+      freeColumns.forEach((name, ci) {
+        final v = _num(r, ci);
+        if (v != null) extra[name] = v;
+      });
+
+      final lat = iLat == null ? null : _num(r, iLat);
+      final lon = iLon == null ? null : _num(r, iLon);
+
       out.add(TrackPoint(
         elapsedSec: elapsed,
         hr: _num(r, iHr)?.round() ?? 0,
         speedKmh: (_num(r, iSpeed) ?? 0) * 3.6,
         cadence: _num(r, iCad)?.round() ?? 0,
         altitude: _num(r, iAlt) ?? 0,
+        // 0/0 ist der Nullpunkt im Atlantik und praktisch immer ein Messfehler.
+        lat: (lat == null || lat == 0) ? null : lat,
+        lon: (lon == null || lon == 0) ? null : lon,
+        extra: extra,
       ));
     }
     return out;
@@ -188,6 +257,32 @@ class CsvParser {
     final v = _at(row, i)?.trim();
     if (v == null || v.isEmpty) return null;
     return double.tryParse(v);
+  }
+}
+
+/// Sammelt Kennzahlen einer Spalte im Vorbeigehen.
+class _Acc {
+  double _min = double.infinity;
+  double _max = double.negativeInfinity;
+  double _sum = 0;
+  int _n = 0;
+
+  void add(double v) {
+    if (v < _min) _min = v;
+    if (v > _max) _max = v;
+    _sum += v;
+    _n++;
+  }
+
+  ChannelStat? toStat(String name) {
+    if (_n == 0) return null;
+    return ChannelStat(
+      name: name,
+      min: _min,
+      max: _max,
+      avg: _sum / _n,
+      count: _n,
+    );
   }
 }
 
