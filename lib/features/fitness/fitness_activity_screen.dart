@@ -66,6 +66,11 @@ class FitnessActivityScreen extends ConsumerWidget {
                     ? Analysis.formatPace(activity.paceSecPerKm)
                     : '${activity.speedAvgKmh.toStringAsFixed(1)} km/h'
               ),
+              if (!istLauf && activity.speedMovingAvgKmh > 0)
+                (
+                  'Ø in Bewegung',
+                  '${activity.speedMovingAvgKmh.toStringAsFixed(1)} km/h'
+                ),
               ('Max Tempo', '${activity.speedMaxKmh.toStringAsFixed(1)} km/h'),
               ('Ø Puls', '${activity.hrAvg} bpm'),
               ('Max Puls', '${activity.hrMax} bpm'),

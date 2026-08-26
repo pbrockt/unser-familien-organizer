@@ -120,7 +120,12 @@ class FitnessLineChart extends StatelessWidget {
     this.smoothed = const [],
     this.goal,
     this.height = 170,
+    this.minSpan = 0,
   });
+
+  /// Kleinste dargestellte Spannweite. Nur dort setzen, wo winzige Schwankungen sonst
+  /// dramatisch aussähen (Gewichtskurve) — bei Messkanälen würde es den Verlauf glätten.
+  final double minSpan;
 
   /// Rohwerte als (Tagesabstand, Wert).
   final List<(int, double)> points;
@@ -144,6 +149,7 @@ class FitnessLineChart extends StatelessWidget {
           rawColor: scheme.onSurfaceVariant.withValues(alpha: 0.55),
           lineColor: scheme.primary,
           goalColor: scheme.tertiary,
+          minSpan: minSpan,
         ),
         size: Size.infinite,
       ),
@@ -159,8 +165,10 @@ class _LinePainter extends CustomPainter {
     required this.rawColor,
     required this.lineColor,
     required this.goalColor,
+    required this.minSpan,
   });
 
+  final double minSpan;
   final List<(int, double)> points;
   final List<(int, double)> smoothed;
   final double? goal;
@@ -175,12 +183,25 @@ class _LinePainter extends CustomPainter {
       ...smoothed.map((p) => p.$2),
       ?goal,
     ];
-    var min = all.reduce((a, b) => a < b ? a : b);
-    var max = all.reduce((a, b) => a > b ? a : b);
 
-    // Etwas Luft, und ein Mindestbereich — sonst wird aus 300 Gramm Schwankung eine
-    // dramatische Bergkette.
-    final span = (max - min) < 1.5 ? 1.5 : (max - min);
+    // Robuste Skalierung über das 2.–98. Perzentil statt über Min und Max.
+    //
+    // Manche Spalten des Trackers enthalten einzelne Ausreißer um Größenordnungen —
+    // PACE_spm schnellt im Stillstand auf sechsstellige Werte, VERTICAL_SPEED auf
+    // ±1800. Über Min/Max skaliert, presst ein solcher Ausschlag die gesamte übrige
+    // Kurve auf eine gerade Linie. Ausreißer werden gezeichnet, bestimmen den
+    // Maßstab aber nicht.
+    final sortiert = [...all]..sort();
+    var min = _perzentil(sortiert, 0.02);
+    var max = _perzentil(sortiert, 0.98);
+    if (min == max) {
+      min = all.reduce((a, b) => a < b ? a : b);
+      max = all.reduce((a, b) => a > b ? a : b);
+    }
+
+    // Etwas Luft, und auf Wunsch ein Mindestbereich — sonst wird aus 300 Gramm
+    // Schwankung eine dramatische Bergkette.
+    final span = (max - min) < minSpan ? minSpan : (max - min);
     final mid = (max + min) / 2;
     min = mid - span / 2 - span * 0.1;
     max = mid + span / 2 + span * 0.1;
@@ -193,7 +214,9 @@ class _LinePainter extends CustomPainter {
     ].reduce((a, b) => a > b ? a : b);
 
     double x(int day) => day / maxDay * size.width;
-    double y(double v) => size.height - ((v - min) / range) * size.height;
+    // Geklemmt, damit ein Ausreißer die Linie nicht aus dem Bild schiebt.
+    double y(double v) => size.height -
+        (((v - min) / range).clamp(-0.05, 1.05)) * size.height;
 
     if (goal != null && goal! >= min && goal! <= max) {
       _dashedLine(canvas, Offset(0, y(goal!)), Offset(size.width, y(goal!)), goalColor);
@@ -226,7 +249,16 @@ class _LinePainter extends CustomPainter {
 
   @override
   bool shouldRepaint(_LinePainter old) =>
-      old.points != points || old.smoothed != smoothed || old.goal != goal;
+      old.points != points ||
+      old.smoothed != smoothed ||
+      old.goal != goal ||
+      old.minSpan != minSpan;
+}
+
+double _perzentil(List<double> sortiert, double anteil) {
+  if (sortiert.isEmpty) return 0;
+  final i = ((sortiert.length - 1) * anteil).round().clamp(0, sortiert.length - 1);
+  return sortiert[i];
 }
 
 void _dashedLine(Canvas canvas, Offset from, Offset to, Color color) {

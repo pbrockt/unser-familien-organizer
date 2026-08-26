@@ -153,6 +153,7 @@ class Activity {
     required this.cadenceAvg,
     required this.speedAvgKmh,
     required this.speedMaxKmh,
+    this.speedMovingAvgKmh = 0,
     required this.elevGain,
     required this.elevLoss,
     required this.series,
@@ -178,6 +179,12 @@ class Activity {
   final int cadenceAvg;
   final double speedAvgKmh;
   final double speedMaxKmh;
+
+  /// Schnitt nur über die Zeit in Bewegung.
+  ///
+  /// Der Gesamtschnitt rechnet Ampeln und Pausen mit — auf einer Runde durch den Ort
+  /// drückt das den Wert spürbar, ohne dass man langsamer gefahren wäre.
+  final double speedMovingAvgKmh;
   final int elevGain;
   final int elevLoss;
   final List<TrackPoint> series;
@@ -221,6 +228,7 @@ class Activity {
         cadenceAvg: cadenceAvg,
         speedAvgKmh: speedAvgKmh ?? this.speedAvgKmh,
         speedMaxKmh: speedMaxKmh,
+        speedMovingAvgKmh: speedMovingAvgKmh,
         elevGain: elevGain,
         elevLoss: elevLoss,
         series: series,
@@ -242,6 +250,7 @@ class Activity {
         'cad': cadenceAvg,
         'vAvg': speedAvgKmh,
         'vMax': speedMaxKmh,
+        'vMove': speedMovingAvgKmh,
         'up': elevGain,
         'down': elevLoss,
         'stop': stoppedShare,
@@ -268,6 +277,7 @@ class Activity {
         cadenceAvg: (j['cad'] as num?)?.toInt() ?? 0,
         speedAvgKmh: (j['vAvg'] as num?)?.toDouble() ?? 0,
         speedMaxKmh: (j['vMax'] as num?)?.toDouble() ?? 0,
+        speedMovingAvgKmh: (j['vMove'] as num?)?.toDouble() ?? 0,
         elevGain: (j['up'] as num?)?.toInt() ?? 0,
         elevLoss: (j['down'] as num?)?.toInt() ?? 0,
         stoppedShare: (j['stop'] as num?)?.toDouble() ?? 0,

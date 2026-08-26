@@ -71,12 +71,26 @@ class CsvParser {
     var hrSum = 0.0, hrCount = 0, hrMax = 0;
     var cadSum = 0.0, cadCount = 0;
     var speedSum = 0.0, speedCount = 0, stoppedCount = 0;
+    var movingSum = 0.0, movingCount = 0;
     var speedMax = 0.0, distMax = 0.0;
     var lastAscent = 0.0, lastDescent = 0.0;
     String? firstTime, lastTime;
 
     // Kennzahlen der freien Kanäle mitziehen, statt die Rohwerte zu behalten.
     final acc = {for (final name in freeColumns.keys) name: _Acc()};
+
+    // Für die bekannten Spalten ebenfalls — nicht zur Anzeige, sondern um die
+    // sensorspezifischen Doppelspalten daran zu erkennen. `HR (HUAWEI Band HR-B54)`
+    // ist nur dann Rauschen, wenn es dasselbe liefert wie `HR`.
+    final bekannt = <String, int>{
+      for (final name in _handled)
+        if (idx[name] != null && name != 'time') name: idx[name]!,
+      // ignore: use_null_aware_elements  (im Map-Literal nicht anwendbar)
+      if (iLat != null) 'LATITUDE': iLat,
+      // ignore: use_null_aware_elements
+      if (iLon != null) 'LONGITUDE': iLon,
+    };
+    final accBekannt = {for (final name in bekannt.keys) name: _Acc()};
 
     for (final r in rows) {
       final t = _at(r, iTime);
@@ -108,7 +122,12 @@ class CsvParser {
         speedCount++;
         if (sp > speedMax) speedMax = sp;
         // Unter 0,5 m/s (1,8 km/h) steht man — Ampel, Pause, Wartezeit.
-        if (sp < 0.5) stoppedCount++;
+        if (sp < 0.5) {
+          stoppedCount++;
+        } else {
+          movingSum += sp;
+          movingCount++;
+        }
       }
 
       final d = _num(r, iDist);
@@ -122,6 +141,10 @@ class CsvParser {
       freeColumns.forEach((name, i) {
         final v = _num(r, i);
         if (v != null) acc[name]!.add(v);
+      });
+      bekannt.forEach((name, i) {
+        final v = _num(r, i);
+        if (v != null) accBekannt[name]!.add(v);
       });
     }
 
@@ -142,20 +165,40 @@ class CsvParser {
         (firstTime != null && firstTime.length >= 10
             ? firstTime.substring(0, 10)
             : 'unbekannt');
+    // Reihenfolge mit Bedacht: die Spalte `time` steht in UTC, `TIME_OF_DAY` in Ortszeit.
+    // Ohne diese Bevorzugung zeigte eine Sommerfahrt um 19:01 als 17:01.
     final tm = _timeInName.firstMatch(filename);
+    final localTime = idx['TIME_OF_DAY'] == null
+        ? null
+        : rows
+            .map((r) => _at(r, idx['TIME_OF_DAY']!))
+            .firstWhere((v) => v != null && v.length >= 5, orElse: () => null);
     final timeOfDay = tm != null
         ? '${tm.group(1)}:${tm.group(2)}'
-        : (firstTime != null && firstTime.length >= 16
-            ? firstTime.substring(11, 16)
-            : '');
+        : (localTime != null
+            ? localTime.substring(0, 5)
+            : (firstTime != null && firstTime.length >= 16
+                ? firstTime.substring(11, 16)
+                : ''));
 
-    final detected = SportDetector.detect(filename, speedAvgKmh, cadenceAvg);
+    final detected = SportDetector.detect(
+      filename,
+      speedAvgKmh,
+      cadenceAvg,
+      maxSpeedKmh: speedMax * 3.6,
+    );
 
     final channels = <String, ChannelStat>{};
     acc.forEach((name, a) {
-      final stat = a.toStat(name);
+      final stat = a.toStat(name, rows.length);
       if (stat != null) channels[name] = stat;
     });
+    final referenz = <String, ChannelStat>{};
+    accBekannt.forEach((name, a) {
+      final stat = a.toStat(name, rows.length);
+      if (stat != null) referenz[name] = stat;
+    });
+    _dropDuplicates(channels, referenz);
 
     return Activity(
       id: filename,
@@ -171,6 +214,7 @@ class CsvParser {
       cadenceAvg: cadenceAvg,
       speedAvgKmh: speedAvgKmh,
       speedMaxKmh: speedMax * 3.6,
+      speedMovingAvgKmh: movingCount > 0 ? movingSum / movingCount * 3.6 : 0.0,
       elevGain: lastAscent.round(),
       elevLoss: lastDescent.round(),
       series: series,
@@ -266,16 +310,29 @@ class _Acc {
   double _max = double.negativeInfinity;
   double _sum = 0;
   int _n = 0;
+  double? _vorheriger;
+  bool _zaehltHoch = true;
 
   void add(double v) {
     if (v < _min) _min = v;
     if (v > _max) _max = v;
     _sum += v;
     _n++;
+    // Zaehlt die Spalte genau die Zeilen mit? Dann ist sie eine laufende Nummer.
+    if (_vorheriger != null && (v - _vorheriger!) != 1.0) _zaehltHoch = false;
+    _vorheriger = v;
   }
 
-  ChannelStat? toStat(String name) {
+  /// Gibt Kennzahlen zurück — oder null, wenn die Spalte nichts aussagt.
+  ///
+  /// Aussortiert werden zwei Sorten stiller Nutzlosigkeit: **laufende Nummern**
+  /// (`_id`, `TIME_ACTIVE`, `TIME_TOTAL` zählen schlicht die Zeilen) und **Konstanten**
+  /// (`LAP_NR` steht die ganze Fahrt auf 1). Beides als Messwert mit Verlaufsdiagramm
+  /// anzuzeigen wäre eine Wand aus Rauschen, in der die echten Werte untergehen.
+  ChannelStat? toStat(String name, int zeilen) {
     if (_n == 0) return null;
+    if (_min == _max) return null;
+    if (_zaehltHoch && _n >= 5 && _min == 1 && _max == _n.toDouble()) return null;
     return ChannelStat(
       name: name,
       min: _min,
@@ -284,6 +341,57 @@ class _Acc {
       count: _n,
     );
   }
+}
+
+/// Entfernt sensorspezifische Doppelspalten, die denselben Verlauf liefern wie ihre
+/// generische Schwester.
+///
+/// Der Tracker schreibt jede Größe zusätzlich je Quelle mit — `HR (HUAWEI Band HR-B54)`,
+/// `LATITUDE (Google Standort (Fused))` und zwei Dutzend weitere. Sie alle als „weitere
+/// Messwerte" aufzulisten, ergäbe eine unlesbare Wand aus Wiederholungen. Unterscheiden
+/// sich Kennzahlen dagegen, bleibt die Spalte stehen: dann misst der Sensor wirklich
+/// etwas anderes.
+void _dropDuplicates(
+  Map<String, ChannelStat> channels,
+  Map<String, ChannelStat> bekannt,
+) {
+  final basisName = RegExp(r'^(.+?)\s*\(.*\)\s*$');
+  final zuLoeschen = <String>[];
+
+  ChannelStat? suche(String name) => bekannt[name] ?? channels[name];
+
+  for (final entry in channels.entries) {
+    // a) `X (Sensor)` gegen `X` — der klassische Fall.
+    final m = basisName.firstMatch(entry.key);
+    if (m != null) {
+      final basis = suche(m.group(1)!.trim());
+      if (basis != null && _gleich(basis, entry.value)) {
+        zuLoeschen.add(entry.key);
+        continue;
+      }
+    }
+    // b) Gleiche Zahlen unter anderem Namen, etwa DISTANCE_m_LAP bei einer Runde.
+    //    Zwei Spalten mit identischem Min, Max und Schnitt sagen dasselbe aus.
+    for (final ref in bekannt.entries) {
+      if (_gleich(ref.value, entry.value)) {
+        zuLoeschen.add(entry.key);
+        break;
+      }
+    }
+  }
+  for (final k in zuLoeschen) {
+    channels.remove(k);
+  }
+}
+
+bool _gleich(ChannelStat a, ChannelStat b) {
+  bool nah(double x, double y) {
+    final spanne = (a.max - a.min).abs();
+    final toleranz = spanne < 0.0001 ? 0.0001 : spanne * 0.01;
+    return (x - y).abs() <= toleranz;
+  }
+
+  return nah(a.min, b.min) && nah(a.max, b.max) && nah(a.avg, b.avg);
 }
 
 DateTime? _parseTimestamp(String? raw) {

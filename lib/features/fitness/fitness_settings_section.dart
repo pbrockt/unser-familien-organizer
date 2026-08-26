@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/auth/account_providers.dart';
 import '../../core/auth/nextcloud_account.dart';
 import 'fitness_providers.dart';
+import 'fitness_repository.dart';
 import 'fitness_settings.dart';
 import 'fitness_webdav.dart';
 
@@ -47,7 +48,8 @@ List<Widget> fitnessSettingsTiles(BuildContext context, WidgetRef ref) {
         subtitle: Text(
           maxHr > 0
               ? '$maxHr bpm · Zonen ${zones.labels.join(' · ')}'
-              : 'Nicht hinterlegt · Standardzonen ${zones.labels.join(' · ')}',
+              : 'Nicht hinterlegt · Standardzonen ${zones.labels.join(' · ')}'
+                  '${_hfmaxHinweis(data)}',
         ),
         trailing: const Icon(Icons.chevron_right),
         onTap: () => _editNumber(
@@ -116,6 +118,21 @@ List<Widget> fitnessSettingsTiles(BuildContext context, WidgetRef ref) {
       ),
     ],
   ];
+}
+
+/// Weist auf eine unpassende Zonen-Einstellung hin.
+///
+/// Die Standardgrenzen 120/145/160 passen zu einer HFmax um 190. Wer regelmäßig deutlich
+/// darüber oder darunter liegt, bekommt sonst Einstufungen, die nicht zu seinem Training
+/// passen — etwa jede Ausfahrt als „intensiv".
+String _hfmaxHinweis(FitnessData? data) {
+  if (data == null || data.activities.isEmpty) return '';
+  var hoechster = 0;
+  for (final a in data.activities) {
+    if (a.hrMax > hoechster) hoechster = a.hrMax;
+  }
+  if (hoechster < 100) return '';
+  return '\nHöchster gemessener Puls bisher: $hoechster bpm';
 }
 
 Future<void> _chooseFolder(BuildContext context, WidgetRef ref) async {

@@ -22,10 +22,26 @@ class SportDetector {
   /// Ab diesem Schnitt ist es praktisch sicher kein Laufen mehr.
   static const double _certainCyclingKmh = 22.0;
 
+  /// Ab dieser Spitze ist Laufen ausgeschlossen — schneller sprintet niemand über
+  /// mehrere Sekunden, und schon gar nicht auf einer Ausdauerrunde.
+  static const double _impossibleRunningKmh = 25.0;
+
   static SportGuess detect(
-      String filename, double avgSpeedKmh, int avgCadence) {
+    String filename,
+    double avgSpeedKmh,
+    int avgCadence, {
+    double maxSpeedKmh = 0,
+  }) {
     final fromName = _fromFilename(filename);
     if (fromName != null) return SportGuess(fromName, 1.0);
+
+    // Die Spitzengeschwindigkeit ist das eindeutigste Einzelmerkmal. Sie sticht die
+    // Entfaltungsrechnung, weil die bei flott getretener niedriger Übersetzung nah an
+    // die Laufgrenze rückt: 20 km/h bei 90/min sind 3,7 m — rechnerisch „Laufen",
+    // tatsächlich ein zügig gefahrenes Rad.
+    if (maxSpeedKmh >= _impossibleRunningKmh) {
+      return const SportGuess(Sport.cycling, 0.95);
+    }
 
     if (avgCadence > 0 && avgSpeedKmh > 0.5) {
       final metersPerCycle = (avgSpeedKmh / 3.6 * 60.0) / avgCadence;
@@ -249,10 +265,13 @@ List<String> activityTips(
     }
   }
 
-  // 4) Standzeit.
-  if (a.stoppedShare > 0.25 && type != SessionType.ausflug) {
-    out.add('${(a.stoppedShare * 100).round()} % der Zeit standest du. Für eine '
-        'Trainingswirkung ist eine Strecke ohne viele Stopps deutlich ergiebiger.');
+  // 4) Standzeit — und was der Schnitt ohne sie wäre.
+  if (a.stoppedShare > 0.10 && type != SessionType.ausflug) {
+    final ohnePausen = a.speedMovingAvgKmh > 0
+        ? ' Ohne Standzeit lägst du bei ${a.speedMovingAvgKmh.toStringAsFixed(1)} km/h '
+            'statt ${a.speedAvgKmh.toStringAsFixed(1)}.'
+        : '';
+    out.add('${(a.stoppedShare * 100).round()} % der Zeit standest du.$ohnePausen');
   }
 
   // 5) Hoehenmeter ins Verhaeltnis setzen.

@@ -152,14 +152,45 @@ void main() {
       expect(a.series.first.extra['POWER_w'], 180);
     });
 
-    test('nimmt auch die sensorspezifischen Doppelspalten mit', () {
+    test('behält eine Doppelspalte, die etwas anderes misst', () {
       final text = csv(
-        [...basis, 'HR (HUAWEI Band HR-B54)'],
-        [['2026-08-25 19:01:00', '10', '85', '0', '130', '6.9', '0', '0', '99']],
+        [...basis, 'HR (Brustgurt)'],
+        [
+          ['2026-08-25 19:01:00', '10', '85', '0', '130', '6.9', '0', '0', '99'],
+          ['2026-08-25 19:01:01', '11', '86', '7', '140', '7.0', '1', '0', '105'],
+        ],
       );
       final a = parser.parse(text, '2026-08-25_190100.csv')!;
-      expect(a.hrAvg, 130, reason: 'Die generische Spalte bleibt maßgeblich');
-      expect(a.channels['HR (HUAWEI Band HR-B54)']?.avg, 99);
+      expect(a.hrAvg, 135, reason: 'Die generische Spalte bleibt maßgeblich');
+      expect(a.channels['HR (Brustgurt)']?.avg, closeTo(102, 0.001),
+          reason: 'Andere Werte als HR — also ein echter zweiter Sensor');
+    });
+
+    test('wirft eine Doppelspalte weg, die dasselbe misst', () {
+      // Der Tracker schreibt jede Größe zusätzlich je Quelle mit. Liefert sie dieselben
+      // Zahlen, ist sie reine Wiederholung.
+      final text = csv(
+        [...basis, 'HR (HUAWEI Band HR-B54)'],
+        [
+          ['2026-08-25 19:01:00', '10', '85', '0', '130', '6.9', '0', '0', '130'],
+          ['2026-08-25 19:01:01', '11', '86', '7', '140', '7.0', '1', '0', '140'],
+        ],
+      );
+      final a = parser.parse(text, '2026-08-25_190100.csv')!;
+      expect(a.channels.containsKey('HR (HUAWEI Band HR-B54)'), isFalse);
+    });
+
+    test('wirft konstante Spalten weg', () {
+      final text = csv(
+        [...basis, 'LAP_NR'],
+        [
+          ['2026-08-25 19:01:00', '10', '85', '0', '130', '6.9', '0', '0', '1'],
+          ['2026-08-25 19:01:01', '11', '86', '7', '140', '7.0', '1', '0', '1'],
+        ],
+      );
+      final a = parser.parse(text, '2026-08-25_190100.csv')!;
+      expect(a.channels.containsKey('LAP_NR'), isFalse,
+          reason: 'Ein Wert, der sich nie ändert, sagt nichts aus');
     });
 
     test('erkennt Koordinaten und meldet eine Strecke', () {
