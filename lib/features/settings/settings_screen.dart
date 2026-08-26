@@ -10,6 +10,7 @@ import '../../shared/widgets/color_picker_sheet.dart';
 import '../calendar/event_providers.dart';
 import '../calendar/event_templates.dart';
 import '../family/family_screen.dart';
+import '../fitness/fitness_settings_section.dart';
 import '../home/dashboard_providers.dart';
 import '../members/member_settings.dart';
 import '../study/study_settings_screen.dart';
@@ -506,6 +507,14 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                       onTap: () => _editPlz(weatherPlz),
                     ),
                   ],
+                ),
+
+                // ---- Sport ----
+                _panel(
+                  value: 'sport',
+                  icon: Icons.directions_bike_outlined,
+                  title: 'Sport',
+                  children: fitnessSettingsTiles(context, ref),
                 ),
 
                 // ---- Sicherung & Updates ----

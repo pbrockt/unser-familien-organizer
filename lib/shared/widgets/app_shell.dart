@@ -11,6 +11,7 @@ import '../../core/platform/share_intent.dart';
 import '../../features/calendar/event_editor_sheet.dart';
 import '../../features/calendar/event_providers.dart';
 import '../../features/calendar/quick_entry_sheet.dart';
+import '../../features/fitness/fitness_settings.dart';
 import '../../features/onboarding/onboarding_screen.dart';
 import '../../features/study/study_planner_sheet.dart';
 import '../../features/tasks/task_editor_sheet.dart';
@@ -24,6 +25,9 @@ import '../../features/update/update_prompt.dart';
 /// anlegt. Die Familie-/Verbindungs-Verwaltung sitzt in den Einstellungen.
 ///
 /// Der Android-Zurück-Knopf navigiert durch die zuvor besuchten Tabs.
+/// Ein Platz in der Navigation. „+" ist keine Seite, sondern eine Aktion.
+enum _Nav { start, kalender, liste, schule, sport, plus }
+
 class AppShell extends ConsumerStatefulWidget {
   const AppShell({super.key, required this.navigationShell});
 
@@ -38,27 +42,48 @@ class _AppShellState extends ConsumerState<AppShell> {
   bool _updateChecked = false;
   StreamSubscription<Uri?>? _widgetSub;
 
-  /// Index der „+"-Schaltfläche (keine echte Seite, sondern eine Aktion).
-  // Anzeige-Ziele: Start(0) · Kalender(1) · Liste(2) · Schule(3) · +(4).
-  // „Einkauf" ist kein Tab mehr, bleibt aber als Branch (3) erreichbar.
-  static const int _plusIndex = 4;
-  static const int _listeDisplay = 2;
+  /// Anzeige-Ziele der Navigation.
+  ///
+  /// „Sport" erscheint nur, wenn der Bereich in den Einstellungen aktiviert ist. Die Zahl
+  /// der Plätze ist damit nicht mehr konstant — deshalb leiten sich Indizes, Zuordnungen
+  /// und die Position des Listen-Pfeils aus dieser Liste ab statt aus festen Zahlen.
+  /// „+" bleibt immer letzter Eintrag; darauf verlassen sich Bottom-Bar und Rail.
+  List<_Nav> _items = const [
+    _Nav.start,
+    _Nav.kalender,
+    _Nav.liste,
+    _Nav.schule,
+    _Nav.plus,
+  ];
+
+  int get _plusIndex => _items.indexOf(_Nav.plus);
+  int get _listeDisplay => _items.indexOf(_Nav.liste);
 
   /// Anzeige-Index → Branch-Index.
-  int _branchForDisplay(int display) => switch (display) {
-    0 => 0, // Start
-    1 => 1, // Kalender
-    2 => 2, // Liste → Aufgaben
-    3 => 4, // Schule
-    _ => 0,
-  };
+  int _branchForDisplay(int display) {
+    if (display < 0 || display >= _items.length) return 0;
+    return switch (_items[display]) {
+      _Nav.start => 0,
+      _Nav.kalender => 1,
+      _Nav.liste => 2,
+      _Nav.schule => 4,
+      _Nav.sport => 5,
+      _Nav.plus => 0,
+    };
+  }
 
   /// Branch-Index → Anzeige-Index (für selectedIndex).
-  int _displayForBranch(int branch) => switch (branch) {
-    3 => _listeDisplay, // Einkauf hebt „Liste" hervor
-    4 => 3, // Schule
-    _ => branch, // 0,1,2
-  };
+  int _displayForBranch(int branch) {
+    final ziel = switch (branch) {
+      1 => _Nav.kalender,
+      2 || 3 => _Nav.liste, // Einkauf (3) hebt „Liste" hervor
+      4 => _Nav.schule,
+      5 => _Nav.sport,
+      _ => _Nav.start,
+    };
+    final i = _items.indexOf(ziel);
+    return i < 0 ? 0 : i;
+  }
 
   @override
   void initState() {
@@ -320,6 +345,23 @@ class _AppShellState extends ConsumerState<AppShell> {
     if (_history.isEmpty || _history.last != idx) {
       _history.add(idx);
     }
+
+    final sportAn = ref.watch(fitnessEnabledProvider).value ?? false;
+    _items = [
+      _Nav.start,
+      _Nav.kalender,
+      _Nav.liste,
+      _Nav.schule,
+      if (sportAn) _Nav.sport,
+      _Nav.plus,
+    ];
+    // Wird Sport abgeschaltet, während man darin steht, sonst bliebe eine Seite offen,
+    // zu der es kein Ziel mehr gibt.
+    if (!sportAn && idx == 5) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) widget.navigationShell.goBranch(0);
+      });
+    }
     return PopScope(
       canPop: _history.length <= 1,
       onPopInvokedWithResult: (didPop, _) {
@@ -367,38 +409,26 @@ class _AppShellState extends ConsumerState<AppShell> {
       selectedIndex: _displayForBranch(widget.navigationShell.currentIndex),
       onDestinationSelected: _onDestination,
       destinations: [
-        const NavigationDestination(
-          icon: Icon(Icons.home_outlined),
-          selectedIcon: Icon(Icons.home),
-          label: 'Start',
-        ),
-        const NavigationDestination(
-          icon: Icon(Icons.calendar_month_outlined),
-          selectedIcon: Icon(Icons.calendar_month),
-          label: 'Kalender',
-        ),
-        const NavigationDestination(
-          icon: Icon(Icons.list_alt_outlined),
-          selectedIcon: Icon(Icons.list_alt),
-          label: 'Liste',
-        ),
-        const NavigationDestination(
-          icon: Icon(Icons.school_outlined),
-          selectedIcon: Icon(Icons.school),
-          label: 'Schule',
-        ),
-        NavigationDestination(
-          icon: Container(
-            width: 38,
-            height: 38,
-            decoration: BoxDecoration(
-              color: scheme.primary,
-              shape: BoxShape.circle,
+        for (final item in _items)
+          if (item == _Nav.plus)
+            NavigationDestination(
+              icon: Container(
+                width: 38,
+                height: 38,
+                decoration: BoxDecoration(
+                  color: scheme.primary,
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(Icons.add, color: scheme.onPrimary),
+              ),
+              label: 'Neu',
+            )
+          else
+            NavigationDestination(
+              icon: Icon(_iconFor(item, false)),
+              selectedIcon: Icon(_iconFor(item, true)),
+              label: _labelFor(item),
             ),
-            child: Icon(Icons.add, color: scheme.onPrimary),
-          ),
-          label: 'Neu',
-        ),
       ],
     );
     // Kleiner Aufwärtspfeil über dem „Liste"-Tab: Tippen auf den Pfeil öffnet
@@ -406,7 +436,7 @@ class _AppShellState extends ConsumerState<AppShell> {
     return LayoutBuilder(
       builder: (context, c) {
         const btn = 26.0;
-        final slotW = c.maxWidth / 5;
+        final slotW = c.maxWidth / _items.length;
         // Rechts neben dem Listen-Symbol (nicht mittig darüber).
         final left = slotW * (_listeDisplay + 0.5) + 9;
         return Stack(
@@ -458,29 +488,41 @@ class _AppShellState extends ConsumerState<AppShell> {
         ),
       ),
       destinations: [
-        const NavigationRailDestination(
-          icon: Icon(Icons.home_outlined),
-          selectedIcon: Icon(Icons.home),
-          label: Text('Start'),
-        ),
-        const NavigationRailDestination(
-          icon: Icon(Icons.calendar_month_outlined),
-          selectedIcon: Icon(Icons.calendar_month),
-          label: Text('Kalender'),
-        ),
-        NavigationRailDestination(
-          icon: _railListeIcon(false),
-          selectedIcon: _railListeIcon(true),
-          label: const Text('Liste'),
-        ),
-        const NavigationRailDestination(
-          icon: Icon(Icons.school_outlined),
-          selectedIcon: Icon(Icons.school),
-          label: Text('Schule'),
-        ),
+        for (final item in _items)
+          if (item != _Nav.plus)
+            if (item == _Nav.liste)
+              NavigationRailDestination(
+                icon: _railListeIcon(false),
+                selectedIcon: _railListeIcon(true),
+                label: const Text('Liste'),
+              )
+            else
+              NavigationRailDestination(
+                icon: Icon(_iconFor(item, false)),
+                selectedIcon: Icon(_iconFor(item, true)),
+                label: Text(_labelFor(item)),
+              ),
       ],
     );
   }
+
+  IconData _iconFor(_Nav item, bool selected) => switch (item) {
+    _Nav.start => selected ? Icons.home : Icons.home_outlined,
+    _Nav.kalender => selected ? Icons.calendar_month : Icons.calendar_month_outlined,
+    _Nav.liste => selected ? Icons.list_alt : Icons.list_alt_outlined,
+    _Nav.schule => selected ? Icons.school : Icons.school_outlined,
+    _Nav.sport => selected ? Icons.directions_bike : Icons.directions_bike_outlined,
+    _Nav.plus => Icons.add,
+  };
+
+  String _labelFor(_Nav item) => switch (item) {
+    _Nav.start => 'Start',
+    _Nav.kalender => 'Kalender',
+    _Nav.liste => 'Liste',
+    _Nav.schule => 'Schule',
+    _Nav.sport => 'Sport',
+    _Nav.plus => 'Neu',
+  };
 
   /// Listen-Icon für die Seiten-Navigation mit tippbarem Aufwärtspfeil darüber
   /// (öffnet das Listen-/Einkauf-Menü).

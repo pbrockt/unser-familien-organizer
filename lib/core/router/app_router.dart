@@ -3,6 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../features/calendar/calendar_screen.dart';
+import '../../features/fitness/fitness_day_screen.dart';
+import '../../features/fitness/fitness_screen.dart';
 import '../../features/home/home_screen.dart';
 import '../../features/school/school_screen.dart';
 import '../../features/search/search_screen.dart';
@@ -71,6 +73,24 @@ final routerProvider = Provider<GoRouter>((ref) {
               GoRoute(
                 path: '/school',
                 builder: (context, state) => const SchoolScreen(),
+              ),
+            ],
+          ),
+          // Sport haengt bewusst als letzter Branch dran: so verschieben sich die
+          // Indizes der bestehenden Bereiche nicht.
+          StatefulShellBranch(
+            routes: [
+              GoRoute(
+                path: '/fitness',
+                builder: (context, state) => const FitnessScreen(),
+                routes: [
+                  GoRoute(
+                    path: 'tag/:datum',
+                    builder: (context, state) => FitnessDayScreen(
+                      date: state.pathParameters['datum'] ?? '',
+                    ),
+                  ),
+                ],
               ),
             ],
           ),
