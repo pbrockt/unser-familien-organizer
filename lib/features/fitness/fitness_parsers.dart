@@ -437,6 +437,24 @@ class HealthParser {
 
     int? i(String key) => d(key)?.round();
 
+    String? t(String key) {
+      final v = fm[key];
+      return (v == null || v.isEmpty) ? null : v;
+    }
+
+    // `workouts: [walking]` bzw. `[walking, other]`
+    List<String> liste(String key) {
+      final v = fm[key];
+      if (v == null || v.isEmpty) return const [];
+      return v
+          .replaceAll('[', '')
+          .replaceAll(']', '')
+          .split(',')
+          .map((e) => e.trim())
+          .where((e) => e.isNotEmpty)
+          .toList();
+    }
+
     return HealthDay(
       date: date,
       steps: i('steps'),
@@ -449,6 +467,21 @@ class HealthParser {
       spo2Avg: i('blood_oxygen_avg') ?? i('blood_oxygen'),
       spo2Min: i('blood_oxygen_min'),
       weightKg: d('weight_kg') ?? d('weight') ?? d('gewicht'),
+      restingHr: i('resting_heart_rate'),
+      basalCalories: i('basal_calories'),
+      walkingRunningKm: d('walking_running_km'),
+      exerciseMinutes: i('exercise_minutes'),
+      workoutCount: i('workout_count'),
+      workoutMinutes: i('workout_minutes'),
+      workoutDistanceKm: d('workout_distance_km'),
+      workoutAvgHr: i('workout_avg_heart_rate'),
+      workouts: liste('workouts'),
+      sleepDeepHours: d('sleep_deep_hours'),
+      sleepRemHours: d('sleep_rem_hours'),
+      sleepCoreHours: d('sleep_core_hours'),
+      sleepAwakeHours: d('sleep_awake_hours'),
+      bedtime: t('sleep_bedtime'),
+      wakeTime: t('sleep_wake'),
     );
   }
 }

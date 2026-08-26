@@ -333,12 +333,15 @@ class RestingHrTrend {
 /// er lässt sich nicht durch einen guten Tag vortäuschen, reagiert auf echtes
 /// Ausdauertraining und fällt oft, bevor sich am Gewicht etwas zeigt.
 ///
-/// Genommen wird `heart_rate_min`, nicht `average_heart_rate` — der Tagesschnitt hängt
-/// daran, wie viel man sich bewegt hat, und misst damit den Tag, nicht die Form.
+/// Genommen wird `resting_heart_rate`, sofern der Tracker ihn liefert. Ersatzweise das
+/// Tagesminimum — das wird meist im Tiefschlaf gemessen und liegt deutlich darunter
+/// (an einem Beispieltag 49 statt 60 bpm), taugt aber immer noch besser als der
+/// Tagesschnitt: der hängt daran, wie viel man sich bewegt hat, und misst den Tag
+/// statt die Form.
 RestingHrTrend analyseRestingHr(List<HealthDay> days) {
   final werte = <MapEntry<DateTime, int>>[];
   for (final d in days) {
-    final hr = d.hrMin ?? d.hrAvg;
+    final hr = d.restingHr ?? d.hrMin ?? d.hrAvg;
     final datum = DateTime.tryParse(d.date);
     // Unter 30 bpm ist ein Messfehler, über 120 kein Ruhepuls mehr.
     if (hr != null && datum != null && hr >= 30 && hr <= 120) {

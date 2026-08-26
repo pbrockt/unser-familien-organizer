@@ -309,6 +309,21 @@ class HealthDay {
     this.spo2Avg,
     this.spo2Min,
     this.weightKg,
+    this.restingHr,
+    this.basalCalories,
+    this.walkingRunningKm,
+    this.exerciseMinutes,
+    this.workoutCount,
+    this.workoutMinutes,
+    this.workoutDistanceKm,
+    this.workoutAvgHr,
+    this.workouts = const [],
+    this.sleepDeepHours,
+    this.sleepRemHours,
+    this.sleepCoreHours,
+    this.sleepAwakeHours,
+    this.bedtime,
+    this.wakeTime,
   });
 
   final String date;
@@ -325,6 +340,37 @@ class HealthDay {
   /// Manche Tracker schreiben das Gewicht mit ins Frontmatter — dann wird es übernommen.
   final double? weightKg;
 
+  /// Vom Tracker ermittelter Ruhepuls.
+  ///
+  /// Nicht dasselbe wie [hrMin]: das Tagesminimum wird oft im Tiefschlaf gemessen und
+  /// liegt deutlich darunter. Für den Formverlauf ist dieser Wert der richtige.
+  final int? restingHr;
+
+  final int? basalCalories;
+  final double? walkingRunningKm;
+
+  /// Bewegungsminuten des Tages laut Tracker.
+  final int? exerciseMinutes;
+
+  /// Aufgezeichnete Trainingseinheiten des Tages — auch solche ohne eigene CSV.
+  final int? workoutCount;
+  final int? workoutMinutes;
+  final double? workoutDistanceKm;
+  final int? workoutAvgHr;
+
+  /// Art der Einheiten, wie der Tracker sie nennt (`walking`, `other`, …).
+  final List<String> workouts;
+
+  /// Schlafphasen in Stunden.
+  final double? sleepDeepHours;
+  final double? sleepRemHours;
+  final double? sleepCoreHours;
+  final double? sleepAwakeHours;
+
+  /// Zubettgeh- und Aufstehzeit als `HH:mm`.
+  final String? bedtime;
+  final String? wakeTime;
+
   Map<String, dynamic> toJson() => {
         'date': date,
         'steps': steps,
@@ -337,6 +383,21 @@ class HealthDay {
         'spo2': spo2Avg,
         'spo2Min': spo2Min,
         'kg': weightKg,
+        'rhr': restingHr,
+        'basal': basalCalories,
+        'walkKm': walkingRunningKm,
+        'exMin': exerciseMinutes,
+        'woCount': workoutCount,
+        'woMin': workoutMinutes,
+        'woKm': workoutDistanceKm,
+        'woHr': workoutAvgHr,
+        'wo': workouts,
+        'sDeep': sleepDeepHours,
+        'sRem': sleepRemHours,
+        'sCore': sleepCoreHours,
+        'sAwake': sleepAwakeHours,
+        'bed': bedtime,
+        'wake': wakeTime,
       };
 
   factory HealthDay.fromJson(Map<String, dynamic> j) => HealthDay(
@@ -351,6 +412,22 @@ class HealthDay {
         spo2Avg: (j['spo2'] as num?)?.toInt(),
         spo2Min: (j['spo2Min'] as num?)?.toInt(),
         weightKg: (j['kg'] as num?)?.toDouble(),
+        restingHr: (j['rhr'] as num?)?.toInt(),
+        basalCalories: (j['basal'] as num?)?.toInt(),
+        walkingRunningKm: (j['walkKm'] as num?)?.toDouble(),
+        exerciseMinutes: (j['exMin'] as num?)?.toInt(),
+        workoutCount: (j['woCount'] as num?)?.toInt(),
+        workoutMinutes: (j['woMin'] as num?)?.toInt(),
+        workoutDistanceKm: (j['woKm'] as num?)?.toDouble(),
+        workoutAvgHr: (j['woHr'] as num?)?.toInt(),
+        workouts:
+            (j['wo'] as List?)?.map((e) => e.toString()).toList() ?? const [],
+        sleepDeepHours: (j['sDeep'] as num?)?.toDouble(),
+        sleepRemHours: (j['sRem'] as num?)?.toDouble(),
+        sleepCoreHours: (j['sCore'] as num?)?.toDouble(),
+        sleepAwakeHours: (j['sAwake'] as num?)?.toDouble(),
+        bedtime: j['bed'] as String?,
+        wakeTime: j['wake'] as String?,
       );
 }
 

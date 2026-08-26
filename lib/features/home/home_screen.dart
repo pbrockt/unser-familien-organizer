@@ -21,6 +21,7 @@ import '../calendar/event_editor_sheet.dart';
 import '../calendar/event_providers.dart';
 import '../family/family_screen.dart';
 import '../fitness/fitness_home_card.dart';
+import '../fitness/fitness_week_list.dart';
 import '../fitness/fitness_providers.dart';
 import '../members/member_settings.dart';
 import '../members/user_groups.dart';
@@ -168,6 +169,7 @@ class HomeScreen extends ConsumerWidget {
                       schrittZiel: ref.watch(stepGoalDatesProvider),
                     ),
                     const FitnessHomeCard(),
+                    const FitnessWeekList(),
                     const _SectionLabel('Anstehende Termine'),
                     if (upcoming.isEmpty && passedToday.isEmpty)
                       const _EmptyHint('Keine anstehenden Termine 🎉')
