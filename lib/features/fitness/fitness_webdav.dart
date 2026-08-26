@@ -87,6 +87,37 @@ class WebDavClient {
     return _parseMultistatus(utf8.decode(response.bodyBytes), base, folder);
   }
 
+  /// Lädt nur den Anfang einer Datei.
+  ///
+  /// Für Begleitdateien, aus denen bloß eine Kopfzeile gebraucht wird: die TCX einer
+  /// Fahrt ist 775 KB groß, die enthaltene Sportart steht in den ersten paar hundert
+  /// Bytes. Ohne Bereichsanfrage würde jede Fahrt ein Megabyte Datenvolumen kosten,
+  /// um ein einziges Wort zu lesen.
+  ///
+  /// Server, die keine Bereichsanfragen beherrschen, antworten mit 200 und der ganzen
+  /// Datei — dann wird eben abgeschnitten.
+  Future<String> readHead(
+    NextcloudAccount account,
+    String path, {
+    int bytes = 4096,
+  }) async {
+    final uri = Uri.parse('${_base(account)}${_encodePath(path)}');
+    final response = await _client.get(uri, headers: {
+      'Authorization': _auth(account),
+      'Range': 'bytes=0-${bytes - 1}',
+    });
+    if (response.statusCode != 200 && response.statusCode != 206) {
+      throw WebDavException(
+        'Datei „$path" konnte nicht gelesen werden (${response.statusCode}).',
+      );
+    }
+    final roh = response.bodyBytes.length > bytes
+        ? response.bodyBytes.sublist(0, bytes)
+        : response.bodyBytes;
+    // allowMalformed: ein Schnitt mitten durch ein Mehrbyte-Zeichen darf nicht werfen.
+    return utf8.decode(roh, allowMalformed: true);
+  }
+
   /// Lädt eine Datei als Text.
   Future<String> read(NextcloudAccount account, String path) async {
     final uri = Uri.parse('${_base(account)}${_encodePath(path)}');

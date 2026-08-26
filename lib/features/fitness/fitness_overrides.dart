@@ -92,7 +92,9 @@ class FitnessOverridesController extends AsyncNotifier<FitnessOverrides> {
 /// Die geltende Sportart einer Einheit: manuelle Korrektur schlägt Erkennung.
 final effectiveSportProvider = Provider.family<Sport, Activity>((ref, activity) {
   final o = ref.watch(fitnessOverridesProvider).value;
-  return o?.sports[activity.id] ?? activity.sportDetected;
+  // Reihenfolge: manuelle Korrektur, dann die von der Begleitdatei genannte Sportart,
+  // zuletzt die Schätzung aus den Messwerten.
+  return o?.sports[activity.id] ?? activity.sportEffective;
 });
 
 /// Die geltende Art einer Einheit: manuelle Wahl schlägt Schätzung.

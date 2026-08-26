@@ -7,6 +7,7 @@ import 'package:path_provider/path_provider.dart';
 import '../../core/auth/nextcloud_account.dart';
 import 'fitness_models.dart';
 import 'fitness_parsers.dart';
+import 'fitness_sport_hint.dart';
 import 'fitness_webdav.dart';
 
 /// Zusammengefasster Stand aller eingelesenen Dateien.
@@ -128,6 +129,9 @@ class FitnessRepository {
       return (previous, ImportResult(error: 'Keine Verbindung zur Nextcloud: $e'));
     }
 
+    // Begleitdateien nach Namen greifbar machen (`2026-08-25_190102.tcx`).
+    final nachName = {for (final e in entries) e.name.toLowerCase(): e};
+
     final activities = {for (final a in previous.activities) a.id: a};
     final healthDays = {for (final h in previous.healthDays) h.date: h};
     final fingerprints = Map<String, String>.from(previous.fingerprints);
@@ -156,8 +160,10 @@ class FitnessRepository {
       }
 
       if (isCsv) {
-        final parsed = parser.parse(text, entry.name);
+        var parsed = parser.parse(text, entry.name);
         if (parsed != null) {
+          final erklaert = await _declaredSport(account, entry.name, nachName);
+          if (erklaert != null) parsed = parsed.copyWith(sportDeclared: erklaert);
           activities[parsed.id] = parsed;
           fingerprints[entry.path] = fingerprint;
           newActivities++;
@@ -194,6 +200,29 @@ class FitnessRepository {
         unreadable: unreadable,
       )
     );
+  }
+
+  /// Fragt die Sportart aus einer Begleitdatei ab, falls es eine gibt.
+  ///
+  /// Gelesen werden nur die ersten Kilobytes — die Angabe steht im Kopf. Schlägt das
+  /// fehl, ist das kein Fehler der Einheit: dann greift wieder die Schätzung.
+  Future<Sport?> _declaredSport(
+    NextcloudAccount account,
+    String csvName,
+    Map<String, RemoteEntry> nachName,
+  ) async {
+    for (final name in SportHint.companionNames(csvName)) {
+      final datei = nachName[name.toLowerCase()];
+      if (datei == null) continue;
+      try {
+        final kopf = await _client.readHead(account, datei.path);
+        final sport = SportHint.parse(kopf);
+        if (sport != null) return sport;
+      } catch (_) {
+        // Weiter zur nächsten Begleitdatei.
+      }
+    }
+    return null;
   }
 
   /// Sammelt Dateien rekursiv, aber flach genug, dass ein tief verschachtelter Baum

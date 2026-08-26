@@ -295,21 +295,151 @@ class _HealthCard extends StatelessWidget {
             const SizedBox(height: 14),
           ],
           FitnessValueGrid(values: [
-            if (health.sleepHours != null)
-              ('Schlaf', '${health.sleepHours!.toStringAsFixed(1)} h'),
+            if (health.restingHr != null)
+              ('Ruhepuls', '${health.restingHr} bpm'),
+            if (health.hrAvg != null) ('Ø Puls', '${health.hrAvg} bpm'),
+            if (health.hrMin != null && health.hrMax != null)
+              ('Puls min/max', '${health.hrMin}/${health.hrMax}'),
+            if (health.exerciseMinutes != null)
+              ('Bewegung', '${health.exerciseMinutes} min'),
+            if (health.walkingRunningKm != null)
+              ('zu Fuß', '${health.walkingRunningKm!.toStringAsFixed(2)} km'),
             if (health.totalCalories != null)
               ('Kalorien', '${health.totalCalories}'),
             if (health.activeCalories != null)
               ('davon aktiv', '${health.activeCalories}'),
-            if (health.hrAvg != null) ('Ø Puls', '${health.hrAvg} bpm'),
-            if (health.hrMin != null && health.hrMax != null)
-              ('Puls min/max', '${health.hrMin}/${health.hrMax}'),
+            if (health.basalCalories != null)
+              ('Grundumsatz', '${health.basalCalories}'),
             if (health.spo2Avg != null) ('SpO₂', '${health.spo2Avg} %'),
           ]),
+          if (health.sleepHours != null) ...[
+            const SizedBox(height: 16),
+            _SchlafBlock(health: health),
+          ],
+          if ((health.workoutCount ?? 0) > 0) ...[
+            const SizedBox(height: 16),
+            _WorkoutBlock(health: health),
+          ],
         ],
       ),
     );
   }
+}
+
+/// Schlafphasen des Tages — acht Stunden im Bett sind nicht acht gute Stunden.
+class _SchlafBlock extends StatelessWidget {
+  const _SchlafBlock({required this.health});
+
+  final HealthDay health;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final gesamt = health.sleepHours!;
+    final tief = health.sleepDeepHours;
+    final rem = health.sleepRemHours;
+    final kern = health.sleepCoreHours;
+    final wach = health.sleepAwakeHours;
+
+    String std(double? h) => h == null ? '—' : '${h.toStringAsFixed(1)} h';
+    String anteil(double? h) =>
+        (h == null || gesamt <= 0) ? '' : ' (${(h / gesamt * 100).round()} %)';
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Row(
+          children: [
+            Expanded(
+              child: Text('Schlaf', style: Theme.of(context).textTheme.labelLarge),
+            ),
+            if (health.bedtime != null && health.wakeTime != null)
+              Text(
+                '${health.bedtime} – ${health.wakeTime}',
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: scheme.onSurfaceVariant,
+                    ),
+              ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        if (tief != null || rem != null) ...[
+          // Balken in der Reihenfolge der Erholungswirkung: tief, REM, Kern, wach.
+          ClipRRect(
+            borderRadius: BorderRadius.circular(4),
+            child: SizedBox(
+              height: 12,
+              child: Row(
+                children: [
+                  for (final (wert, farbe) in [
+                    (tief, scheme.primary),
+                    (rem, scheme.primary.withValues(alpha: 0.6)),
+                    (kern, scheme.primary.withValues(alpha: 0.3)),
+                    (wach, scheme.error.withValues(alpha: 0.55)),
+                  ])
+                    if (wert != null && wert > 0)
+                      Expanded(
+                        flex: (wert * 100).round(),
+                        child: ColoredBox(color: farbe),
+                      ),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 8),
+        ],
+        FitnessValueGrid(values: [
+          ('gesamt', std(gesamt)),
+          if (tief != null) ('tief', '${std(tief)}${anteil(tief)}'),
+          if (rem != null) ('REM', '${std(rem)}${anteil(rem)}'),
+          if (kern != null) ('Kern', std(kern)),
+          if (wach != null) ('wach', std(wach)),
+        ]),
+      ],
+    );
+  }
+}
+
+/// Trainingseinheiten, die der Tracker gezählt hat — auch solche ohne eigene Tour-Datei.
+class _WorkoutBlock extends StatelessWidget {
+  const _WorkoutBlock({required this.health});
+
+  final HealthDay health;
+
+  @override
+  Widget build(BuildContext context) {
+    final arten = health.workouts.isEmpty
+        ? ''
+        : ' · ${health.workouts.map(_uebersetzt).join(', ')}';
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Text(
+          'Vom Tracker gezählt$arten',
+          style: Theme.of(context).textTheme.labelLarge,
+        ),
+        const SizedBox(height: 8),
+        FitnessValueGrid(values: [
+          ('Einheiten', '${health.workoutCount}'),
+          if (health.workoutMinutes != null)
+            ('Dauer', '${health.workoutMinutes} min'),
+          if (health.workoutDistanceKm != null)
+            ('Distanz', '${health.workoutDistanceKm!.toStringAsFixed(2)} km'),
+          if (health.workoutAvgHr != null)
+            ('Ø Puls', '${health.workoutAvgHr} bpm'),
+        ]),
+      ],
+    );
+  }
+
+  String _uebersetzt(String art) => switch (art.toLowerCase()) {
+        'walking' => 'Gehen',
+        'running' => 'Laufen',
+        'cycling' || 'biking' => 'Radfahren',
+        'other' => 'Sonstiges',
+        _ => art,
+      };
 }
 
 class _ActivityTile extends ConsumerWidget {

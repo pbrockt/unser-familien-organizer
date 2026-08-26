@@ -8,6 +8,7 @@ import 'fitness_models.dart';
 import 'fitness_providers.dart';
 import 'fitness_repository.dart';
 import 'fitness_settings.dart';
+import 'fitness_sleep.dart';
 import 'fitness_widgets.dart';
 import 'fitness_training_tab.dart';
 import 'fitness_weight_tab.dart';
@@ -211,15 +212,38 @@ class _SleepCard extends StatelessWidget {
             .reduce((a, b) => a + b) /
         recent.length;
 
+    final zusammen = SleepAnalysis.summarize([
+      for (final d in days)
+        if (d.health != null) d.health!,
+    ]);
+
     return FitnessExpandableCard(
       title: 'Schlaf pro Nacht',
-      subtitle: 'Ø ${schnitt.toStringAsFixed(1)} h · Ziellinie bei 7 h',
-      child: FitnessBarChart(
-        values: [
-          for (final d in recent)
-            ChartValue(_kurzDatum(d.date), d.health!.sleepHours!),
+      subtitle: 'Ø ${schnitt.toStringAsFixed(1)} h'
+          '${zusammen.avgDeepShare != null ? ' · ${(zusammen.avgDeepShare! * 100).round()} % Tiefschlaf' : ''}'
+          '${zusammen.typicalBedtime != null ? ' · meist ab ${zusammen.typicalBedtime}' : ''}',
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          FitnessBarChart(
+            values: [
+              for (final d in recent)
+                ChartValue(_kurzDatum(d.date), d.health!.sleepHours!),
+            ],
+            goal: 7,
+          ),
+          if (zusammen.hasData) ...[
+            const SizedBox(height: 12),
+            for (final t in SleepAnalysis.insights(zusammen))
+              Padding(
+                padding: const EdgeInsets.only(bottom: 6),
+                child: Text(
+                  '· $t',
+                  style: Theme.of(context).textTheme.bodySmall,
+                ),
+              ),
+          ],
         ],
-        goal: 7,
       ),
     );
   }

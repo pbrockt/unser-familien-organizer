@@ -145,6 +145,7 @@ class Activity {
     required this.timeOfDay,
     required this.sportDetected,
     required this.sportConfidence,
+    this.sportDeclared,
     required this.durationSec,
     required this.distanceKm,
     required this.hrAvg,
@@ -171,6 +172,15 @@ class Activity {
 
   final Sport sportDetected;
   final double sportConfidence;
+
+  /// Sportart, die eine Begleitdatei ausdrücklich nennt (TCX/JSON).
+  ///
+  /// Steht sie fest, ist jede Schätzung überflüssig — deshalb schlägt sie die Erkennung
+  /// aus den Messwerten, aber nicht die manuelle Korrektur des Nutzers.
+  final Sport? sportDeclared;
+
+  /// Die aus den Daten beste Sportart, ohne manuelle Korrektur.
+  Sport get sportEffective => sportDeclared ?? sportDetected;
   final int durationSec;
   final double distanceKm;
   final int hrAvg;
@@ -213,6 +223,7 @@ class Activity {
     String? date,
     double? speedAvgKmh,
     double? stoppedShare,
+    Sport? sportDeclared,
   }) =>
       Activity(
         id: id ?? this.id,
@@ -220,6 +231,7 @@ class Activity {
         timeOfDay: timeOfDay,
         sportDetected: sportDetected,
         sportConfidence: sportConfidence,
+        sportDeclared: sportDeclared ?? this.sportDeclared,
         durationSec: durationSec,
         distanceKm: distanceKm,
         hrAvg: hrAvg,
@@ -242,6 +254,7 @@ class Activity {
         'time': timeOfDay,
         'sport': sportDetected.name,
         'conf': sportConfidence,
+        if (sportDeclared != null) 'sportDecl': sportDeclared!.name,
         'dur': durationSec,
         'km': distanceKm,
         'hrAvg': hrAvg,
@@ -267,6 +280,12 @@ class Activity {
           orElse: () => Sport.unknown,
         ),
         sportConfidence: (j['conf'] as num?)?.toDouble() ?? 0,
+        sportDeclared: j['sportDecl'] == null
+            ? null
+            : Sport.values.firstWhere(
+                (s) => s.name == j['sportDecl'],
+                orElse: () => Sport.unknown,
+              ),
         durationSec: (j['dur'] as num?)?.toInt() ?? 0,
         distanceKm: (j['km'] as num?)?.toDouble() ?? 0,
         hrAvg: (j['hrAvg'] as num?)?.toInt() ?? 0,
