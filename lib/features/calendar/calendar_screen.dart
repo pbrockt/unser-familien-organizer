@@ -23,6 +23,11 @@ import 'event_providers.dart';
 /// Anzeigemodus des Kalenders.
 enum _CalView { month, day }
 
+/// Rahmenfarbe für Tage mit erreichtem Schritteziel. Bewusst ein eigener, gedämpfter
+/// Blauton statt der Akzentfarbe: die wechselt mit dem Farbmischer und würde sonst mal
+/// unsichtbar, mal schreiend ausfallen.
+const Color _zielRahmen = Color(0xFF4A90D9);
+
 /// Kalender-Bereich (VEVENT per CalDAV): Monatsansicht mit Event-Markern
 /// und einer Tagesliste der Termine des gewählten Tages, plus Tagesansicht
 /// mit Stundenraster.
@@ -512,6 +517,11 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
           decoration: BoxDecoration(
             color: bg,
             borderRadius: BorderRadius.circular(8),
+            // Dezenter Rahmen an Tagen mit erreichtem Schritteziel — zusammen mit dem
+            // Turnschuh unten links auch aus der Distanz erkennbar.
+            border: zielErreicht
+                ? Border.all(color: _zielRahmen, width: 1.4)
+                : null,
           ),
           child: Text('${day.day}', style: TextStyle(color: fg)),
         ),

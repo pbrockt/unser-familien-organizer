@@ -513,7 +513,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                 _panel(
                   value: 'sport',
                   icon: Icons.directions_bike_outlined,
-                  title: 'Sport',
+                  title: 'Fitness',
                   children: fitnessSettingsTiles(context, ref),
                 ),
 

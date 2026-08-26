@@ -8,6 +8,7 @@ import 'fitness_models.dart';
 import 'fitness_providers.dart';
 import 'fitness_repository.dart';
 import 'fitness_settings.dart';
+import 'fitness_widgets.dart';
 import 'fitness_training_tab.dart';
 
 /// Ein Tag mit allem, was an ihm passiert ist.
@@ -60,7 +61,7 @@ class FitnessScreen extends ConsumerWidget {
       length: 2,
       child: Scaffold(
       appBar: AppBar(
-        title: const Text('Sport'),
+        title: const Text('Fitness'),
         bottom: const TabBar(
           tabs: [
             Tab(text: 'Übersicht'),
@@ -94,7 +95,7 @@ class FitnessScreen extends ConsumerWidget {
         data: (data) {
           if (folder.isEmpty) {
             return const _Hinweis(
-              'Noch kein Datenordner gewählt. In den Einstellungen unter „Sport" den Ordner '
+              'Noch kein Datenordner gewählt. In den Einstellungen unter „Fitness" den Ordner '
               'in deiner Nextcloud auswählen, in dem die Trainings- und Gesundheitsdateien '
               'liegen.',
             );
@@ -161,13 +162,25 @@ class _StepsCard extends StatelessWidget {
         : withSteps;
     final erreicht = recent.where((d) => (d.health!.steps ?? 0) >= goal).length;
 
+    // Steht für heute noch nichts fest, kommt ein gestrichelter Platzhalter ans Ende.
+    // Sonst wirkt der letzte gefüllte Balken wie „heute" — und ein guter Tag von
+    // vorgestern sieht aus wie gestern.
+    final now = DateTime.now();
+    final heute = '${now.year.toString().padLeft(4, '0')}-'
+        '${now.month.toString().padLeft(2, '0')}-'
+        '${now.day.toString().padLeft(2, '0')}';
+    final heuteFehlt = !recent.any((d) => d.date == heute);
+
     return _Card(
       title: 'Schritte pro Tag',
-      subtitle: '$erreicht von ${recent.length} Tagen über $goal',
+      subtitle: '$erreicht von ${recent.length} Tagen über $goal'
+          '${heuteFehlt ? ' · heute noch offen' : ''}',
       child: FitnessBarChart(
         values: [
           for (final d in recent)
             ChartValue(_kurzDatum(d.date), (d.health!.steps ?? 0).toDouble()),
+          if (heuteFehlt)
+            ChartValue(_kurzDatum(heute), goal.toDouble(), pending: true),
         ],
         goal: goal.toDouble(),
       ),
@@ -194,7 +207,7 @@ class _SleepCard extends StatelessWidget {
             .reduce((a, b) => a + b) /
         recent.length;
 
-    return _Card(
+    return FitnessExpandableCard(
       title: 'Schlaf pro Nacht',
       subtitle: 'Ø ${schnitt.toStringAsFixed(1)} h · Ziellinie bei 7 h',
       child: FitnessBarChart(

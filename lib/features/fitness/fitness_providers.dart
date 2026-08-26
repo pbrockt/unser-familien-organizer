@@ -173,7 +173,7 @@ class WeightController extends AsyncNotifier<List<WeightEntry>> {
 
 /// Die Serie erreichter Schritteziele.
 ///
-/// Liefert bei abgeschaltetem Sport-Bereich eine leere Serie — Startseite und Kalender
+/// Liefert bei abgeschaltetem Fitness-Bereich eine leere Serie — Startseite und Kalender
 /// fragen den Provider bedingungslos ab und sollen dann schlicht nichts anzeigen.
 final stepStreakProvider = Provider<StepStreak>((ref) {
   final enabled = ref.watch(fitnessEnabledProvider).value ?? false;

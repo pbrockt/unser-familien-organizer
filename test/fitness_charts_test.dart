@@ -74,6 +74,25 @@ void main() {
       expect(find.text('03.08'), findsOneWidget);
     });
 
+    testWidgets('zeichnet den Platzhalter für heute gestrichelt', (tester) async {
+      // Der letzte Balken darf nicht wie ein erreichter Tag aussehen, solange für
+      // heute noch keine Daten vorliegen.
+      await tester.pumpWidget(_rahmen(
+        const FitnessBarChart(
+          values: [
+            ChartValue('24.08', 8200),
+            ChartValue('25.08', 9400),
+            ChartValue('26.08', 8000, pending: true),
+          ],
+          goal: 8000,
+        ),
+      ));
+      expect(tester.takeException(), isNull);
+      expect(_leinwand(), findsWidgets);
+      expect(find.text('26.08'), findsOneWidget,
+          reason: 'Heute muss an der Achse auftauchen');
+    });
+
     testWidgets('bleibt bei leeren Werten leer', (tester) async {
       await tester.pumpWidget(_rahmen(const FitnessBarChart(values: [])));
       expect(tester.takeException(), isNull);

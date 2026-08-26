@@ -44,7 +44,7 @@ class _AppShellState extends ConsumerState<AppShell> {
 
   /// Anzeige-Ziele der Navigation.
   ///
-  /// „Sport" erscheint nur, wenn der Bereich in den Einstellungen aktiviert ist. Die Zahl
+  /// „Fitness" erscheint nur, wenn der Bereich in den Einstellungen aktiviert ist. Die Zahl
   /// der Plätze ist damit nicht mehr konstant — deshalb leiten sich Indizes, Zuordnungen
   /// und die Position des Listen-Pfeils aus dieser Liste ab statt aus festen Zahlen.
   /// „+" bleibt immer letzter Eintrag; darauf verlassen sich Bottom-Bar und Rail.
@@ -520,7 +520,7 @@ class _AppShellState extends ConsumerState<AppShell> {
     _Nav.kalender => 'Kalender',
     _Nav.liste => 'Liste',
     _Nav.schule => 'Schule',
-    _Nav.sport => 'Sport',
+    _Nav.sport => 'Fitness',
     _Nav.plus => 'Neu',
   };
 

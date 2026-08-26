@@ -2,9 +2,18 @@ import 'package:flutter/material.dart';
 
 /// Ein Wert im Diagramm. [label] erscheint nur an den Achsenenden.
 class ChartValue {
-  const ChartValue(this.label, this.value);
+  const ChartValue(this.label, this.value, {this.pending = false});
+
   final String label;
   final double value;
+
+  /// Platzhalter für einen Tag, für den noch keine Daten vorliegen — wird gestrichelt
+  /// gezeichnet statt gefüllt.
+  ///
+  /// Ohne ihn wirkt der letzte gefüllte Balken wie „heute", obwohl er der letzte Tag
+  /// *mit Daten* ist. Genau da entsteht der falsche Eindruck, der gute Tag sei gestern
+  /// gewesen.
+  final bool pending;
 }
 
 /// Balkendiagramm mit optionaler Ziellinie.
@@ -90,14 +99,22 @@ class _BarPainter extends CustomPainter {
     final barWidth = slot * 0.62;
 
     for (var i = 0; i < values.length; i++) {
-      final v = values[i].value;
+      final wert = values[i];
+      final v = wert.value;
       if (v <= 0) continue;
       final h = (v / maxValue) * size.height;
-      final reached = goal == null || v >= goal!;
       final rect = RRect.fromRectAndRadius(
         Rect.fromLTWH(i * slot + (slot - barWidth) / 2, size.height - h, barWidth, h),
         const Radius.circular(3),
       );
+
+      if (wert.pending) {
+        // Nur Umriss, gestrichelt: hier steht noch nichts fest.
+        _dashedRRect(canvas, rect, goalColor);
+        continue;
+      }
+
+      final reached = goal == null || v >= goal!;
       canvas.drawRRect(rect, Paint()..color = reached ? barColor : barBelowColor);
     }
 
@@ -261,6 +278,24 @@ class _LinePainter extends CustomPainter {
       old.smoothed != smoothed ||
       old.goal != goal ||
       old.minSpan != minSpan;
+}
+
+/// Gestrichelter Umriss eines Balkens.
+void _dashedRRect(Canvas canvas, RRect rect, Color color) {
+  final paint = Paint()
+    ..color = color.withValues(alpha: 0.75)
+    ..style = PaintingStyle.stroke
+    ..strokeWidth = 1.3;
+
+  final pfad = Path()..addRRect(rect);
+  for (final metric in pfad.computeMetrics()) {
+    var abstand = 0.0;
+    while (abstand < metric.length) {
+      final bis = (abstand + 4).clamp(0.0, metric.length);
+      canvas.drawPath(metric.extractPath(abstand, bis), paint);
+      abstand += 7;
+    }
+  }
 }
 
 double _perzentil(List<double> sortiert, double anteil) {

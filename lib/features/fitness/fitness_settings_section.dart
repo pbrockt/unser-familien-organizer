@@ -8,7 +8,7 @@ import 'fitness_repository.dart';
 import 'fitness_settings.dart';
 import 'fitness_webdav.dart';
 
-/// Die Einträge des Sport-Bereichs für den Einstellungs-Bildschirm.
+/// Die Einträge des Fitness-Bereichs für den Einstellungs-Bildschirm.
 ///
 /// Bewusst als Liste und nicht als eigener Bildschirm: so fügt es sich in das vorhandene
 /// Aufklapp-Panel ein, ohne dessen Aufbau anzufassen.
@@ -25,9 +25,9 @@ List<Widget> fitnessSettingsTiles(BuildContext context, WidgetRef ref) {
   return [
     SwitchListTile(
       secondary: const Icon(Icons.directions_bike_outlined),
-      title: const Text('Sport-Bereich'),
+      title: const Text('Fitness-Bereich'),
       subtitle: const Text(
-        'Blendet „Sport" in der Navigation ein: Trainings, Schritte und Schlaf',
+        'Blendet „Fitness" in der Navigation ein: Trainings, Schritte und Schlaf',
       ),
       value: enabled,
       onChanged: (v) => ref.read(fitnessEnabledProvider.notifier).set(v),

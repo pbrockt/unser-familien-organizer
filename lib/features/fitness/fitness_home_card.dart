@@ -5,9 +5,9 @@ import 'package:go_router/go_router.dart';
 import 'fitness_providers.dart';
 import 'fitness_settings.dart';
 
-/// Kompakte Sport-Karte für die Startseite: heutige Schritte und die laufende Serie.
+/// Kompakte Fitness-Karte für die Startseite: heutige Schritte und die laufende Serie.
 ///
-/// Zeigt sich nur, wenn der Sport-Bereich aktiviert ist und Daten vorliegen — sonst gäbe
+/// Zeigt sich nur, wenn der Fitness-Bereich aktiviert ist und Daten vorliegen — sonst gäbe
 /// es auf der Startseite der ganzen Familie einen leeren Platzhalter.
 class FitnessHomeCard extends ConsumerWidget {
   const FitnessHomeCard({super.key});

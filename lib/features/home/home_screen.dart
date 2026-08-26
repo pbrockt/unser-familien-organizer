@@ -21,6 +21,7 @@ import '../calendar/event_editor_sheet.dart';
 import '../calendar/event_providers.dart';
 import '../family/family_screen.dart';
 import '../fitness/fitness_home_card.dart';
+import '../fitness/fitness_providers.dart';
 import '../members/member_settings.dart';
 import '../members/user_groups.dart';
 import '../settings/theme_provider.dart';
@@ -28,6 +29,10 @@ import '../weather/weather_service.dart';
 import '../tasks/task_item.dart';
 import '../tasks/task_providers.dart';
 import 'dashboard_providers.dart';
+
+/// Rahmenfarbe für Tage mit erreichtem Schritteziel — derselbe Ton wie im
+/// Kalender-Reiter, bewusst unabhängig von der wählbaren Akzentfarbe.
+const Color zielRahmenFarbe = Color(0xFF4A90D9);
 
 List<BoxShadow> _softShadow(BuildContext context) {
   final dark = Theme.of(context).brightness == Brightness.dark;
@@ -160,6 +165,7 @@ class HomeScreen extends ConsumerWidget {
                           ref.watch(accentColorProvider).value ??
                           Theme.of(context).colorScheme.primary,
                       onTapDay: openDay,
+                      schrittZiel: ref.watch(stepGoalDatesProvider),
                     ),
                     const FitnessHomeCard(),
                     const _SectionLabel('Anstehende Termine'),
@@ -487,6 +493,7 @@ class _TwoWeekCalendar extends StatelessWidget {
     required this.weather,
     required this.accent,
     required this.onTapDay,
+    this.schrittZiel = const {},
   });
   final DateTime today;
   final List<CalendarEvent> events;
@@ -494,6 +501,9 @@ class _TwoWeekCalendar extends StatelessWidget {
   final Map<String, DayWeather> weather;
   final Color accent;
   final void Function(DateTime day) onTapDay;
+
+  /// Tage mit erreichtem Schritteziel (yyyy-MM-dd).
+  final Set<String> schrittZiel;
 
   @override
   Widget build(BuildContext context) {
@@ -510,6 +520,8 @@ class _TwoWeekCalendar extends StatelessWidget {
           day.month == today.month &&
           day.day == today.day;
       final isPast = day.isBefore(today);
+      final zielErreicht =
+          schrittZiel.contains(DateFormat('yyyy-MM-dd').format(day));
       final dayEvents = events.where((e) => e.occursOn(day)).toList();
       return Expanded(
         child: GestureDetector(
@@ -535,6 +547,11 @@ class _TwoWeekCalendar extends StatelessWidget {
                               ? scheme.primary
                               : scheme.primary.withValues(alpha: 0.035),
                           borderRadius: BorderRadius.circular(8),
+                          // Schritteziel erreicht: gleicher Rahmen wie im
+                          // Kalender-Reiter.
+                          border: zielErreicht
+                              ? Border.all(color: zielRahmenFarbe, width: 1.4)
+                              : null,
                         ),
                         child: Text(
                           '${day.day}',
@@ -561,6 +578,12 @@ class _TwoWeekCalendar extends StatelessWidget {
                             size: 12,
                             color: accent.withValues(alpha: 0.7),
                           ),
+                        ),
+                      if (zielErreicht)
+                        const Positioned(
+                          bottom: -1,
+                          left: 0,
+                          child: Text('👟', style: TextStyle(fontSize: 9)),
                         ),
                     ],
                   ),

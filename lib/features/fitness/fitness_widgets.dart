@@ -42,6 +42,43 @@ class FitnessCard extends StatelessWidget {
   }
 }
 
+/// Karte, die eingeklappt startet — für Blöcke, die man selten braucht.
+class FitnessExpandableCard extends StatelessWidget {
+  const FitnessExpandableCard({
+    super.key,
+    required this.title,
+    this.subtitle,
+    required this.child,
+  });
+
+  final String title;
+  final String? subtitle;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      margin: const EdgeInsets.only(bottom: 12),
+      child: ExpansionTile(
+        shape: const Border(),
+        collapsedShape: const Border(),
+        tilePadding: const EdgeInsets.symmetric(horizontal: 14),
+        childrenPadding: const EdgeInsets.fromLTRB(14, 0, 14, 14),
+        title: Text(title, style: Theme.of(context).textTheme.titleSmall),
+        subtitle: subtitle == null
+            ? null
+            : Text(
+                subtitle!,
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                    ),
+              ),
+        children: [child],
+      ),
+    );
+  }
+}
+
 /// Beschriftete Werte im Fluss — passt sich der Breite an, statt in ein starres
 /// Raster zu zwingen.
 class FitnessValueGrid extends StatelessWidget {

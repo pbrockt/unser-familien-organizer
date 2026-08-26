@@ -3,7 +3,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'fitness_models.dart';
 
-/// Schaltet den Sport-Bereich frei. Aus, solange nichts eingerichtet ist — der
+/// Schaltet den Fitness-Bereich frei. Aus, solange nichts eingerichtet ist — der
 /// Familienplaner soll für alle anderen unverändert aussehen.
 final fitnessEnabledProvider =
     AsyncNotifierProvider<FitnessEnabledController, bool>(
