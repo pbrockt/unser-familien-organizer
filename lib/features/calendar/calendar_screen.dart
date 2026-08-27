@@ -11,6 +11,8 @@ import '../members/member_settings.dart';
 import '../search/search_screen.dart';
 import '../settings/theme_provider.dart';
 import '../fitness/fitness_providers.dart';
+import '../fitness/fitness_week_list.dart';
+import '../fitness/fitness_weekly.dart';
 import '../weather/weather_service.dart';
 import 'birthdays.dart';
 import 'calendar_event.dart';
@@ -551,6 +553,20 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
     final eventsAsync = ref.watch(eventsControllerProvider);
     final eventsByDay = ref.watch(eventsByDayProvider);
     final schrittZiel = ref.watch(stepGoalDatesProvider);
+    final wochenStufen = ref.watch(completedWeekLevelsProvider);
+    // weekNumberBuilder liefert nur die Nummer, kein Datum. Wochennummern wiederholen
+    // sich jährlich, deshalb wird nur der gerade sichtbare Bereich zugeordnet — dort
+    // ist jede Nummer eindeutig.
+    final sichtbareWochen = <int, WeeklyLevel>{
+      for (final e in wochenStufen.entries)
+        if (!e.key.isBefore(
+              DateTime(_focusedDay.year, _focusedDay.month - 1, 20),
+            ) &&
+            !e.key.isAfter(
+              DateTime(_focusedDay.year, _focusedDay.month + 1, 10),
+            ))
+          isoWeekNumber(e.key): e.value,
+    };
     final eventCalendars = ref
         .watch(membersProvider)
         .where((m) => m.supportsEvents)
@@ -791,6 +807,47 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
                               ),
                             ),
                             calendarBuilders: CalendarBuilders<CalendarEvent>(
+                              // Kalenderwoche in der Ampelfarbe, sobald die Woche
+                              // vorbei ist — so lässt sich nachträglich ablesen, ob
+                              // das Radziel gereicht hat.
+                              weekNumberBuilder: (context, nr) {
+                                final stufe = sichtbareWochen[nr];
+                                final dunkel = Theme.of(context).brightness ==
+                                    Brightness.dark;
+                                if (stufe == null) {
+                                  return Center(
+                                    child: Text(
+                                      '$nr',
+                                      style: TextStyle(
+                                        fontSize: 12,
+                                        color: Theme.of(context)
+                                            .colorScheme
+                                            .onSurfaceVariant,
+                                      ),
+                                    ),
+                                  );
+                                }
+                                return Center(
+                                  child: Container(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 4,
+                                      vertical: 2,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: WeeklyColors.fill(stufe, dunkel),
+                                      borderRadius: BorderRadius.circular(5),
+                                    ),
+                                    child: Text(
+                                      '$nr',
+                                      style: TextStyle(
+                                        fontSize: 11,
+                                        fontWeight: FontWeight.w700,
+                                        color: WeeklyColors.ink(stufe, dunkel),
+                                      ),
+                                    ),
+                                  ),
+                                );
+                              },
                               defaultBuilder: (context, day, _) =>
                                   _monthDayCell(
                                     day,

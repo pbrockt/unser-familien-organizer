@@ -9,12 +9,37 @@ import 'fitness_providers.dart';
 import 'fitness_settings.dart';
 import 'fitness_weekly.dart';
 
-/// Radminuten der laufenden Woche als Ampel — nach links wischbar zu den drei Wochen
-/// davor.
+/// Ampelfarben für die Wochenbewertung, gedämpft.
 ///
-/// Bewusst eine Karte statt einer Liste: Die Frage „reicht meine Woche?" beantwortet
-/// sich am besten mit **einer** großen Zahl. Der Rückblick soll möglich sein, aber nicht
-/// dauernd Platz belegen.
+/// Kräftige Signalfarben wären auf einer Familien-Startseite zu laut — und im
+/// Dunkelmodus würde es blenden. Dieselben Töne verwendet auch die Kalenderwoche im
+/// Kalender, damit man den Zusammenhang erkennt.
+class WeeklyColors {
+  const WeeklyColors._();
+
+  static Color fill(WeeklyLevel stufe, bool dunkel) => switch (stufe) {
+        WeeklyLevel.zuWenig =>
+          dunkel ? const Color(0xFF4A2321) : const Color(0xFFF8DAD6),
+        WeeklyLevel.fastGeschafft =>
+          dunkel ? const Color(0xFF4A3F1D) : const Color(0xFFF8EDCD),
+        WeeklyLevel.geschafft =>
+          dunkel ? const Color(0xFF22422A) : const Color(0xFFD6EEDC),
+      };
+
+  static Color ink(WeeklyLevel stufe, bool dunkel) {
+    if (dunkel) return const Color(0xFFEDEFEA);
+    return switch (stufe) {
+      WeeklyLevel.zuWenig => const Color(0xFF7A2A22),
+      WeeklyLevel.fastGeschafft => const Color(0xFF6B551A),
+      WeeklyLevel.geschafft => const Color(0xFF23582F),
+    };
+  }
+}
+
+/// Radminuten der Woche als Kachel im Überblick — Kalenderwoche und Tages-Kästchen
+/// tragen die Farbe, der Rest der Karte bleibt neutral wie die Nachbarkacheln.
+///
+/// Wischbar: links die vergangene Woche, rechts die kommende.
 class FitnessWeekList extends ConsumerStatefulWidget {
   const FitnessWeekList({super.key});
 
@@ -23,13 +48,11 @@ class FitnessWeekList extends ConsumerStatefulWidget {
 }
 
 class _FitnessWeekListState extends ConsumerState<FitnessWeekList> {
-  static const _anzahl = 4; // laufende Woche + drei davor
+  // Seite 1 ist die laufende Woche: links davon die vergangene, rechts die kommende.
+  static const _startseite = 1;
 
-  // Seite 3 ist die laufende Woche: nach links wischen geht in die Vergangenheit,
-  // also müssen die älteren Wochen links davon liegen.
-  late final PageController _pager =
-      PageController(initialPage: _anzahl - 1);
-  int _seite = _anzahl - 1;
+  late final PageController _pager = PageController(initialPage: _startseite);
+  int _seite = _startseite;
 
   @override
   void dispose() {
@@ -48,32 +71,37 @@ class _FitnessWeekListState extends ConsumerState<FitnessWeekList> {
     final overrides = ref.watch(fitnessOverridesProvider).value;
     Sport sportOf(Activity a) => overrides?.sports[a.id] ?? a.sportEffective;
 
-    // cyclingWeeks liefert neueste zuerst; für das Wischen wird umgedreht, damit
-    // links „älter" bedeutet.
-    final wochen =
-        cyclingWeeks(data.activities, sportOf, DateTime.now(), weeks: _anzahl)
-            .reversed
-            .toList();
+    final wochen = cyclingWeeks(data.activities, sportOf, DateTime.now());
     if (wochen.every((w) => w.rides == 0)) return const SizedBox.shrink();
 
-    final dunkel = Theme.of(context).brightness == Brightness.dark;
-
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 4, 16, 4),
-      child: Card(
-        clipBehavior: Clip.antiAlias,
+      padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+      child: Container(
+        padding: const EdgeInsets.all(10),
+        decoration: BoxDecoration(
+          color: Theme.of(context).cardColor,
+          borderRadius: BorderRadius.circular(16),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(
+                alpha: Theme.of(context).brightness == Brightness.dark ? 0.25 : 0.08,
+              ),
+              blurRadius: 16,
+              offset: const Offset(0, 6),
+            ),
+          ],
+        ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             SizedBox(
-              height: 116,
+              height: 74,
               child: PageView.builder(
                 controller: _pager,
                 itemCount: wochen.length,
                 onPageChanged: (i) => setState(() => _seite = i),
-                itemBuilder: (context, i) => _WochenKarte(
+                itemBuilder: (context, i) => _Wochenkachel(
                   woche: wochen[i],
-                  dunkel: dunkel,
                   onTap: () => context.go('/fitness'),
                 ),
               ),
@@ -86,134 +114,168 @@ class _FitnessWeekListState extends ConsumerState<FitnessWeekList> {
   }
 }
 
-class _WochenKarte extends StatelessWidget {
-  const _WochenKarte({
-    required this.woche,
-    required this.dunkel,
-    required this.onTap,
-  });
+class _Wochenkachel extends StatelessWidget {
+  const _Wochenkachel({required this.woche, required this.onTap});
 
   final CyclingWeek woche;
-  final bool dunkel;
   final VoidCallback onTap;
+
+  static const _kuerzel = ['M', 'D', 'M', 'D', 'F', 'S', 'S'];
 
   @override
   Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final dunkel = Theme.of(context).brightness == Brightness.dark;
     final stufe = weeklyLevel(woche.minutes);
-    final farbe = _hintergrund(stufe, dunkel);
-    final text = _schrift(stufe, dunkel);
-    final zeitraum = '${DateFormat('dd.MM.').format(woche.monday)}'
-        '–${DateFormat('dd.MM.').format(woche.sunday)}';
+    final fuellung = WeeklyColors.fill(stufe, dunkel);
+    final schrift = WeeklyColors.ink(stufe, dunkel);
 
-    return InkWell(
+    // Künftige Wochen sind nicht bewertbar — dort bleibt alles neutral.
+    final neutral = woche.isFuture;
+
+    return GestureDetector(
       onTap: onTap,
-      child: Container(
-        color: farbe,
-        padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Row(
-              children: [
-                Expanded(
-                  child: Text(
-                    woche.isCurrent ? 'Diese Woche' : zeitraum,
+      behavior: HitTestBehavior.opaque,
+      child: Row(
+        children: [
+          // Kalenderwoche trägt die Farbe: so ist sie auch nachträglich ablesbar.
+          Container(
+            width: 40,
+            height: 40,
+            decoration: BoxDecoration(
+              color: neutral ? scheme.primary.withValues(alpha: 0.10) : fuellung,
+              borderRadius: BorderRadius.circular(11),
+            ),
+            child: Center(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    'KW',
                     style: TextStyle(
-                      color: text,
-                      fontSize: 13,
-                      fontWeight: FontWeight.w600,
+                      fontSize: 8.5,
+                      height: 1.1,
+                      color: (neutral ? scheme.onSurfaceVariant : schrift)
+                          .withValues(alpha: 0.8),
                     ),
                   ),
-                ),
-                Text(
-                  _urteil(stufe, woche.isCurrent),
-                  style: TextStyle(
-                    color: text.withValues(alpha: 0.85),
-                    fontSize: 11.5,
+                  Text(
+                    '${woche.weekNumber}',
+                    style: TextStyle(
+                      fontSize: 15,
+                      height: 1.1,
+                      fontWeight: FontWeight.w700,
+                      color: neutral ? scheme.onSurfaceVariant : schrift,
+                    ),
                   ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 4),
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.baseline,
-              textBaseline: TextBaseline.alphabetic,
-              children: [
-                Text(
-                  '${woche.minutes}',
-                  style: TextStyle(
-                    color: text,
-                    fontSize: 40,
-                    fontWeight: FontWeight.w700,
-                    height: 1.05,
-                  ),
-                ),
-                const SizedBox(width: 5),
-                Text(
-                  'von 140 min',
-                  style: TextStyle(color: text.withValues(alpha: 0.8), fontSize: 13),
-                ),
-              ],
-            ),
-            const SizedBox(height: 6),
-            ClipRRect(
-              borderRadius: BorderRadius.circular(3),
-              child: LinearProgressIndicator(
-                value: (woche.minutes / 140).clamp(0.0, 1.0),
-                minHeight: 5,
-                backgroundColor: text.withValues(alpha: 0.18),
-                valueColor: AlwaysStoppedAnimation(text.withValues(alpha: 0.75)),
+                ],
               ),
             ),
-            const SizedBox(height: 5),
-            Text(
-              woche.rides == 0
-                  ? 'keine Fahrt'
-                  : '${woche.rides} ${woche.rides == 1 ? 'Fahrt' : 'Fahrten'} · '
-                      '${woche.km.toStringAsFixed(1)} km',
-              style: TextStyle(color: text.withValues(alpha: 0.75), fontSize: 11.5),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        _titel(),
+                        style: Theme.of(context).textTheme.titleSmall,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                    Text(
+                      neutral ? 'geplant' : '${woche.minutes} / 140 min',
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                            color: scheme.onSurfaceVariant,
+                          ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 6),
+                Row(
+                  children: [
+                    for (var i = 0; i < 7; i++) ...[
+                      if (i > 0) const SizedBox(width: 3),
+                      Expanded(
+                        child: _Tageskaestchen(
+                          kuerzel: _kuerzel[i],
+                          minuten: woche.dailyMinutes[i],
+                          fuellung: fuellung,
+                          schrift: schrift,
+                          neutral: neutral,
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ],
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
 
-  /// Die laufende Woche ist ein Zwischenstand — sie zu bewerten wäre am Montag unfair.
-  String _urteil(WeeklyLevel stufe, bool laufend) {
-    if (laufend) {
-      return switch (stufe) {
-        WeeklyLevel.geschafft => 'geschafft 🎉',
-        WeeklyLevel.fastGeschafft => 'fast da',
-        WeeklyLevel.zuWenig => 'läuft noch',
-      };
-    }
+  String _titel() {
+    if (woche.isCurrent) return 'Diese Woche';
+    if (woche.isFuture) return 'Nächste Woche';
+    final stufe = weeklyLevel(woche.minutes);
+    final zeitraum = '${DateFormat('dd.MM.').format(woche.monday)}'
+        '–${DateFormat('dd.MM.').format(woche.sunday)}';
     return switch (stufe) {
-      WeeklyLevel.geschafft => 'geschafft 🎉',
-      WeeklyLevel.fastGeschafft => 'knapp dran',
-      WeeklyLevel.zuWenig => 'zu wenig',
+      WeeklyLevel.geschafft => 'Letzte Woche geschafft 🎉',
+      WeeklyLevel.fastGeschafft => 'Letzte Woche knapp · $zeitraum',
+      WeeklyLevel.zuWenig => 'Letzte Woche · $zeitraum',
     };
   }
+}
 
-  /// Gedämpfte Ampelfarben. Kräftige Signalfarben wären auf einer Familien-Startseite
-  /// zu laut — und im Dunkelmodus würde es blenden.
-  Color _hintergrund(WeeklyLevel stufe, bool dunkel) => switch (stufe) {
-        WeeklyLevel.zuWenig =>
-          dunkel ? const Color(0xFF43201F) : const Color(0xFFFBE3E0),
-        WeeklyLevel.fastGeschafft =>
-          dunkel ? const Color(0xFF43391B) : const Color(0xFFFBF1D6),
-        WeeklyLevel.geschafft =>
-          dunkel ? const Color(0xFF1F3A26) : const Color(0xFFDFF2E3),
-      };
+/// Ein Tag der Woche. Trägt Minuten, wenn gefahren wurde — sonst nur den Buchstaben.
+class _Tageskaestchen extends StatelessWidget {
+  const _Tageskaestchen({
+    required this.kuerzel,
+    required this.minuten,
+    required this.fuellung,
+    required this.schrift,
+    required this.neutral,
+  });
 
-  Color _schrift(WeeklyLevel stufe, bool dunkel) {
-    if (dunkel) return const Color(0xFFEDEFEA);
-    return switch (stufe) {
-      WeeklyLevel.zuWenig => const Color(0xFF7A2A22),
-      WeeklyLevel.fastGeschafft => const Color(0xFF6B551A),
-      WeeklyLevel.geschafft => const Color(0xFF23582F),
-    };
+  final String kuerzel;
+  final int minuten;
+  final Color fuellung;
+  final Color schrift;
+  final bool neutral;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final gefahren = minuten > 0;
+
+    return Container(
+      height: 22,
+      alignment: Alignment.center,
+      decoration: BoxDecoration(
+        color: gefahren && !neutral
+            ? fuellung
+            : scheme.onSurface.withValues(alpha: 0.05),
+        borderRadius: BorderRadius.circular(5),
+      ),
+      child: Text(
+        gefahren ? '$minuten' : kuerzel,
+        style: TextStyle(
+          fontSize: gefahren ? 10.5 : 10,
+          fontWeight: gefahren ? FontWeight.w700 : FontWeight.w400,
+          color: gefahren && !neutral
+              ? schrift
+              : scheme.onSurfaceVariant.withValues(alpha: 0.6),
+        ),
+      ),
+    );
   }
 }
 
@@ -229,14 +291,14 @@ class _Punkte extends StatelessWidget {
   Widget build(BuildContext context) {
     final farbe = Theme.of(context).colorScheme.onSurfaceVariant;
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 7),
+      padding: const EdgeInsets.only(top: 6),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           for (var i = 0; i < anzahl; i++)
             Container(
-              width: 6,
-              height: 6,
+              width: 5,
+              height: 5,
               margin: const EdgeInsets.symmetric(horizontal: 3),
               decoration: BoxDecoration(
                 shape: BoxShape.circle,

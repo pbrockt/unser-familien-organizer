@@ -8,7 +8,9 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../core/auth/account_providers.dart';
 import 'fitness_models.dart';
+import 'fitness_overrides.dart';
 import 'fitness_streak.dart';
+import 'fitness_weekly.dart';
 import 'fitness_repository.dart';
 import 'fitness_settings.dart';
 
@@ -221,6 +223,23 @@ final stepStreakProvider = Provider<StepStreak>((ref) {
 
   final goal = ref.watch(fitnessStepGoalProvider).value ?? 8000;
   return computeStepStreak(data.healthDays, goal, DateTime.now());
+});
+
+/// Bewertung je abgeschlossener Radwoche, abgelegt nach dem Montag der Woche.
+///
+/// Für die Einfärbung der Kalenderwochen. Nur abgeschlossene Wochen: die laufende ist
+/// noch nicht entschieden, eine künftige erst recht nicht.
+final completedWeekLevelsProvider = Provider<Map<DateTime, WeeklyLevel>>((ref) {
+  final enabled = ref.watch(fitnessEnabledProvider).value ?? false;
+  if (!enabled) return const {};
+
+  final data = ref.watch(fitnessDataProvider).value;
+  if (data == null || data.activities.isEmpty) return const {};
+
+  final overrides = ref.watch(fitnessOverridesProvider).value;
+  Sport sportOf(Activity a) => overrides?.sports[a.id] ?? a.sportEffective;
+
+  return completedWeekLevels(data.activities, sportOf, DateTime.now());
 });
 
 /// Alle Tage mit erreichtem Schritteziel — für die Markierung im Kalender.
