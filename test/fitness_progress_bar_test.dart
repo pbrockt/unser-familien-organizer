@@ -32,8 +32,44 @@ Future<Size> balkenGroesse(
   return tester.getSize(finder);
 }
 
+/// Größe der **gefärbten Fläche**, nicht des Behälters.
+///
+/// Der Unterschied ist der ganze Punkt: Die Row ringsum hat eine feste Höhe, die
+/// ColoredBox darin kann trotzdem null Pixel hoch sein — und genau so war der Balken
+/// unsichtbar, während der Test grün blieb.
+Size gefaerbteFlaeche(WidgetTester tester) {
+  final finder = find.descendant(
+    of: find.byKey(FitnessProgressBar.fillKey),
+    matching: find.byType(ColoredBox),
+  );
+  if (finder.evaluate().isEmpty) return Size.zero;
+  return tester.getSize(finder.first);
+}
+
 void main() {
   group('Fortschrittsbalken', () {
+    testWidgets('die gefärbte Fläche hat eine Höhe', (tester) async {
+      // ColoredBox ohne Kind nimmt constraints.smallest. In einer Row mit der
+      // Standard-Ausrichtung ist die Höhenvorgabe lose — also null.
+      await balkenGroesse(tester, minuten: [60, 0, 0, 0, 0, 0, 0]);
+      final flaeche = gefaerbteFlaeche(tester);
+      expect(flaeche.height, greaterThan(0),
+          reason: 'Ohne Höhe wird nichts gezeichnet, egal welche Farbe');
+      expect(flaeche.width, greaterThan(0));
+    });
+
+    testWidgets('jeder Fahrtag-Abschnitt hat eine Höhe', (tester) async {
+      await balkenGroesse(tester, minuten: [30, 0, 30, 0, 0, 0, 0]);
+      final abschnitte = find.descendant(
+        of: find.byKey(FitnessProgressBar.fillKey),
+        matching: find.byType(ColoredBox),
+      );
+      for (var i = 0; i < abschnitte.evaluate().length; i++) {
+        expect(tester.getSize(abschnitte.at(i)).height, greaterThan(0),
+            reason: 'Abschnitt $i ist unsichtbar');
+      }
+    });
+
     testWidgets('ist bei halbem Ziel halb so breit', (tester) async {
       // 60 von 120 Minuten.
       final groesse = await balkenGroesse(tester, minuten: [60, 0, 0, 0, 0, 0, 0]);

@@ -330,6 +330,10 @@ class FitnessProgressBar extends StatelessWidget {
                   borderRadius: BorderRadius.circular(height / 2),
                   child: Row(
                     key: fillKey,
+                    // stretch, sonst bekommen die Kinder eine lose Höhenvorgabe.
+                    // Ein ColoredBox ohne Kind nimmt dann constraints.smallest —
+                    // also null Höhe, und der Balken bleibt unsichtbar.
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
                       for (var i = 0; i < 7; i++)
                         if (dailyMinutes[i] > 0) ...[

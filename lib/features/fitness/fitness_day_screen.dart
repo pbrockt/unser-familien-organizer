@@ -377,6 +377,9 @@ class _SchlafBlock extends StatelessWidget {
             child: SizedBox(
               height: 12,
               child: Row(
+                // stretch: ohne das nimmt ColoredBox (kein Kind) die kleinste Höhe,
+                // also null — der Balken wäre unsichtbar.
+                crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   for (final (wert, farbe) in [
                     (tief, scheme.primary),

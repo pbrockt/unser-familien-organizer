@@ -148,6 +148,9 @@ class FitnessZoneBar extends StatelessWidget {
           child: SizedBox(
             height: 14,
             child: Row(
+              // stretch: ohne das nimmt ColoredBox (kein Kind) die kleinste Höhe,
+              // also null — der Balken wäre unsichtbar.
+              crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 for (var i = 0; i < 4; i++)
                   if (zoneSeconds[i] > 0)

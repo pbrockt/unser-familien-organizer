@@ -1,4 +1,5 @@
 import 'package:family_planner/features/fitness/fitness_charts.dart';
+import 'package:family_planner/features/fitness/fitness_widgets.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -52,6 +53,63 @@ void main() {
       ));
       expect(tester.takeException(), isNull);
       expect(_leinwand(), findsWidgets);
+    });
+  });
+
+  group('FitnessZoneBar', () {
+    // Derselbe Fallstrick wie beim Fortschrittsbalken: ColoredBox ohne Kind nimmt in
+    // einer Row mit loser Höhenvorgabe null Pixel. Gemessen wird deshalb die gefärbte
+    // Fläche, nicht der Behälter.
+    testWidgets('jede Zone hat eine sichtbare Höhe', (tester) async {
+      await tester.pumpWidget(_rahmen(
+        const SizedBox(
+          width: 300,
+          child: FitnessZoneBar(
+            zoneSeconds: [600, 1200, 900, 300],
+            labels: ['< 120', '120–145', '145–160', '> 160'],
+          ),
+        ),
+      ));
+
+      // Auf das Widget eingegrenzt — das Gerüst ringsum bringt eigene ColoredBoxen mit.
+      final flaechen = find.descendant(
+        of: find.byType(FitnessZoneBar),
+        matching: find.byType(ColoredBox),
+      );
+      expect(flaechen.evaluate().length, 4, reason: 'Vier belegte Zonen');
+      for (var i = 0; i < 4; i++) {
+        final groesse = tester.getSize(flaechen.at(i));
+        expect(groesse.height, greaterThan(0), reason: 'Zone $i ist unsichtbar');
+        expect(groesse.width, greaterThan(0), reason: 'Zone $i ist unsichtbar');
+      }
+    });
+
+    testWidgets('breitere Zone bekommt mehr Platz', (tester) async {
+      await tester.pumpWidget(_rahmen(
+        const SizedBox(
+          width: 300,
+          child: FitnessZoneBar(
+            zoneSeconds: [600, 1200, 0, 0],
+            labels: ['< 120', '120–145', '145–160', '> 160'],
+          ),
+        ),
+      ));
+      final flaechen = find.descendant(
+        of: find.byType(FitnessZoneBar),
+        matching: find.byType(ColoredBox),
+      );
+      expect(flaechen.evaluate().length, 2, reason: 'Leere Zonen entfallen');
+      final schmal = tester.getSize(flaechen.at(0)).width;
+      final breit = tester.getSize(flaechen.at(1)).width;
+      expect(breit, closeTo(schmal * 2, 2));
+    });
+
+    testWidgets('ohne Pulsdaten steht ein Hinweis statt eines leeren Balkens',
+        (tester) async {
+      await tester.pumpWidget(_rahmen(
+        const FitnessZoneBar(zoneSeconds: [0, 0, 0, 0], labels: ['a', 'b', 'c', 'd']),
+      ));
+      expect(find.textContaining('Keine Pulsdaten'), findsOneWidget);
     });
   });
 
