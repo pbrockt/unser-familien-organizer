@@ -217,10 +217,10 @@ class _Wochenkachel extends StatelessWidget {
                   ],
                 ),
                 const SizedBox(height: 8),
-                _Fortschrittsbalken(
-                  tagesMinuten: woche.dailyMinutes,
-                  farbe: balken,
-                  neutral: neutral,
+                FitnessProgressBar(
+                  dailyMinutes: woche.dailyMinutes,
+                  color: balken,
+                  muted: neutral,
                 ),
               ],
             ),
@@ -253,73 +253,95 @@ class _Wochenkachel extends StatelessWidget {
 ///
 /// Unterteilt nach Fahrtagen: So ist zu sehen, ob die Minuten aus einer langen Runde
 /// stammen oder aus mehreren kurzen — die reine Summe verschweigt das.
-class _Fortschrittsbalken extends StatelessWidget {
-  const _Fortschrittsbalken({
-    required this.tagesMinuten,
-    required this.farbe,
-    required this.neutral,
+/// Balken, der sich von links nach rechts füllt.
+///
+/// Unterteilt nach Fahrtagen: So ist zu sehen, ob die Minuten aus einer langen Runde
+/// stammen oder aus mehreren kurzen — die reine Summe verschweigt das.
+///
+/// Öffentlich, damit sich die tatsächlich gezeichnete Breite testen lässt. Ein Balken,
+/// der aus Layout-Gründen zu null Pixeln zusammenfällt, sieht im Code völlig gesund aus.
+class FitnessProgressBar extends StatelessWidget {
+  const FitnessProgressBar({
+    super.key,
+    required this.dailyMinutes,
+    required this.color,
+    this.goalMinutes = weeklyGoalMinutes,
+    this.height = 10,
+    this.muted = false,
   });
 
-  final List<int> tagesMinuten;
-  final Color farbe;
-  final bool neutral;
+  final List<int> dailyMinutes;
+  final Color color;
+  final int goalMinutes;
+  final double height;
+
+  /// Künftige Wochen: Rahmen zeigen, aber nichts füllen.
+  final bool muted;
+
+  /// Schlüssel des gefüllten Teils — nur fürs Testen.
+  static const fillKey = Key('fitness-progress-fill');
 
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    final gesamt = tagesMinuten.fold<int>(0, (s, m) => s + m);
-    final grund = scheme.onSurface.withValues(alpha: 0.06);
+    final gesamt = dailyMinutes.fold<int>(0, (s, m) => s + m);
+    final grund = scheme.onSurface.withValues(alpha: 0.10);
+    final anteil = goalMinutes <= 0
+        ? 0.0
+        : (gesamt / goalMinutes).clamp(0.0, 1.0).toDouble();
 
-    return LayoutBuilder(
-      builder: (context, c) {
-        // Über dem Ziel läuft der Balken nicht weiter — dafür gibt es das Sternchen.
-        final anteil = (gesamt / weeklyGoalMinutes).clamp(0.0, 1.0);
-        final breite = c.maxWidth * anteil;
-
-        return Stack(
-          children: [
-            Container(
-              height: 10,
-              decoration: BoxDecoration(
-                color: grund,
-                borderRadius: BorderRadius.circular(5),
-              ),
+    return SizedBox(
+      height: height,
+      child: Stack(
+        fit: StackFit.expand,
+        children: [
+          DecoratedBox(
+            decoration: BoxDecoration(
+              color: grund,
+              borderRadius: BorderRadius.circular(height / 2),
             ),
-            if (!neutral && gesamt > 0)
-              ClipRRect(
-                borderRadius: BorderRadius.circular(5),
-                child: SizedBox(
-                  height: 10,
-                  width: breite,
+          ),
+          if (!muted && gesamt > 0)
+            // FractionallySizedBox statt selbst gerechneter Breite: die Breite kommt
+            // damit aus dem Layout und nicht aus einem LayoutBuilder, dessen
+            // Rückgabewert bei ungünstiger Verschachtelung null sein kann.
+            Align(
+              alignment: Alignment.centerLeft,
+              child: FractionallySizedBox(
+                alignment: Alignment.centerLeft,
+                widthFactor: anteil,
+                // Ohne heightFactor bestimmt das Kind die Höhe — und eine Row hat von
+                // sich aus keine. Der Balken war dadurch zwar korrekt breit, aber null
+                // Pixel hoch und damit unsichtbar.
+                heightFactor: 1,
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(height / 2),
                   child: Row(
+                    key: fillKey,
                     children: [
                       for (var i = 0; i < 7; i++)
-                        if (tagesMinuten[i] > 0) ...[
+                        if (dailyMinutes[i] > 0) ...[
                           // Feine Trennlinie zwischen den Fahrtagen.
-                          if (_hatVorgaenger(i)) Container(width: 1.5, color: grund),
+                          if (_hatVorgaenger(i))
+                            SizedBox(width: 1.5, child: ColoredBox(color: grund)),
                           Expanded(
-                            flex: tagesMinuten[i],
-                            child: ColoredBox(color: farbe),
+                            flex: dailyMinutes[i],
+                            child: ColoredBox(color: color),
                           ),
                         ],
                     ],
                   ),
                 ),
               ),
-            // Zielmarke bei 120 – auch wenn der Balken sie noch nicht erreicht.
-            Positioned(
-              left: c.maxWidth - 1.5,
-              child: Container(width: 1.5, height: 10, color: grund),
             ),
-          ],
-        );
-      },
+        ],
+      ),
     );
   }
 
   bool _hatVorgaenger(int index) {
     for (var i = 0; i < index; i++) {
-      if (tagesMinuten[i] > 0) return true;
+      if (dailyMinutes[i] > 0) return true;
     }
     return false;
   }
