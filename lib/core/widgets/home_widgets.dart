@@ -28,6 +28,7 @@ class HomeWidgets {
     List<TaskList> lists = const [],
     Map<String, MemberSetting> memberSettings = const {},
     Map<String, DayWeather> weather = const {},
+    String? fitnessBody,
   }) async {
     if (!isAndroid) return; // Home-Widgets gibt es nur auf Android.
     final now = DateTime.now();
@@ -48,6 +49,12 @@ class HomeWidgets {
       'countdown_body',
       _countdownBody(events, memberSettings, today),
     );
+    // Nur schreiben, wenn Fitness-Daten mitkommen — sonst bliebe ein alter Stand
+    // stehen, was schlimmer wäre als ein leeres Widget.
+    if (fitnessBody != null) {
+      await HomeWidget.saveWidgetData<String>('fitness_body', fitnessBody);
+      await HomeWidget.updateWidget(qualifiedAndroidName: '$_pkg.FitnessWidget');
+    }
     await HomeWidget.updateWidget(
       qualifiedAndroidName: '$_pkg.NextEventsWidget',
     );

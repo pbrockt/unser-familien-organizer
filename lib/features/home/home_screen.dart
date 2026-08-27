@@ -22,6 +22,7 @@ import '../calendar/event_providers.dart';
 import '../family/family_screen.dart';
 import '../fitness/fitness_home_card.dart';
 import '../fitness/fitness_week_list.dart';
+import '../school/school_overview_card.dart';
 import '../fitness/fitness_providers.dart';
 import '../members/member_settings.dart';
 import '../members/user_groups.dart';
@@ -202,6 +203,7 @@ class HomeScreen extends ConsumerWidget {
                           ),
                     ],
                     const _SectionLabel('Überblick'),
+                    const SchoolOverviewCard(),
                     const FitnessWeekList(),
                     ...countdowns.map(
                       (e) => _CountdownCard(

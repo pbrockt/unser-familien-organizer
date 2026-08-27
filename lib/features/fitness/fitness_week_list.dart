@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:intl/intl.dart';
 
 import 'fitness_models.dart';
 import 'fitness_overrides.dart';
@@ -24,6 +23,21 @@ class WeeklyColors {
           dunkel ? const Color(0xFF4A3F1D) : const Color(0xFFF8EDCD),
         WeeklyLevel.geschafft =>
           dunkel ? const Color(0xFF22422A) : const Color(0xFFD6EEDC),
+      };
+
+  /// Kräftiger Ton für Flächen, die für sich stehen müssen — etwa den
+  /// Fortschrittsbalken.
+  ///
+  /// [fill] ist als Hintergrund gedacht und dafür bewusst blass; als schmaler Balken
+  /// auf einer hellen Karte verschwindet er schlicht. Bewusst **nicht** die Akzentfarbe
+  /// der App: die ist frei wählbar und würde die Ampel-Aussage rot/gelb/grün auslöschen.
+  static Color bar(WeeklyLevel stufe, bool dunkel) => switch (stufe) {
+        WeeklyLevel.zuWenig =>
+          dunkel ? const Color(0xFFD9705C) : const Color(0xFFC0503F),
+        WeeklyLevel.fastGeschafft =>
+          dunkel ? const Color(0xFFDDB250) : const Color(0xFFC8992F),
+        WeeklyLevel.geschafft =>
+          dunkel ? const Color(0xFF63B075) : const Color(0xFF3E8E51),
       };
 
   static Color ink(WeeklyLevel stufe, bool dunkel) {
@@ -126,6 +140,7 @@ class _Wochenkachel extends StatelessWidget {
     final dunkel = Theme.of(context).brightness == Brightness.dark;
     final stufe = weeklyLevel(woche.minutes);
     final fuellung = WeeklyColors.fill(stufe, dunkel);
+    final balken = WeeklyColors.bar(stufe, dunkel);
     final schrift = WeeklyColors.ink(stufe, dunkel);
 
     // Künftige Wochen sind nicht bewertbar — dort bleibt alles neutral.
@@ -204,8 +219,7 @@ class _Wochenkachel extends StatelessWidget {
                 const SizedBox(height: 8),
                 _Fortschrittsbalken(
                   tagesMinuten: woche.dailyMinutes,
-                  fuellung: fuellung,
-                  schrift: schrift,
+                  farbe: balken,
                   neutral: neutral,
                 ),
               ],
@@ -226,18 +240,12 @@ class _Wochenkachel extends StatelessWidget {
     );
   }
 
+  /// Die Kachel steht im Überblick zwischen Countdowns und Listen — ohne den Zusatz
+  /// wäre nicht erkennbar, worauf sich „Diese Woche" bezieht.
   String _titel() {
-    if (woche.isCurrent) return 'Diese Woche';
-    if (woche.isFuture) return 'Nächste Woche';
-    final stufe = weeklyLevel(woche.minutes);
-    final zeitraum = '${DateFormat('dd.MM.').format(woche.monday)}'
-        '–${DateFormat('dd.MM.').format(woche.sunday)}';
-    if (weeklyStar(woche.minutes)) return 'Letzte Woche übertroffen';
-    return switch (stufe) {
-      WeeklyLevel.geschafft => 'Letzte Woche geschafft',
-      WeeklyLevel.fastGeschafft => 'Letzte Woche knapp · $zeitraum',
-      WeeklyLevel.zuWenig => 'Letzte Woche · $zeitraum',
-    };
+    if (woche.isCurrent) return 'Fitness · Diese Woche';
+    if (woche.isFuture) return 'Fitness · Nächste Woche';
+    return 'Fitness · Letzte Woche';
   }
 }
 
@@ -248,14 +256,12 @@ class _Wochenkachel extends StatelessWidget {
 class _Fortschrittsbalken extends StatelessWidget {
   const _Fortschrittsbalken({
     required this.tagesMinuten,
-    required this.fuellung,
-    required this.schrift,
+    required this.farbe,
     required this.neutral,
   });
 
   final List<int> tagesMinuten;
-  final Color fuellung;
-  final Color schrift;
+  final Color farbe;
   final bool neutral;
 
   @override
@@ -293,7 +299,7 @@ class _Fortschrittsbalken extends StatelessWidget {
                           if (_hatVorgaenger(i)) Container(width: 1.5, color: grund),
                           Expanded(
                             flex: tagesMinuten[i],
-                            child: ColoredBox(color: fuellung),
+                            child: ColoredBox(color: farbe),
                           ),
                         ],
                     ],

@@ -156,6 +156,12 @@ class _AppShellState extends ConsumerState<AppShell> {
       case 'calendar':
         widget.navigationShell.goBranch(1, initialLocation: false);
         break;
+      case 'fitness':
+        // Nur wenn der Bereich an ist — sonst gäbe es kein Ziel.
+        if (_items.contains(_Nav.sport)) {
+          widget.navigationShell.goBranch(5, initialLocation: false);
+        }
+        break;
       case 'tasks':
         widget.navigationShell.goBranch(2, initialLocation: false);
         break;

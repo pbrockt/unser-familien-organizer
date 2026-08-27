@@ -3,6 +3,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/notifications/notification_service.dart';
 import '../../core/widgets/home_widgets.dart';
+import '../fitness/fitness_overrides.dart';
+import '../fitness/fitness_providers.dart';
+import '../fitness/fitness_settings.dart';
+import '../fitness/fitness_widget_data.dart';
 import '../calendar/event_providers.dart';
 import '../members/member_settings.dart';
 import '../tasks/task_providers.dart';
@@ -56,7 +60,27 @@ class _ReminderSyncState extends ConsumerState<ReminderSync>
     ref.listen(briefingSettingsProvider, (_, _) => _reschedule());
     ref.listen(memberSettingsProvider, (_, _) => _reschedule());
     ref.listen(weatherProvider, (_, _) => _reschedule());
+    ref.listen(fitnessDataProvider, (_, _) => _reschedule());
     return widget.child;
+  }
+
+  /// Inhalt fürs Fitness-Widget — null, solange der Bereich aus ist oder nichts
+  /// eingelesen wurde. Dann bleibt das Widget bei seinem Platzhalter, statt eine
+  /// leere Woche zu behaupten.
+  String? _fitnessBody() {
+    final an = ref.read(fitnessEnabledProvider).value ?? false;
+    if (!an) return null;
+    final daten = ref.read(fitnessDataProvider).value;
+    if (daten == null || daten.activities.isEmpty) return null;
+
+    final overrides = ref.read(fitnessOverridesProvider).value;
+    return buildFitnessWidgetBody(
+      activities: daten.activities,
+      sportOf: (a) => overrides?.sports[a.id] ?? a.sportEffective,
+      healthDays: daten.healthDays,
+      stepGoal: ref.read(fitnessStepGoalProvider).value ?? 8000,
+      today: DateTime.now(),
+    );
   }
 
   Future<void> _reschedule() async {
@@ -71,6 +95,7 @@ class _ReminderSyncState extends ConsumerState<ReminderSync>
       lists: lists,
       memberSettings: memberSettings,
       weather: weather,
+      fitnessBody: _fitnessBody(),
     );
 
     final settings = ref.read(notificationSettingsProvider).value;

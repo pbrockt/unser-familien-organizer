@@ -200,6 +200,21 @@ class DesignWidget : HomeWidgetProvider() {
     }
 }
 
+/** „Fitness" – Radminuten der Woche, Ampelfarbe als Marker. */
+class FitnessWidget : HomeWidgetProvider() {
+    override fun onUpdate(
+        context: Context,
+        appWidgetManager: AppWidgetManager,
+        appWidgetIds: IntArray,
+        widgetData: SharedPreferences,
+    ) {
+        val raw = widgetData.getString("fitness_body", "–") ?: "–"
+        for (id in appWidgetIds) {
+            applyOne(context, appWidgetManager, id, raw, R.layout.fp_widget_fitness, "fitness", "▌")
+        }
+    }
+}
+
 /** „Schnell-Eingabe" – kleiner Knopf, der direkt die Schnell-Eingabe öffnet. */
 class QuickAddWidget : HomeWidgetProvider() {
     override fun onUpdate(
