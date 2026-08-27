@@ -58,6 +58,13 @@ void main() {
       expect(groesse.width, greaterThan(10));
     });
 
+    testWidgets('auch fünf Minuten ergeben einen sichtbaren Stummel', (tester) async {
+      // 5 von 120 wären rechnerisch 8 Pixel — ein Härchen, das man für nichts hält.
+      final groesse = await balkenGroesse(tester, minuten: [5, 0, 0, 0, 0, 0, 0]);
+      expect(groesse.width, greaterThanOrEqualTo(12));
+      expect(groesse.height, greaterThan(0));
+    });
+
     testWidgets('bleibt ohne Minuten leer', (tester) async {
       final groesse = await balkenGroesse(tester, minuten: List.filled(7, 0));
       expect(groesse, Size.zero);

@@ -114,7 +114,7 @@ class _FitnessWeekListState extends ConsumerState<FitnessWeekList> {
                 controller: _pager,
                 itemCount: wochen.length,
                 onPageChanged: (i) => setState(() => _seite = i),
-                itemBuilder: (context, i) => _Wochenkachel(
+                itemBuilder: (context, i) => FitnessWeekTile(
                   woche: wochen[i],
                   onTap: () => context.go('/fitness'),
                 ),
@@ -128,8 +128,11 @@ class _FitnessWeekListState extends ConsumerState<FitnessWeekList> {
   }
 }
 
-class _Wochenkachel extends StatelessWidget {
-  const _Wochenkachel({required this.woche, required this.onTap});
+/// Eine Woche als Kachel. Öffentlich, damit sich das Zusammenspiel von Kopfzeile,
+/// Kalenderwoche und Balken messen lässt — der Balken allein war schon einmal in
+/// Ordnung und trotzdem unsichtbar, weil ihn die Umgebung plattdrückte.
+class FitnessWeekTile extends StatelessWidget {
+  const FitnessWeekTile({super.key, required this.woche, required this.onTap});
 
   final CyclingWeek woche;
   final VoidCallback onTap;
@@ -209,7 +212,9 @@ class _Wochenkachel extends StatelessWidget {
                     Text(
                       neutral
                           ? 'geplant'
-                          : '${woche.minutes} / $weeklyGoalMinutes min',
+                          : (woche.rides == 0
+                              ? 'noch keine Fahrt'
+                              : '${woche.minutes} / $weeklyGoalMinutes min'),
                       style: Theme.of(context).textTheme.bodySmall?.copyWith(
                             color: scheme.onSurfaceVariant,
                           ),
@@ -266,7 +271,7 @@ class FitnessProgressBar extends StatelessWidget {
     required this.dailyMinutes,
     required this.color,
     this.goalMinutes = weeklyGoalMinutes,
-    this.height = 10,
+    this.height = 14,
     this.muted = false,
   });
 
@@ -285,10 +290,17 @@ class FitnessProgressBar extends StatelessWidget {
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     final gesamt = dailyMinutes.fold<int>(0, (s, m) => s + m);
-    final grund = scheme.onSurface.withValues(alpha: 0.10);
-    final anteil = goalMinutes <= 0
+    // Deutlich sichtbare Spur: Ein leerer Balken muss als leerer Balken erkennbar
+    // sein, nicht als fehlender. Bei 10 % Deckkraft war beides nicht zu unterscheiden.
+    final grund = scheme.onSurface.withValues(alpha: 0.20);
+
+    // Mindestanteil, damit auch fünf Minuten einen Stummel ergeben statt eines
+    // Härchens, das man für nichts hält.
+    const mindestens = 0.06;
+    final roh = goalMinutes <= 0 ? 0.0 : gesamt / goalMinutes;
+    final anteil = gesamt <= 0
         ? 0.0
-        : (gesamt / goalMinutes).clamp(0.0, 1.0).toDouble();
+        : roh.clamp(mindestens, 1.0).toDouble();
 
     return SizedBox(
       height: height,
