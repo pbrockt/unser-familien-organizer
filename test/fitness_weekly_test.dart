@@ -86,6 +86,34 @@ void main() {
     });
   });
 
+  group('Reihenfolge fürs Wischen', () {
+    test('liefert neueste Woche zuerst', () {
+      final wochen = cyclingWeeks([fahrt('2026-08-25', 90)], sportOf, mittwoch,
+          weeks: 4);
+      expect(wochen.first.isCurrent, isTrue);
+      expect(wochen.first.monday.isAfter(wochen.last.monday), isTrue);
+    });
+
+    test('umgedreht liegt die laufende Woche rechts', () {
+      // Die Karte dreht die Liste um, damit Wischen nach links in die Vergangenheit
+      // führt. Ohne das läge die Gegenwart links und man wischte in die Zukunft.
+      final fuersWischen = cyclingWeeks(
+        [fahrt('2026-08-25', 90)],
+        sportOf,
+        mittwoch,
+        weeks: 4,
+      ).reversed.toList();
+
+      expect(fuersWischen.last.isCurrent, isTrue);
+      expect(fuersWischen.first.monday, DateTime(2026, 8, 3),
+          reason: 'Drei Wochen vor dem 24.08.');
+      for (var i = 1; i < fuersWischen.length; i++) {
+        expect(fuersWischen[i].monday.isAfter(fuersWischen[i - 1].monday), isTrue,
+            reason: 'Von links nach rechts muss es aufsteigend sein');
+      }
+    });
+  });
+
   group('Bewertung', () {
     test('unter 100 Minuten ist zu wenig', () {
       expect(weeklyLevel(0), WeeklyLevel.zuWenig);

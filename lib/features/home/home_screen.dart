@@ -169,7 +169,6 @@ class HomeScreen extends ConsumerWidget {
                       schrittZiel: ref.watch(stepGoalDatesProvider),
                     ),
                     const FitnessHomeCard(),
-                    const FitnessWeekList(),
                     const _SectionLabel('Anstehende Termine'),
                     if (upcoming.isEmpty && passedToday.isEmpty)
                       const _EmptyHint('Keine anstehenden Termine 🎉')
@@ -203,6 +202,7 @@ class HomeScreen extends ConsumerWidget {
                           ),
                     ],
                     const _SectionLabel('Überblick'),
+                    const FitnessWeekList(),
                     ...countdowns.map(
                       (e) => _CountdownCard(
                         event: e,
