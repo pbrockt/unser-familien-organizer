@@ -3,6 +3,7 @@ import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../features/calendar/birthdays.dart';
+import '../../features/fitness/fitness_widget_data.dart';
 import '../../features/calendar/calendar_event.dart';
 import '../../features/members/member_settings.dart';
 import '../../features/tasks/task_item.dart';
@@ -28,7 +29,7 @@ class HomeWidgets {
     List<TaskList> lists = const [],
     Map<String, MemberSetting> memberSettings = const {},
     Map<String, DayWeather> weather = const {},
-    String? fitnessBody,
+    FitnessWidgetData? fitness,
   }) async {
     if (!isAndroid) return; // Home-Widgets gibt es nur auf Android.
     final now = DateTime.now();
@@ -51,8 +52,13 @@ class HomeWidgets {
     );
     // Nur schreiben, wenn Fitness-Daten mitkommen — sonst bliebe ein alter Stand
     // stehen, was schlimmer wäre als ein leeres Widget.
-    if (fitnessBody != null) {
-      await HomeWidget.saveWidgetData<String>('fitness_body', fitnessBody);
+    if (fitness != null) {
+      await HomeWidget.saveWidgetData<String>('fitness_body', fitness.body);
+      await HomeWidget.saveWidgetData<int>(
+        'fitness_progress',
+        fitness.progressPercent,
+      );
+      await HomeWidget.saveWidgetData<String>('fitness_color', fitness.colorHex);
       await HomeWidget.updateWidget(qualifiedAndroidName: '$_pkg.FitnessWidget');
     }
     await HomeWidget.updateWidget(

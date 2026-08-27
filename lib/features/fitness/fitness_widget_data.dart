@@ -11,11 +11,58 @@ const String _sep = '\t';
 /// Eigene, kräftigere Werte als in der App: Auf dem Startbildschirm steht die Zeile
 /// allein auf hellem Grund, dort muss die Farbe für sich tragen. Der zarte Ton der
 /// App-Kachel wäre dort kaum zu erkennen.
-String _farbe(WeeklyLevel stufe) => switch (stufe) {
+String widgetLevelColor(WeeklyLevel stufe) => switch (stufe) {
       WeeklyLevel.zuWenig => '#C0503F',
       WeeklyLevel.fastGeschafft => '#C8992F',
       WeeklyLevel.geschafft => '#3E8E51',
     };
+
+/// Was das Fitness-Widget anzuzeigen hat.
+class FitnessWidgetData {
+  const FitnessWidgetData({
+    required this.body,
+    required this.progressPercent,
+    required this.colorHex,
+  });
+
+  final String body;
+
+  /// Anteil am Wochenziel in Prozent, 0..100. Über dem Ziel bleibt es bei 100 —
+  /// der Balken kann nicht weiter als voll.
+  final int progressPercent;
+
+  /// Ampelfarbe des gefüllten Teils.
+  final String colorHex;
+}
+
+/// Stellt alles zusammen, was das Widget braucht.
+FitnessWidgetData buildFitnessWidgetData({
+  required List<Activity> activities,
+  required Sport Function(Activity) sportOf,
+  required List<HealthDay> healthDays,
+  required int stepGoal,
+  required DateTime today,
+}) {
+  final diese = cyclingWeeks(activities, sportOf, today,
+          weeksBack: 1, weeksForward: 0)
+      .last;
+  final stufe = weeklyLevel(diese.minutes);
+  final anteil = weeklyGoalMinutes <= 0
+      ? 0
+      : ((diese.minutes / weeklyGoalMinutes) * 100).round().clamp(0, 100);
+
+  return FitnessWidgetData(
+    body: buildFitnessWidgetBody(
+      activities: activities,
+      sportOf: sportOf,
+      healthDays: healthDays,
+      stepGoal: stepGoal,
+      today: today,
+    ),
+    progressPercent: anteil,
+    colorHex: widgetLevelColor(stufe),
+  );
+}
 
 /// Baut den Text für das Fitness-Widget.
 ///
@@ -42,7 +89,7 @@ String buildFitnessWidgetBody({
 
   zeilen.add('DIESE WOCHE');
   zeilen.add(
-    '${_farbe(stufe)}$_sep${diese.minutes} von $weeklyGoalMinutes Minuten'
+    '${widgetLevelColor(stufe)}$_sep${diese.minutes} von $weeklyGoalMinutes Minuten'
     '${weeklyStar(diese.minutes) ? '  *' : ''}',
   );
   zeilen.add(
@@ -58,7 +105,7 @@ String buildFitnessWidgetBody({
     zeilen.add('');
     zeilen.add('LETZTE WOCHE');
     zeilen.add(
-      '${_farbe(letzteStufe)}$_sep${letzte.minutes} Minuten'
+      '${widgetLevelColor(letzteStufe)}$_sep${letzte.minutes} Minuten'
       '${weeklyStar(letzte.minutes) ? '  *' : ''}',
     );
   }

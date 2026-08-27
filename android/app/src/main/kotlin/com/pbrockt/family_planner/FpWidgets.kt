@@ -200,7 +200,36 @@ class DesignWidget : HomeWidgetProvider() {
     }
 }
 
-/** „Fitness" – Radminuten der Woche, Ampelfarbe als Marker. */
+/**
+ * Fortschrittsbalken als Blockzeichen.
+ *
+ * RemoteViews ist auf wenige View-Typen festgelegt, und in diesem Projekt hat sich
+ * gezeigt, dass schon ein <View> das Widget leer bleiben laesst. Ein Balken aus
+ * Blockzeichen in einer TextView braucht keinen zusaetzlichen View-Typ: der gefuellte
+ * Teil bekommt die Ampelfarbe, der Rest bleibt blass.
+ *
+ * [prozent] 0..100, [farbe] die Ampelfarbe des gefuellten Teils.
+ */
+private fun barText(prozent: Int, farbe: Int): CharSequence {
+    val felder = 24
+    val voll = ((prozent.coerceIn(0, 100) / 100f) * felder).toInt().coerceIn(0, felder)
+    val sb = SpannableStringBuilder("\u2588".repeat(felder))
+    if (voll > 0) {
+        sb.setSpan(ForegroundColorSpan(farbe), 0, voll, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+    }
+    if (voll < felder) {
+        // Blasser Rest: der leere Balken muss als leerer Balken erkennbar sein.
+        sb.setSpan(
+            ForegroundColorSpan(0x33000000),
+            voll,
+            felder,
+            Spanned.SPAN_EXCLUSIVE_EXCLUSIVE,
+        )
+    }
+    return sb
+}
+
+/** „Fitness" – Radminuten der Woche mit Fortschrittsbalken in der Ampelfarbe. */
 class FitnessWidget : HomeWidgetProvider() {
     override fun onUpdate(
         context: Context,
@@ -209,8 +238,42 @@ class FitnessWidget : HomeWidgetProvider() {
         widgetData: SharedPreferences,
     ) {
         val raw = widgetData.getString("fitness_body", "–") ?: "–"
+        val prozent = widgetData.getInt("fitness_progress", 0)
+        val farbe = try {
+            Color.parseColor(widgetData.getString("fitness_color", "#C0503F") ?: "#C0503F")
+        } catch (e: Exception) {
+            FP_BROWN
+        }
+
+        val pending = HomeWidgetLaunchIntent.getActivity(
+            context,
+            MainActivity::class.java,
+            Uri.parse("familyplanner://fitness"),
+        )
+
+        fun build(styled: Boolean) =
+            RemoteViews(context.packageName, R.layout.fp_widget_fitness).apply {
+                setTextViewText(
+                    R.id.fp_widget_body,
+                    if (styled) styledBody(raw, "▌") else plainBody(raw, "▌"),
+                )
+                setTextViewText(
+                    R.id.fp_widget_bar,
+                    if (styled) barText(prozent, farbe) else "",
+                )
+                setOnClickPendingIntent(R.id.fp_widget_root, pending)
+            }
+
         for (id in appWidgetIds) {
-            applyOne(context, appWidgetManager, id, raw, R.layout.fp_widget_fitness, "fitness", "▌")
+            try {
+                appWidgetManager.updateAppWidget(id, build(true))
+            } catch (e: Throwable) {
+                try {
+                    appWidgetManager.updateAppWidget(id, build(false))
+                } catch (e2: Throwable) {
+                    // lieber keine Aktualisierung als ein Absturz
+                }
+            }
         }
     }
 }

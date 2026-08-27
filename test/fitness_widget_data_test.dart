@@ -33,7 +33,50 @@ String body({
       today: DateTime(2026, 8, 27),
     );
 
+FitnessWidgetData daten({
+  List<Activity> fahrten = const [],
+  List<HealthDay> tage = const [],
+}) =>
+    buildFitnessWidgetData(
+      activities: fahrten,
+      sportOf: (a) => a.sportEffective,
+      healthDays: tage,
+      stepGoal: 8000,
+      today: DateTime(2026, 8, 27),
+    );
+
 void main() {
+  group('Fortschritt fürs Widget', () {
+    test('rechnet den Anteil am Wochenziel in Prozent', () {
+      // 60 von 120 Minuten.
+      expect(daten(fahrten: [fahrt('2026-08-25', 60)]).progressPercent, 50);
+    });
+
+    test('bleibt über dem Ziel bei hundert', () {
+      // Der Balken kann nicht voller als voll werden.
+      expect(daten(fahrten: [fahrt('2026-08-25', 300)]).progressPercent, 100);
+    });
+
+    test('ist ohne Fahrt null', () {
+      expect(daten(fahrten: [fahrt('2026-08-17', 90)]).progressPercent, 0);
+    });
+
+    test('liefert die Ampelfarbe der laufenden Woche', () {
+      expect(daten(fahrten: [fahrt('2026-08-25', 30)]).colorHex, '#C0503F');
+      expect(daten(fahrten: [fahrt('2026-08-25', 110)]).colorHex, '#C8992F');
+      expect(daten(fahrten: [fahrt('2026-08-25', 130)]).colorHex, '#3E8E51');
+    });
+
+    test('Farbe ist immer ein gültiger Hex-Wert', () {
+      // Die native Seite parst sie mit Color.parseColor — ein Tippfehler faellt
+      // dort auf die Ersatzfarbe zurueck, ohne dass es jemand merkt.
+      for (final minuten in [0, 30, 110, 130, 300]) {
+        final farbe = daten(fahrten: [fahrt('2026-08-25', minuten)]).colorHex;
+        expect(farbe, matches(RegExp(r'^#[0-9A-Fa-f]{6}$')));
+      }
+    });
+  });
+
   group('Widget-Inhalt', () {
     test('nennt die Minuten der laufenden Woche', () {
       final text = body(fahrten: [fahrt('2026-08-24', 45), fahrt('2026-08-26', 30)]);

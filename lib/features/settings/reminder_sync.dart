@@ -67,14 +67,14 @@ class _ReminderSyncState extends ConsumerState<ReminderSync>
   /// Inhalt fürs Fitness-Widget — null, solange der Bereich aus ist oder nichts
   /// eingelesen wurde. Dann bleibt das Widget bei seinem Platzhalter, statt eine
   /// leere Woche zu behaupten.
-  String? _fitnessBody() {
+  FitnessWidgetData? _fitnessData() {
     final an = ref.read(fitnessEnabledProvider).value ?? false;
     if (!an) return null;
     final daten = ref.read(fitnessDataProvider).value;
     if (daten == null || daten.activities.isEmpty) return null;
 
     final overrides = ref.read(fitnessOverridesProvider).value;
-    return buildFitnessWidgetBody(
+    return buildFitnessWidgetData(
       activities: daten.activities,
       sportOf: (a) => overrides?.sports[a.id] ?? a.sportEffective,
       healthDays: daten.healthDays,
@@ -95,7 +95,7 @@ class _ReminderSyncState extends ConsumerState<ReminderSync>
       lists: lists,
       memberSettings: memberSettings,
       weather: weather,
-      fitnessBody: _fitnessBody(),
+      fitness: _fitnessData(),
     );
 
     final settings = ref.read(notificationSettingsProvider).value;
