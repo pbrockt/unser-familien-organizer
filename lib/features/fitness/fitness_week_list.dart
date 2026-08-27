@@ -120,8 +120,6 @@ class _Wochenkachel extends StatelessWidget {
   final CyclingWeek woche;
   final VoidCallback onTap;
 
-  static const _kuerzel = ['M', 'D', 'M', 'D', 'F', 'S', 'S'];
-
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
@@ -133,10 +131,15 @@ class _Wochenkachel extends StatelessWidget {
     // Künftige Wochen sind nicht bewertbar — dort bleibt alles neutral.
     final neutral = woche.isFuture;
 
+    final stern = !neutral && weeklyStar(woche.minutes);
+
     return GestureDetector(
       onTap: onTap,
       behavior: HitTestBehavior.opaque,
-      child: Row(
+      child: Stack(
+        clipBehavior: Clip.none,
+        children: [
+          Row(
         children: [
           // Kalenderwoche trägt die Farbe: so ist sie auch nachträglich ablesbar.
           Container(
@@ -189,33 +192,35 @@ class _Wochenkachel extends StatelessWidget {
                       ),
                     ),
                     Text(
-                      neutral ? 'geplant' : '${woche.minutes} / 140 min',
+                      neutral
+                          ? 'geplant'
+                          : '${woche.minutes} / $weeklyGoalMinutes min',
                       style: Theme.of(context).textTheme.bodySmall?.copyWith(
                             color: scheme.onSurfaceVariant,
                           ),
                     ),
                   ],
                 ),
-                const SizedBox(height: 6),
-                Row(
-                  children: [
-                    for (var i = 0; i < 7; i++) ...[
-                      if (i > 0) const SizedBox(width: 3),
-                      Expanded(
-                        child: _Tageskaestchen(
-                          kuerzel: _kuerzel[i],
-                          minuten: woche.dailyMinutes[i],
-                          fuellung: fuellung,
-                          schrift: schrift,
-                          neutral: neutral,
-                        ),
-                      ),
-                    ],
-                  ],
+                const SizedBox(height: 8),
+                _Fortschrittsbalken(
+                  tagesMinuten: woche.dailyMinutes,
+                  fuellung: fuellung,
+                  schrift: schrift,
+                  neutral: neutral,
                 ),
               ],
             ),
           ),
+        ],
+          ),
+          // Sternchen für eine deutlich übertroffene Woche. Oben rechts, damit es
+          // nicht mit der Kalenderwoche links konkurriert.
+          if (stern)
+            const Positioned(
+              top: -2,
+              right: -2,
+              child: Text('⭐', style: TextStyle(fontSize: 15)),
+            ),
         ],
       ),
     );
@@ -227,26 +232,28 @@ class _Wochenkachel extends StatelessWidget {
     final stufe = weeklyLevel(woche.minutes);
     final zeitraum = '${DateFormat('dd.MM.').format(woche.monday)}'
         '–${DateFormat('dd.MM.').format(woche.sunday)}';
+    if (weeklyStar(woche.minutes)) return 'Letzte Woche übertroffen';
     return switch (stufe) {
-      WeeklyLevel.geschafft => 'Letzte Woche geschafft 🎉',
+      WeeklyLevel.geschafft => 'Letzte Woche geschafft',
       WeeklyLevel.fastGeschafft => 'Letzte Woche knapp · $zeitraum',
       WeeklyLevel.zuWenig => 'Letzte Woche · $zeitraum',
     };
   }
 }
 
-/// Ein Tag der Woche. Trägt Minuten, wenn gefahren wurde — sonst nur den Buchstaben.
-class _Tageskaestchen extends StatelessWidget {
-  const _Tageskaestchen({
-    required this.kuerzel,
-    required this.minuten,
+/// Balken, der sich von links nach rechts füllt.
+///
+/// Unterteilt nach Fahrtagen: So ist zu sehen, ob die Minuten aus einer langen Runde
+/// stammen oder aus mehreren kurzen — die reine Summe verschweigt das.
+class _Fortschrittsbalken extends StatelessWidget {
+  const _Fortschrittsbalken({
+    required this.tagesMinuten,
     required this.fuellung,
     required this.schrift,
     required this.neutral,
   });
 
-  final String kuerzel;
-  final int minuten;
+  final List<int> tagesMinuten;
   final Color fuellung;
   final Color schrift;
   final bool neutral;
@@ -254,28 +261,61 @@ class _Tageskaestchen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    final gefahren = minuten > 0;
+    final gesamt = tagesMinuten.fold<int>(0, (s, m) => s + m);
+    final grund = scheme.onSurface.withValues(alpha: 0.06);
 
-    return Container(
-      height: 22,
-      alignment: Alignment.center,
-      decoration: BoxDecoration(
-        color: gefahren && !neutral
-            ? fuellung
-            : scheme.onSurface.withValues(alpha: 0.05),
-        borderRadius: BorderRadius.circular(5),
-      ),
-      child: Text(
-        gefahren ? '$minuten' : kuerzel,
-        style: TextStyle(
-          fontSize: gefahren ? 10.5 : 10,
-          fontWeight: gefahren ? FontWeight.w700 : FontWeight.w400,
-          color: gefahren && !neutral
-              ? schrift
-              : scheme.onSurfaceVariant.withValues(alpha: 0.6),
-        ),
-      ),
+    return LayoutBuilder(
+      builder: (context, c) {
+        // Über dem Ziel läuft der Balken nicht weiter — dafür gibt es das Sternchen.
+        final anteil = (gesamt / weeklyGoalMinutes).clamp(0.0, 1.0);
+        final breite = c.maxWidth * anteil;
+
+        return Stack(
+          children: [
+            Container(
+              height: 10,
+              decoration: BoxDecoration(
+                color: grund,
+                borderRadius: BorderRadius.circular(5),
+              ),
+            ),
+            if (!neutral && gesamt > 0)
+              ClipRRect(
+                borderRadius: BorderRadius.circular(5),
+                child: SizedBox(
+                  height: 10,
+                  width: breite,
+                  child: Row(
+                    children: [
+                      for (var i = 0; i < 7; i++)
+                        if (tagesMinuten[i] > 0) ...[
+                          // Feine Trennlinie zwischen den Fahrtagen.
+                          if (_hatVorgaenger(i)) Container(width: 1.5, color: grund),
+                          Expanded(
+                            flex: tagesMinuten[i],
+                            child: ColoredBox(color: fuellung),
+                          ),
+                        ],
+                    ],
+                  ),
+                ),
+              ),
+            // Zielmarke bei 120 – auch wenn der Balken sie noch nicht erreicht.
+            Positioned(
+              left: c.maxWidth - 1.5,
+              child: Container(width: 1.5, height: 10, color: grund),
+            ),
+          ],
+        );
+      },
     );
+  }
+
+  bool _hatVorgaenger(int index) {
+    for (var i = 0; i < index; i++) {
+      if (tagesMinuten[i] > 0) return true;
+    }
+    return false;
   }
 }
 

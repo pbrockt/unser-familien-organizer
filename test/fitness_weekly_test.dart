@@ -106,19 +106,35 @@ void main() {
       expect(weeklyLevel(99), WeeklyLevel.zuWenig);
     });
 
-    test('100 bis 140 Minuten ist auf gutem Weg', () {
+    test('100 bis 119 Minuten ist auf gutem Weg', () {
       expect(weeklyLevel(100), WeeklyLevel.fastGeschafft);
-      expect(weeklyLevel(140), WeeklyLevel.fastGeschafft);
+      expect(weeklyLevel(119), WeeklyLevel.fastGeschafft);
     });
 
-    test('über 140 Minuten ist geschafft', () {
-      expect(weeklyLevel(141), WeeklyLevel.geschafft);
+    test('ab 120 Minuten ist das Ziel erreicht', () {
+      expect(weeklyGoalMinutes, 120);
+      expect(weeklyLevel(120), WeeklyLevel.geschafft);
       expect(weeklyLevel(300), WeeklyLevel.geschafft);
     });
 
     test('die Schwellen lassen sich verschieben', () {
-      expect(weeklyLevel(80, lower: 60, upper: 90), WeeklyLevel.fastGeschafft);
-      expect(weeklyLevel(100, lower: 60, upper: 90), WeeklyLevel.geschafft);
+      expect(weeklyLevel(80, lower: 60, goal: 90), WeeklyLevel.fastGeschafft);
+      expect(weeklyLevel(90, lower: 60, goal: 90), WeeklyLevel.geschafft);
+    });
+  });
+
+  group('Sternchen', () {
+    test('gibt es erst deutlich über dem Ziel', () {
+      // Eine Auszeichnung, die man mit dem Ziel automatisch mitbekommt, zeichnet
+      // nichts aus.
+      expect(weeklyStar(120), isFalse, reason: 'Ziel erreicht, aber nicht übertroffen');
+      expect(weeklyStar(139), isFalse);
+      expect(weeklyStar(140), isTrue);
+      expect(weeklyStar(200), isTrue);
+    });
+
+    test('das Ziel liegt unter der Sternchen-Schwelle', () {
+      expect(weeklyGoalMinutes, lessThan(weeklyStarMinutes));
     });
   });
 

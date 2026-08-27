@@ -39,16 +39,35 @@ class CyclingWeek {
 /// Bewertungsstufen für die Wochenminuten.
 enum WeeklyLevel { zuWenig, fastGeschafft, geschafft }
 
+/// Wochenziel in Minuten.
+const int weeklyGoalMinutes = 120;
+
+/// Ab hier gilt die Woche als übertroffen und bekommt ein Sternchen.
+///
+/// Bewusst über dem Ziel: eine Auszeichnung, die man mit dem Ziel automatisch mitbekommt,
+/// zeichnet nichts aus.
+const int weeklyStarMinutes = 140;
+
+/// Untere Schwelle, ab der es überhaupt in die richtige Richtung geht.
+const int weeklyLowerMinutes = 100;
+
 /// Ordnet die Minuten einer Stufe zu.
 ///
-/// Die Schwellen sind bewusst frei wählbar: 100 und 140 Minuten sind eine persönliche
-/// Leiter, keine medizinische Vorgabe. Sie liegen in der Nähe der verbreiteten Empfehlung
-/// von 150 Minuten Bewegung pro Woche, ohne sie eins zu eins zu übernehmen.
-WeeklyLevel weeklyLevel(int minutes, {int lower = 100, int upper = 140}) {
+/// Die Schwellen sind eine persönliche Leiter, keine medizinische Vorgabe. Das Ziel von
+/// 120 Minuten liegt unter der verbreiteten Empfehlung von 150 Minuten Bewegung pro
+/// Woche — es zählt hier ja nur das Rad, nicht alle Bewegung.
+WeeklyLevel weeklyLevel(
+  int minutes, {
+  int lower = weeklyLowerMinutes,
+  int goal = weeklyGoalMinutes,
+}) {
   if (minutes < lower) return WeeklyLevel.zuWenig;
-  if (minutes <= upper) return WeeklyLevel.fastGeschafft;
+  if (minutes < goal) return WeeklyLevel.fastGeschafft;
   return WeeklyLevel.geschafft;
 }
+
+/// Wurde das Ziel deutlich übertroffen?
+bool weeklyStar(int minutes, {int star = weeklyStarMinutes}) => minutes >= star;
 
 /// Montag der Woche, in der [date] liegt.
 DateTime mondayOf(DateTime date) {
@@ -143,8 +162,8 @@ Map<DateTime, WeeklyLevel> completedWeekLevels(
   List<Activity> activities,
   Sport Function(Activity) sportOf,
   DateTime today, {
-  int lower = 100,
-  int upper = 140,
+  int lower = weeklyLowerMinutes,
+  int goal = weeklyGoalMinutes,
 }) {
   final aktuellerMontag = mondayOf(today);
   final proWoche = <DateTime, int>{};
@@ -160,6 +179,6 @@ Map<DateTime, WeeklyLevel> completedWeekLevels(
 
   return {
     for (final e in proWoche.entries)
-      e.key: weeklyLevel(e.value, lower: lower, upper: upper),
+      e.key: weeklyLevel(e.value, lower: lower, goal: goal),
   };
 }
