@@ -6,6 +6,7 @@ import 'fitness_analysis.dart';
 import 'fitness_models.dart';
 import 'fitness_overrides.dart';
 import 'fitness_providers.dart';
+import 'fitness_repository.dart';
 import 'fitness_screen.dart';
 import 'fitness_settings.dart';
 import 'fitness_widgets.dart';
@@ -23,11 +24,10 @@ class FitnessDayScreen extends ConsumerWidget {
     final stepGoal = ref.watch(fitnessStepGoalProvider).value ?? 8000;
     final gewichte = ref.watch(mergedWeightProvider);
 
-    final day = data == null
-        ? null
-        : buildDays(data).where((d) => d.date == date).firstOrNull;
-    final gewichtHeute =
-        gewichte.where((e) => e.date == date).firstOrNull;
+    // Immer einen Tag bauen, auch wenn nichts eingelesen ist: sonst ließe sich für
+    // heute kein Gewicht eintragen, weil die Tagesdatei erst am Folgemorgen kommt.
+    final day = dayFor(data ?? const FitnessData(), date);
+    final gewichtHeute = gewichte.where((e) => e.date == date).firstOrNull;
 
     return Scaffold(
       appBar: AppBar(title: Text(_langDatum(date))),
@@ -35,13 +35,20 @@ class FitnessDayScreen extends ConsumerWidget {
         padding: const EdgeInsets.fromLTRB(12, 8, 12, 28),
         children: [
           _GewichtCard(date: date, eintrag: gewichtHeute, alle: gewichte),
-          if (day?.health != null) _HealthCard(day!.health!, stepGoal),
-          if (day == null || day.activities.isEmpty)
-            const Padding(
-              padding: EdgeInsets.symmetric(vertical: 24),
+          if (day.health != null) _HealthCard(day.health!, stepGoal),
+          if (day.activities.isEmpty)
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 24),
               child: Text(
-                'An diesem Tag ist keine Trainingseinheit aufgezeichnet.',
+                day.health == null
+                    ? 'Für diesen Tag liegen noch keine Daten vor. Die Tagesdatei '
+                        'kommt üblicherweise am nächsten Morgen — das Gewicht kannst '
+                        'du trotzdem schon eintragen.'
+                    : 'An diesem Tag ist keine Trainingseinheit aufgezeichnet.',
                 textAlign: TextAlign.center,
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                    ),
               ),
             )
           else

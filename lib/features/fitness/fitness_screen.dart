@@ -27,10 +27,26 @@ class FitnessDay {
 }
 
 /// Führt Gesundheitsdaten und Einheiten zu Tagen zusammen, neueste zuerst.
-List<FitnessDay> buildDays(FitnessData data) {
+///
+/// [today] ist **immer** dabei, auch wenn dafür noch nichts eingelesen wurde: Die
+/// Tagesdatei kommt erst am Folgemorgen, eine Tour nur wenn gefahren wurde. Ohne diese
+/// Zeile gäbe es den heutigen Tag in der App gar nicht — und damit keine Möglichkeit,
+/// das Gewicht von heute früh einzutragen.
+///
+/// [alsoInclude] nimmt weitere Datumsangaben auf, etwa Tage, für die nur ein Gewicht
+/// vorliegt. Sonst verschwände ein eingetragener Wert aus der Liste, sobald der Tag
+/// keine anderen Daten hat.
+List<FitnessDay> buildDays(
+  FitnessData data, {
+  DateTime? today,
+  Iterable<String> alsoInclude = const [],
+}) {
+  final heute = today ?? DateTime.now();
   final dates = <String>{
     ...data.activities.map((a) => a.date),
     ...data.healthDays.map((h) => h.date),
+    ...alsoInclude,
+    isoDate(heute),
   }.toList()
     ..sort((a, b) => b.compareTo(a));
 
@@ -48,6 +64,21 @@ List<FitnessDay> buildDays(FitnessData data) {
           ))
       .toList();
 }
+
+/// Ein einzelner Tag — auch dann, wenn dafür nichts vorliegt.
+///
+/// Der Tagesbildschirm muss jedes Datum öffnen können, sonst ließe sich für einen Tag
+/// ohne eingelesene Daten kein Gewicht eintragen.
+FitnessDay dayFor(FitnessData data, String date) => FitnessDay(
+      date: date,
+      health: data.healthDays.where((h) => h.date == date).firstOrNull,
+      activities: data.activities.where((a) => a.date == date).toList(),
+    );
+
+/// Datum als yyyy-MM-dd.
+String isoDate(DateTime d) => '${d.year.toString().padLeft(4, '0')}-'
+    '${d.month.toString().padLeft(2, '0')}-'
+    '${d.day.toString().padLeft(2, '0')}';
 
 class FitnessScreen extends ConsumerWidget {
   const FitnessScreen({super.key});
@@ -104,8 +135,12 @@ class FitnessScreen extends ConsumerWidget {
             );
           }
 
-          final days = buildDays(data);
-          if (days.isEmpty) {
+          final days = buildDays(
+            data,
+            alsoInclude: ref.watch(mergedWeightProvider).map((e) => e.date),
+          );
+          // „Heute" ist immer dabei — für den Hinweis zählt nur, ob es echte Daten gibt.
+          if (data.activities.isEmpty && data.healthDays.isEmpty) {
             return const _Hinweis(
               'Im gewählten Ordner wurden noch keine auswertbaren Dateien gefunden. '
               'Erwartet werden .csv-Trainings und .md-Tagesdaten.',
@@ -323,6 +358,8 @@ class _DayTile extends ConsumerWidget {
       if (h?.sleepHours != null) '${h!.sleepHours!.toStringAsFixed(1)} h Schlaf',
       if (h?.totalCalories != null) '${h!.totalCalories} kcal',
     ];
+    // Tage ohne Daten sind kein Fehler — die Tagesdatei kommt erst am Folgemorgen.
+    final leer = h == null && day.activities.isEmpty;
 
     return Card(
       margin: const EdgeInsets.only(bottom: 8),
@@ -348,6 +385,17 @@ class _DayTile extends ConsumerWidget {
                           teile.join(' · '),
                           style: Theme.of(context).textTheme.bodySmall?.copyWith(
                                 color: scheme.onSurfaceVariant,
+                              ),
+                        ),
+                      )
+                    else if (leer)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 2),
+                        child: Text(
+                          'noch keine Daten · Gewicht eintragbar',
+                          style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                color: scheme.onSurfaceVariant,
+                                fontStyle: FontStyle.italic,
                               ),
                         ),
                       ),
