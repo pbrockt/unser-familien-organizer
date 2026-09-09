@@ -25,26 +25,43 @@ class FitnessData {
   /// geladen und geparst wird.
   final Map<String, String> fingerprints;
 
+  /// Stand der Auswertung im Zwischenspeicher.
+  ///
+  /// Hochzählen, sobald aus denselben Dateien etwas anderes herausgelesen wird — dann
+  /// wirft [FitnessRepository.load] die Fingerabdrücke weg und liest beim nächsten
+  /// Abgleich alles neu. 2: Bewegungszeit je Einheit.
+  static const int schemaVersion = 2;
+
   Map<String, dynamic> toJson() => {
+        'v': schemaVersion,
         'activities': activities.map((a) => a.toJson()).toList(),
         'healthDays': healthDays.map((h) => h.toJson()).toList(),
         'fingerprints': fingerprints,
       };
 
-  factory FitnessData.fromJson(Map<String, dynamic> j) => FitnessData(
-        activities: (j['activities'] as List?)
-                ?.map((e) => Activity.fromJson(e as Map<String, dynamic>))
-                .toList() ??
-            const [],
-        healthDays: (j['healthDays'] as List?)
-                ?.map((e) => HealthDay.fromJson(e as Map<String, dynamic>))
-                .toList() ??
-            const [],
-        fingerprints: (j['fingerprints'] as Map?)?.map(
-              (k, v) => MapEntry(k as String, v as String),
-            ) ??
-            const {},
-      );
+  factory FitnessData.fromJson(Map<String, dynamic> j) {
+    // Stammt der Zwischenspeicher aus einer älteren Version, bleiben die Einheiten
+    // erhalten — offline wäre der Bereich sonst schlagartig leer —, aber die
+    // Fingerabdrücke fallen weg. Damit liest der nächste Abgleich alles neu ein und
+    // ersetzt die alten Auswertungen.
+    final aktuell = (j['v'] as num?)?.toInt() == schemaVersion;
+    return FitnessData(
+      activities: (j['activities'] as List?)
+              ?.map((e) => Activity.fromJson(e as Map<String, dynamic>))
+              .toList() ??
+          const [],
+      healthDays: (j['healthDays'] as List?)
+              ?.map((e) => HealthDay.fromJson(e as Map<String, dynamic>))
+              .toList() ??
+          const [],
+      fingerprints: !aktuell
+          ? const {}
+          : (j['fingerprints'] as Map?)?.map(
+                (k, v) => MapEntry(k as String, v as String),
+              ) ??
+              const {},
+    );
+  }
 }
 
 class ImportResult {

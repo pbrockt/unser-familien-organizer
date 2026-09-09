@@ -31,6 +31,7 @@ class FitnessActivityScreen extends ConsumerWidget {
     final zones = ref.watch(fitnessZonesProvider);
     final sport = ref.watch(effectiveSportProvider(activity));
     final type = ref.watch(effectiveTypeProvider(activity));
+    final ebike = ref.watch(ebikeProvider(activity));
     final istLauf = sport == Sport.running;
     final cadence = Analysis.cadenceCheck(sport, activity.cadenceAvg);
     final zoneSeconds = zones.distribute(activity.hrHistogram);
@@ -39,7 +40,9 @@ class FitnessActivityScreen extends ConsumerWidget {
 
     return Scaffold(
       appBar: AppBar(
-        title: Text('${sportIcon(sport)} ${sportLabel(sport)}'),
+        title: Text(
+          '${sportIcon(sport)} ${sportLabel(sport)}${ebike ? ' ⚡' : ''}',
+        ),
         bottom: PreferredSize(
           preferredSize: const Size.fromHeight(20),
           child: Padding(
@@ -59,7 +62,13 @@ class FitnessActivityScreen extends ConsumerWidget {
             title: 'Kennzahlen',
             child: FitnessValueGrid(values: [
               ('Distanz', '${activity.distanceKm.toStringAsFixed(2)} km'),
-              ('Dauer', Analysis.formatDuration(activity.durationSec)),
+              // Bewegungszeit zuerst: das ist die Zahl, mit der überall gerechnet wird.
+              (
+                istLauf ? 'Laufzeit' : 'Fahrzeit',
+                Analysis.formatDuration(activity.activeSec)
+              ),
+              if (activity.pausedSec > 0)
+                ('Gesamtzeit', Analysis.formatDuration(activity.durationSec)),
               (
                 istLauf ? 'Pace' : 'Ø Tempo',
                 istLauf
@@ -82,7 +91,11 @@ class FitnessActivityScreen extends ConsumerWidget {
               if (activity.elevGain > 0 || activity.elevLoss > 0)
                 ('Höhenmeter', '${activity.elevGain} ↑ / ${activity.elevLoss} ↓'),
               ('Belastung', '${SessionClassifier.loadScore(activity, zones)} P'),
-              ('Standzeit', '${(activity.stoppedShare * 100).round()} %'),
+              (
+                'Standzeit',
+                '${(activity.stoppedShare * 100).round()} %'
+                    '${activity.pausedSec >= 60 ? ' · ${Analysis.formatDuration(activity.pausedSec)}' : ''}'
+              ),
             ]),
           ),
 
@@ -93,14 +106,21 @@ class FitnessActivityScreen extends ConsumerWidget {
               child: FitnessRouteMap(points: serie),
             ),
 
-          _EinstufungCard(activity: activity, sport: sport, type: type, zones: zones),
+          _EinstufungCard(
+            activity: activity,
+            sport: sport,
+            type: type,
+            zones: zones,
+            ebike: ebike,
+          ),
 
           FitnessCard(
             title: 'Was dir das sagt',
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                for (final tipp in activityTips(activity, sport, type, zones))
+                for (final tipp
+                    in activityTips(activity, sport, type, zones, ebike: ebike))
                   Padding(
                     padding: const EdgeInsets.only(bottom: 8),
                     child: Text('· $tipp',
@@ -192,12 +212,14 @@ class _EinstufungCard extends ConsumerWidget {
     required this.sport,
     required this.type,
     required this.zones,
+    required this.ebike,
   });
 
   final Activity activity;
   final Sport sport;
   final SessionType type;
   final HrZones zones;
+  final bool ebike;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -221,7 +243,8 @@ class _EinstufungCard extends ConsumerWidget {
         ),
         subtitle: Text(
           '${sportIcon(sport)} ${sportLabel(sport)} · '
-          '${sessionTypeIcon(type)} ${sessionTypeLabel(type)}',
+          '${sessionTypeIcon(type)} ${sessionTypeLabel(type)}'
+          '${ebike ? ' · ⚡ E-Motor' : ''}',
           style: Theme.of(context).textTheme.bodySmall?.copyWith(
                 color: Theme.of(context).colorScheme.onSurfaceVariant,
               ),
@@ -267,6 +290,27 @@ class _EinstufungCard extends ConsumerWidget {
                 ),
             ],
           ),
+          // Nur beim Rad: einen Motor am Laufschuh gibt es nicht, und ein Kästchen, das
+          // nie zutrifft, macht die Karte nur voller.
+          if (sport != Sport.running) ...[
+            const SizedBox(height: 6),
+            CheckboxListTile(
+              value: ebike,
+              onChanged: (an) => ctrl.setEbike(activity.id, an ?? false),
+              contentPadding: EdgeInsets.zero,
+              controlAffinity: ListTileControlAffinity.leading,
+              dense: true,
+              title: const Text('⚡ Mit E-Motor-Unterstützung'),
+              subtitle: Text(
+                'Zeit, Distanz und Belastung zählen normal mit. Nur aus den '
+                'Leistungstrends bleibt die Fahrt heraus — sonst sähe der Motor wie '
+                'deine Form aus.',
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                    ),
+              ),
+            ),
+          ],
           const SizedBox(height: 10),
           Text(
             'Sportart erkannt an ${activity.metersPerCycle.toStringAsFixed(1)} m pro '

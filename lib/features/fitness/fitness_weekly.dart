@@ -2,6 +2,9 @@ import '../../shared/utils/week.dart';
 import 'fitness_models.dart';
 
 /// Eine Woche mit den zusammengezählten Minuten auf dem Rad.
+///
+/// Gezählt wird die Zeit **in Bewegung**. An der Ampel zu stehen ist keine Bewegung, und
+/// eine Runde durch den Ort wäre sonst allein deshalb wertvoller als eine übers Land.
 class CyclingWeek {
   const CyclingWeek({
     required this.monday,
@@ -140,7 +143,7 @@ CyclingWeek _woche(
     final d = DateTime.tryParse(a.date);
     if (d == null) continue;
     final index = (d.weekday - 1).clamp(0, 6);
-    proTag[index] += (a.durationSec / 60).round();
+    proTag[index] += (a.activeSec / 60).round();
   }
 
   return CyclingWeek(
@@ -174,7 +177,7 @@ Map<DateTime, WeeklyLevel> completedWeekLevels(
     if (d == null) continue;
     final montag = mondayOf(d);
     if (!montag.isBefore(aktuellerMontag)) continue;
-    proWoche[montag] = (proWoche[montag] ?? 0) + (a.durationSec / 60).round();
+    proWoche[montag] = (proWoche[montag] ?? 0) + (a.activeSec / 60).round();
   }
 
   return {

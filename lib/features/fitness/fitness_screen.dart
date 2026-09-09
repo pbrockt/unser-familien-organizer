@@ -405,7 +405,7 @@ class _DayTile extends ConsumerWidget {
                         child: Text(
                           '${a.sportDetected == Sport.running ? '🏃' : '🚴'} '
                           '${a.distanceKm.toStringAsFixed(1)} km · '
-                          '${Analysis.formatDuration(a.durationSec)} · '
+                          '${Analysis.formatDuration(a.activeSec)} · '
                           'Ø ${a.hrAvg} bpm',
                           style: Theme.of(context).textTheme.bodySmall?.copyWith(
                                 color: a.hrAvg >= zones.t2

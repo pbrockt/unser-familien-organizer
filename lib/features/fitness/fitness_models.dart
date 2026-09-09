@@ -147,6 +147,7 @@ class Activity {
     required this.sportConfidence,
     this.sportDeclared,
     required this.durationSec,
+    this.movingSec = 0,
     required this.distanceKm,
     required this.hrAvg,
     required this.hrMax,
@@ -181,7 +182,16 @@ class Activity {
 
   /// Die aus den Daten beste Sportart, ohne manuelle Korrektur.
   Sport get sportEffective => sportDeclared ?? sportDetected;
+  /// Vom ersten bis zum letzten Messpunkt — Pausen eingeschlossen.
   final int durationSec;
+
+  /// Zeit in Bewegung, also ohne Ampeln, Pausen und Aufzeichnungslücken.
+  ///
+  /// 0 heißt „nicht gemessen": bei Dateien ohne brauchbare Geschwindigkeitsspalte und
+  /// bei Einheiten, die vor dieser Version eingelesen wurden. Deshalb wird überall
+  /// [activeSec] gerechnet und nicht dieses Feld.
+  final int movingSec;
+
   final double distanceKm;
   final int hrAvg;
   final int hrMax;
@@ -214,9 +224,19 @@ class Activity {
   double get metersPerCycle =>
       cadenceAvg > 0 ? (speedAvgKmh / 3.6 * 60.0) / cadenceAvg : 0;
 
+  /// Die Zeit, mit der gerechnet wird: Bewegung, solange sie gemessen wurde.
+  ///
+  /// Ohne Messung bleibt die Gesamtzeit — lieber die zu großzügige Zahl als gar keine.
+  int get activeSec => movingSec > 0 ? movingSec : durationSec;
+
+  /// Standzeit in Sekunden. Ist nichts gemessen, ist sie 0 statt geraten.
+  int get pausedSec => movingSec > 0 ? durationSec - movingSec : 0;
+
   /// Tempo in Sekunden pro Kilometer (fürs Laufen die aussagekräftigere Größe).
+  ///
+  /// Über die Bewegungszeit gerechnet: Eine Ampelphase macht niemanden langsamer.
   int get paceSecPerKm =>
-      distanceKm > 0.01 ? (durationSec / distanceKm).round() : 0;
+      distanceKm > 0.01 ? (activeSec / distanceKm).round() : 0;
 
   Activity copyWith({
     String? id,
@@ -233,6 +253,7 @@ class Activity {
         sportConfidence: sportConfidence,
         sportDeclared: sportDeclared ?? this.sportDeclared,
         durationSec: durationSec,
+        movingSec: movingSec,
         distanceKm: distanceKm,
         hrAvg: hrAvg,
         hrMax: hrMax,
@@ -256,6 +277,7 @@ class Activity {
         'conf': sportConfidence,
         if (sportDeclared != null) 'sportDecl': sportDeclared!.name,
         'dur': durationSec,
+        'move': movingSec,
         'km': distanceKm,
         'hrAvg': hrAvg,
         'hrMax': hrMax,
@@ -287,6 +309,7 @@ class Activity {
                 orElse: () => Sport.unknown,
               ),
         durationSec: (j['dur'] as num?)?.toInt() ?? 0,
+        movingSec: (j['move'] as num?)?.toInt() ?? 0,
         distanceKm: (j['km'] as num?)?.toDouble() ?? 0,
         hrAvg: (j['hrAvg'] as num?)?.toInt() ?? 0,
         hrMax: (j['hrMax'] as num?)?.toInt() ?? 0,

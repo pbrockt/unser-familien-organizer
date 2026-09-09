@@ -5,16 +5,26 @@ import 'fitness_analysis.dart';
 import 'fitness_models.dart';
 import 'fitness_settings.dart';
 
-/// Manuelle Korrekturen von Sportart und Art der Einheit, je Datei.
+/// Manuelle Angaben zu einer Einheit, je Datei: Sportart, Art der Einheit, E-Motor.
 ///
 /// Beides wird geschätzt, und Schätzungen liegen gelegentlich daneben. Wichtig ist, dass
 /// eine Korrektur den Vorschlag *ersetzt* und nicht bloß überlagert: wählt man wieder den
 /// Vorschlag, verschwindet die Festlegung, statt sie einzufrieren.
 class FitnessOverrides {
-  const FitnessOverrides({this.sports = const {}, this.types = const {}});
+  const FitnessOverrides({
+    this.sports = const {},
+    this.types = const {},
+    this.ebikes = const {},
+  });
 
   final Map<String, Sport> sports;
   final Map<String, SessionType> types;
+
+  /// Fahrten mit Motorunterstützung. Anders als Sportart und Art der Einheit lässt sich
+  /// das aus den Messwerten nicht ablesen — ein Tritt am Berg sieht mit Motor aus wie
+  /// ohne, nur schneller. Also gibt es hier keine Schätzung, die man korrigieren würde,
+  /// sondern nur die Angabe selbst.
+  final Set<String> ebikes;
 }
 
 final fitnessOverridesProvider =
@@ -25,6 +35,7 @@ final fitnessOverridesProvider =
 class FitnessOverridesController extends AsyncNotifier<FitnessOverrides> {
   static const _sportKey = 'fitness_sport_overrides';
   static const _typeKey = 'fitness_type_overrides';
+  static const _ebikeKey = 'fitness_ebike_ids';
 
   @override
   Future<FitnessOverrides> build() async {
@@ -32,6 +43,7 @@ class FitnessOverridesController extends AsyncNotifier<FitnessOverrides> {
     return FitnessOverrides(
       sports: _decode(prefs.getStringList(_sportKey), Sport.values),
       types: _decode(prefs.getStringList(_typeKey), SessionType.values),
+      ebikes: (prefs.getStringList(_ebikeKey) ?? const []).toSet(),
     );
   }
 
@@ -47,6 +59,7 @@ class FitnessOverridesController extends AsyncNotifier<FitnessOverrides> {
     state = AsyncData(FitnessOverrides(
       sports: current,
       types: state.value?.types ?? const {},
+      ebikes: state.value?.ebikes ?? const {},
     ));
   }
 
@@ -62,6 +75,23 @@ class FitnessOverridesController extends AsyncNotifier<FitnessOverrides> {
     state = AsyncData(FitnessOverrides(
       sports: state.value?.sports ?? const {},
       types: current,
+      ebikes: state.value?.ebikes ?? const {},
+    ));
+  }
+
+  Future<void> setEbike(String activityId, bool ebike) async {
+    final prefs = await SharedPreferences.getInstance();
+    final current = Set<String>.from(state.value?.ebikes ?? const <String>{});
+    if (ebike) {
+      current.add(activityId);
+    } else {
+      current.remove(activityId);
+    }
+    await prefs.setStringList(_ebikeKey, current.toList());
+    state = AsyncData(FitnessOverrides(
+      sports: state.value?.sports ?? const {},
+      types: state.value?.types ?? const {},
+      ebikes: current,
     ));
   }
 
@@ -95,6 +125,12 @@ final effectiveSportProvider = Provider.family<Sport, Activity>((ref, activity) 
   // Reihenfolge: manuelle Korrektur, dann die von der Begleitdatei genannte Sportart,
   // zuletzt die Schätzung aus den Messwerten.
   return o?.sports[activity.id] ?? activity.sportEffective;
+});
+
+/// Wurde diese Fahrt mit Motorunterstützung gemacht?
+final ebikeProvider = Provider.family<bool, Activity>((ref, activity) {
+  final o = ref.watch(fitnessOverridesProvider).value;
+  return o?.ebikes.contains(activity.id) ?? false;
 });
 
 /// Die geltende Art einer Einheit: manuelle Wahl schlägt Schätzung.

@@ -30,6 +30,15 @@ class CsvParser {
   /// Spalten, die eigene Bedeutung haben und deshalb kein freier Kanal werden.
   static const _handled = {..._required};
 
+  /// Darunter steht man: Ampel, Pause, Wartezeit. 0,5 m/s sind 1,8 km/h — langsamer
+  /// rollt man nicht mehr, das ist GPS-Rauschen im Stand.
+  static const double _stoppedBelowMps = 0.5;
+
+  /// Größere Sprünge zwischen zwei Messpunkten sind keine Fahrt, sondern eine Lücke in
+  /// der Aufzeichnung — Tracker pausiert, GPS weg, Telefon eingeschlafen. Solche Zeit
+  /// zählt weder als Bewegung noch als Ampelstopp.
+  static const int _maxGapSec = 60;
+
   Activity? parse(String text, String filename) {
     final lines =
         text.split('\n').where((l) => l.trim().isNotEmpty).toList(growable: false);
@@ -75,6 +84,12 @@ class CsvParser {
     var speedMax = 0.0, distMax = 0.0;
     var lastAscent = 0.0, lastDescent = 0.0;
     String? firstTime, lastTime;
+    // Bewegungszeit: aus den Zeitstempeln aufaddiert, nicht aus der Zahl der Zeilen.
+    // Der Tracker schreibt nicht exakt im Sekundentakt — mal zwei Zeilen in derselben
+    // Sekunde, mal eine Lücke. Zeilen zu zählen ergäbe also eine Zeit, die nicht zur
+    // Uhr passt.
+    var movingSec = 0, gemesseneSec = 0;
+    DateTime? vorigeZeit;
 
     // Kennzahlen der freien Kanäle mitziehen, statt die Rohwerte zu behalten.
     final acc = {for (final name in freeColumns.keys) name: _Acc()};
@@ -98,6 +113,10 @@ class CsvParser {
         firstTime ??= t;
         lastTime = t;
       }
+      final zeit = _parseTimestamp(t);
+      final abstand = (zeit != null && vorigeZeit != null)
+          ? zeit.difference(vorigeZeit).inSeconds
+          : 0;
 
       final hr = _num(r, iHr);
       if (hr != null && hr > 0) {
@@ -121,14 +140,21 @@ class CsvParser {
         speedSum += sp;
         speedCount++;
         if (sp > speedMax) speedMax = sp;
-        // Unter 0,5 m/s (1,8 km/h) steht man — Ampel, Pause, Wartezeit.
-        if (sp < 0.5) {
+        if (sp < _stoppedBelowMps) {
           stoppedCount++;
         } else {
           movingSum += sp;
           movingCount++;
         }
+        // Die Spanne bis zu diesem Messpunkt der Geschwindigkeit zuschlagen, die hier
+        // steht. Bei einem Takt von rund einer Sekunde ist die Frage, ob der Wert davor
+        // oder danach gilt, ohne Belang.
+        if (abstand > 0 && abstand <= _maxGapSec) {
+          gemesseneSec += abstand;
+          if (sp >= _stoppedBelowMps) movingSec += abstand;
+        }
       }
+      if (zeit != null) vorigeZeit = zeit;
 
       final d = _num(r, iDist);
       if (d != null && d > distMax) distMax = d;
@@ -153,6 +179,13 @@ class CsvParser {
     final durationSec = (start != null && end != null)
         ? end.difference(start).inSeconds.clamp(0, 1 << 30)
         : 0;
+
+    // Standzeit als Anteil der **Zeit**, nicht der Zeilen. Eine Aufzeichnungslücke ist
+    // eine Pause, hinterlässt aber keine Zeilen — über die Zeilen gezählt bliebe sie
+    // unsichtbar, und die Fahrt sähe durchgefahren aus.
+    final stoppedShare = durationSec > 0 && gemesseneSec > 0
+        ? ((durationSec - movingSec) / durationSec).clamp(0.0, 1.0)
+        : (speedCount > 0 ? stoppedCount / speedCount : 0.0);
 
     final cadenceAvg = cadCount > 0 ? (cadSum / cadCount).round() : 0;
     final speedAvgKmh = speedCount > 0 ? speedSum / speedCount * 3.6 : 0.0;
@@ -207,6 +240,7 @@ class CsvParser {
       sportDetected: detected.sport,
       sportConfidence: detected.confidence,
       durationSec: durationSec,
+      movingSec: movingSec,
       distanceKm: distMax / 1000.0,
       hrAvg: hrCount > 0 ? (hrSum / hrCount).round() : 0,
       hrMax: hrMax,
@@ -218,7 +252,7 @@ class CsvParser {
       elevGain: lastAscent.round(),
       elevLoss: lastDescent.round(),
       series: series,
-      stoppedShare: speedCount > 0 ? stoppedCount / speedCount : 0,
+      stoppedShare: stoppedShare,
       channels: channels,
     );
   }

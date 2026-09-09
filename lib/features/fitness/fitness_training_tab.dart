@@ -33,6 +33,7 @@ class _FitnessTrainingTabState extends ConsumerState<FitnessTrainingTab> {
         overrides?.sports[a.id] ?? a.sportDetected;
     SessionType typeOf(Activity a) =>
         overrides?.types[a.id] ?? SessionClassifier.suggest(a, zones);
+    bool ebikeOf(Activity a) => overrides?.ebikes.contains(a.id) ?? false;
 
     final bySport = <Sport, List<Activity>>{};
     for (final a in widget.data.activities) {
@@ -57,7 +58,13 @@ class _FitnessTrainingTabState extends ConsumerState<FitnessTrainingTab> {
 
     final sport = verfuegbar.contains(_gewaehlt) ? _gewaehlt! : verfuegbar.first;
     final einheiten = bySport[sport]!;
-    final summary = Summarizer.summarize(sport, einheiten, zones, typeOf: typeOf)!;
+    final summary = Summarizer.summarize(
+      sport,
+      einheiten,
+      zones,
+      typeOf: typeOf,
+      ebikeOf: ebikeOf,
+    )!;
     final istLauf = sport == Sport.running;
     final cadence = Analysis.cadenceCheck(sport, summary.avgCadence);
 
@@ -90,7 +97,7 @@ class _FitnessTrainingTabState extends ConsumerState<FitnessTrainingTab> {
           child: FitnessValueGrid(values: [
             ('Einheiten', '${summary.count}'),
             ('Distanz', '${summary.totalKm.toStringAsFixed(1)} km'),
-            ('Zeit', Analysis.formatDuration(summary.totalSec)),
+            ('Zeit in Bewegung', Analysis.formatDuration(summary.totalSec)),
             ('Ø Puls', '${summary.avgHr} bpm'),
             (
               istLauf ? 'Ø Pace' : 'Ø Tempo',
@@ -109,8 +116,8 @@ class _FitnessTrainingTabState extends ConsumerState<FitnessTrainingTab> {
         FitnessCard(
           title: 'Entwicklung',
           subtitle: summary.excludedFromTrends > 0
-              ? 'Gerechnet ohne ${summary.excludedFromTrends} als Ausflug '
-                  'eingestufte Einheit(en)'
+              ? 'Gerechnet ohne ${summary.excludedFromTrends} Einheit(en): '
+                  '${_ausgenommen(summary)}'
               : 'Zweite Hälfte gegen erste Hälfte',
           child: Wrap(
             spacing: 22,
@@ -225,7 +232,13 @@ class _FitnessTrainingTabState extends ConsumerState<FitnessTrainingTab> {
           child: Text('Einheiten', style: Theme.of(context).textTheme.titleMedium),
         ),
         for (final a in absteigend)
-          _EinheitTile(activity: a, sport: sport, type: typeOf(a), zones: zones),
+          _EinheitTile(
+            activity: a,
+            sport: sport,
+            type: typeOf(a),
+            zones: zones,
+            ebike: ebikeOf(a),
+          ),
       ],
     );
   }
@@ -281,12 +294,14 @@ class _EinheitTile extends StatelessWidget {
     required this.sport,
     required this.type,
     required this.zones,
+    required this.ebike,
   });
 
   final Activity activity;
   final Sport sport;
   final SessionType type;
   final HrZones zones;
+  final bool ebike;
 
   @override
   Widget build(BuildContext context) {
@@ -299,7 +314,7 @@ class _EinheitTile extends StatelessWidget {
         onTap: () =>
             context.go('/fitness/einheit/${Uri.encodeComponent(activity.id)}'),
         title: Text(
-          '${sessionTypeIcon(type)} ${_kurzDatum(activity.date)}'
+          '${sessionTypeIcon(type)}${ebike ? ' ⚡' : ''} ${_kurzDatum(activity.date)}'
           '${activity.timeOfDay.isEmpty ? '' : ' · ${activity.timeOfDay}'}',
         ),
         subtitle: Text(
@@ -312,7 +327,7 @@ class _EinheitTile extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.end,
           children: [
             Text(
-              Analysis.formatDuration(activity.durationSec),
+              Analysis.formatDuration(activity.activeSec),
               style: Theme.of(context).textTheme.bodySmall,
             ),
             Text(
@@ -327,6 +342,15 @@ class _EinheitTile extends StatelessWidget {
       ),
     );
   }
+}
+
+/// Warum Einheiten aus den Trends fallen — nur die Gründe nennen, die zutreffen.
+String _ausgenommen(SportSummary s) {
+  final gruende = [
+    if (s.tripCount > 0) 'Ausflug',
+    if (s.ebikeCount > 0) 'mit Motor',
+  ];
+  return gruende.isEmpty ? 'nicht vergleichbar' : gruende.join(' · ');
 }
 
 String _kurzDatum(String iso) =>

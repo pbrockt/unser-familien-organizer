@@ -211,8 +211,9 @@ List<String> activityTips(
   Activity a,
   Sport sport,
   SessionType type,
-  HrZones zones,
-) {
+  HrZones zones, {
+  bool ebike = false,
+}) {
   final out = <String>[];
   final hardShare = zones.hardSharePercent(a.hrHistogram);
   final zoneSeconds = zones.distribute(a.hrHistogram);
@@ -235,6 +236,14 @@ List<String> activityTips(
         out.add('Gemischte Einheit — $hardShare % der Zeit im intensiven Bereich '
             'über ${zones.t2} bpm.');
       }
+  }
+
+  // 1b) Motor: die Einordnung davor bleibt gültig — der Puls lügt nicht —, aber Tempo
+  // und Höhenmeter sagen mit Unterstützung etwas anderes aus.
+  if (ebike) {
+    out.add('Mit Motorunterstützung gefahren. Zeit, Distanz und Belastung zählen mit, '
+        'das Tempo bleibt aus den Trends heraus. Wie hart die Fahrt für dich war, steht '
+        'trotzdem im Puls — der lässt sich nicht unterstützen.');
   }
 
   // 2) Kadenz, sofern gemessen.
@@ -271,7 +280,12 @@ List<String> activityTips(
         ? ' Ohne Standzeit lägst du bei ${a.speedMovingAvgKmh.toStringAsFixed(1)} km/h '
             'statt ${a.speedAvgKmh.toStringAsFixed(1)}.'
         : '';
-    out.add('${(a.stoppedShare * 100).round()} % der Zeit standest du.$ohnePausen');
+    // Die Minuten dazu, weil ein Prozentsatz allein nichts darüber sagt, ob das eine
+    // Ampel war oder eine Viertelstunde am Bäcker.
+    final dauer = a.pausedSec >= 60
+        ? ' Das sind ${(a.pausedSec / 60).round()} Minuten, die nicht mitgezählt werden.'
+        : '';
+    out.add('${(a.stoppedShare * 100).round()} % der Zeit standest du.$dauer$ohnePausen');
   }
 
   // 5) Hoehenmeter ins Verhaeltnis setzen.
@@ -287,7 +301,9 @@ List<String> activityTips(
   if (istLauf && a.distanceKm >= 10) {
     out.add('${a.distanceKm.toStringAsFixed(1)} km am Stück — das ist eine lange Einheit. '
         'Danach zählt vor allem, dass du wieder auftankst.');
-  } else if (!istLauf && a.distanceKm >= 40) {
+  } else if (!istLauf && a.distanceKm >= (ebike ? 60 : 40)) {
+    // Mit Motor ist die Schwelle höher: 40 km sind dann eine schöne Runde, aber kein
+    // Grundlagenaufbau, für den man sie loben müsste.
     out.add('${a.distanceKm.toStringAsFixed(1)} km — lange Ausfahrt. Solche Einheiten '
         'bauen die Grundlage, auf der alles andere steht.');
   }
@@ -403,6 +419,8 @@ class SportSummary {
     required this.paceTrend,
     required this.loadScore,
     required this.excludedFromTrends,
+    this.ebikeCount = 0,
+    this.tripCount = 0,
     required this.trendBasis,
   });
 
@@ -425,8 +443,15 @@ class SportSummary {
   /// Summe der Belastungspunkte aller Einheiten — Ausflüge zählen hier mit.
   final int loadScore;
 
-  /// Wie viele Einheiten als Ausflug gelten und deshalb aus den Trends fallen.
+  /// Wie viele Einheiten aus den Trends fallen — Ausflüge und Fahrten mit Motor.
   final int excludedFromTrends;
+
+  /// Davon Fahrten mit Motorunterstützung.
+  final int ebikeCount;
+
+  /// Davon als Ausflug eingestufte Einheiten. Eine Fahrt kann beides sein, deshalb sind
+  /// die beiden Zahlen zusammen nicht zwingend [excludedFromTrends].
+  final int tripCount;
 
   /// Wie viele Einheiten die Trends tatsächlich tragen.
   final int trendBasis;
@@ -435,17 +460,20 @@ class SportSummary {
 class Summarizer {
   const Summarizer._();
 
-  /// [typeOf] liefert die Art jeder Einheit. Ausflüge zählen in Summen und Belastung mit,
-  /// fließen aber **nicht** in die Trends ein — sonst zieht eine gemütliche Familienrunde
-  /// das Tempo nach unten und die App meldet einen Rückschritt, den es nicht gibt.
+  /// [typeOf] liefert die Art jeder Einheit, [ebikeOf] die Motorunterstützung. Beides
+  /// zählt in Summen und Belastung mit, fließt aber **nicht** in die Trends ein: eine
+  /// gemütliche Familienrunde zöge das Tempo nach unten, eine Fahrt mit Motor zöge es
+  /// nach oben — beide Male meldete die App eine Formänderung, die keine ist.
   static SportSummary? summarize(
     Sport sport,
     List<Activity> activities,
     HrZones zones, {
     SessionType Function(Activity)? typeOf,
+    bool Function(Activity)? ebikeOf,
   }) {
     if (activities.isEmpty) return null;
     final resolve = typeOf ?? (_) => SessionType.training;
+    final mitMotor = ebikeOf ?? (_) => false;
 
     final sorted = [...activities]
       ..sort((a, b) => (a.date + a.timeOfDay).compareTo(b.date + b.timeOfDay));
@@ -462,8 +490,9 @@ class Summarizer {
         ? 0
         : ((zoneSeconds[2] + zoneSeconds[3]) * 100 / zoneTotal).round();
 
-    final vergleichbar =
-        sorted.where((a) => resolve(a) != SessionType.ausflug).toList();
+    final vergleichbar = sorted
+        .where((a) => resolve(a) != SessionType.ausflug && !mitMotor(a))
+        .toList();
 
     // Trend = zweite Hälfte gegen erste Hälfte, gerechnet nur über vergleichbare
     // Einheiten. Unter zwei davon gibt es nichts zu vergleichen, dann ist der Trend 0.
@@ -500,7 +529,7 @@ class Summarizer {
       sport: sport,
       count: sorted.length,
       totalKm: sorted.fold<double>(0, (s, a) => s + a.distanceKm),
-      totalSec: sorted.fold<int>(0, (s, a) => s + a.durationSec),
+      totalSec: sorted.fold<int>(0, (s, a) => s + a.activeSec),
       avgHr: _meanIntOrZero(withHr),
       avgCadence: _meanIntOrZero(withCad),
       avgSpeedKmh: _mean(sorted.map((a) => a.speedAvgKmh).toList()),
@@ -514,6 +543,8 @@ class Summarizer {
       paceTrend: paceTrend,
       loadScore: SessionClassifier.loadScoreFromZones(zoneSeconds),
       excludedFromTrends: sorted.length - vergleichbar.length,
+      ebikeCount: sorted.where(mitMotor).length,
+      tripCount: sorted.where((a) => resolve(a) == SessionType.ausflug).length,
       trendBasis: vergleichbar.length,
     );
   }
@@ -541,11 +572,18 @@ class Summarizer {
     out.add('Belastung gesamt: ${s.loadScore} Punkte '
         '(Minuten je Pulszone, nach Intensität gewichtet).');
 
-    if (s.excludedFromTrends > 0) {
-      final n = s.excludedFromTrends;
+    if (s.tripCount > 0) {
+      final n = s.tripCount;
       out.add('$n Einheit${n > 1 ? 'en' : ''} als Ausflug eingestuft — zählt bei Distanz '
           'und Belastung mit, bleibt aber aus den Trends heraus, damit gemütliche Runden '
           'nicht wie ein Rückschritt aussehen.');
+    }
+
+    if (s.ebikeCount > 0) {
+      final n = s.ebikeCount;
+      out.add('$n Fahrt${n > 1 ? 'en' : ''} mit Motorunterstützung — Zeit, Distanz und '
+          'Belastung zählen mit, das Tempo bleibt aus den Trends heraus. Sonst sähe der '
+          'Motor wie deine Form aus.');
     }
 
     if (s.trendBasis >= 2) {

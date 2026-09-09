@@ -493,7 +493,10 @@ class _ActivityTile extends ConsumerWidget {
               const SizedBox(height: 10),
               FitnessValueGrid(values: [
                 ('Distanz', '${activity.distanceKm.toStringAsFixed(2)} km'),
-                ('Dauer', Analysis.formatDuration(activity.durationSec)),
+                (
+                  istLauf ? 'Laufzeit' : 'Fahrzeit',
+                  Analysis.formatDuration(activity.activeSec)
+                ),
                 (
                   istLauf ? 'Pace' : 'Ø Tempo',
                   istLauf
