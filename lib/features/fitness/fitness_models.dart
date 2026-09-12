@@ -217,6 +217,7 @@ class Activity {
     this.channels = const {},
     this.powerAvg = 0,
     this.powerMax = 0,
+    this.powerDerived = false,
     this.indoor = false,
     this.laps = const [],
   });
@@ -278,6 +279,14 @@ class Activity {
   /// die Spalte, aber leer.
   final int powerAvg;
   final int powerMax;
+
+  /// Ist die Leistung gar nicht gemessen, sondern aus der Trittfrequenz gerechnet?
+  ///
+  /// Manche Geräte und virtuelle Plattformen melden Watt, die schlicht die Trittfrequenz
+  /// mal einem festen Drehmoment sind. Dann steht dieselbe Information zweimal in der
+  /// Datei, und die Watt sind keine unabhängige Messung — ein Formtrend daraus wäre ein
+  /// Trittfrequenz-Trend mit einer Einheit, die Genauigkeit vortäuscht.
+  final bool powerDerived;
 
   /// Drinnen gefahren: Rolle, Spinning oder eine virtuelle Welt.
   ///
@@ -345,6 +354,7 @@ class Activity {
         channels: channels,
         powerAvg: powerAvg,
         powerMax: powerMax,
+        powerDerived: powerDerived,
         indoor: indoor,
         laps: laps,
       );
@@ -371,6 +381,7 @@ class Activity {
         'stop': stoppedShare,
         if (powerAvg > 0) 'wAvg': powerAvg,
         if (powerMax > 0) 'wMax': powerMax,
+        if (powerDerived) 'wDer': true,
         if (indoor) 'in': true,
         if (laps.isNotEmpty) 'laps': laps.map((l) => l.toJson()).toList(),
         'chan': channels.map((k, v) => MapEntry(k, v.toJson())),
@@ -409,6 +420,7 @@ class Activity {
         stoppedShare: (j['stop'] as num?)?.toDouble() ?? 0,
         powerAvg: (j['wAvg'] as num?)?.toInt() ?? 0,
         powerMax: (j['wMax'] as num?)?.toInt() ?? 0,
+        powerDerived: j['wDer'] == true,
         indoor: j['in'] == true,
         laps: (j['laps'] as List?)
                 ?.map((e) => ActivityLap.fromJson(e as Map<String, dynamic>))

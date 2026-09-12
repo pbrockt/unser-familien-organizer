@@ -65,6 +65,10 @@ class FitParser {
     var movingSum = 0.0, movingCount = 0;
     var bewegtSec = 0, gemesseneSec = 0;
     var wattSum = 0.0, wattCount = 0, wattMax = 0;
+    // Für die Prüfung, ob die Watt überhaupt gemessen sind: das Verhältnis zur
+    // Trittfrequenz an jedem Punkt, und wie viele verschiedene Wattwerte vorkommen.
+    final wattJeKadenz = <double>[];
+    final wattWerte = <int>{};
     var hoeheMin = double.infinity, hoeheMax = -double.infinity;
     var anstieg = 0.0, abstieg = 0.0;
     double? vorigeHoehe;
@@ -113,6 +117,8 @@ class FitParser {
         wattSum += w;
         wattCount++;
         if (w > wattMax) wattMax = w;
+        wattWerte.add(w);
+        if (cad != null && cad > 10 && w > 0) wattJeKadenz.add(w / cad);
       }
 
       final h = p.altitude;
@@ -155,6 +161,8 @@ class FitParser {
       speedMax * 3.6,
       (_scaled(sitzung?[_fMaxSpeed], 1000) ?? 0) * 3.6,
     );
+
+    final gerechnet = powerLooksDerived(wattJeKadenz, wattWerte.length);
 
     final zeit = start?.toLocal();
     final kanaele = <String, ChannelStat>{};
@@ -209,9 +217,45 @@ class FitParser {
       powerAvg: (sitzung?[_fAvgPower] as int?) ??
           (wattCount > 0 ? (wattSum / wattCount).round() : 0),
       powerMax: math.max(wattMax, (sitzung?[_fMaxPower] as int?) ?? 0),
+      powerDerived: gerechnet,
       indoor: indoor,
       laps: datei.laps.length > 1 ? _laps(datei.laps) : const [],
     );
+  }
+
+  /// Prüft, ob die Leistung in Wirklichkeit die Trittfrequenz ist.
+  ///
+  /// Öffentlich, weil sich die Entscheidung nur so mit gestreuten Werten prüfen lässt:
+  /// Eine echte Messung nachzubauen hieße sonst, eine FIT-Datei zu fälschen.
+  ///
+  /// Zwei Merkmale müssen zusammenkommen, damit aus einem Verdacht eine Aussage wird:
+  ///
+  /// 1. Das Verhältnis Watt je Umdrehung bleibt über die ganze Einheit gleich. Ein
+  ///    Mensch tritt nicht mit konstantem Drehmoment — schon gar nicht, während sich die
+  ///    Leistung verdoppelt.
+  /// 2. Es kommen viel zu wenige verschiedene Wattwerte vor. Ein echter Leistungsmesser
+  ///    schwankt im Sekundentakt und liefert Hunderte verschiedener Zahlen; eine
+  ///    gerechnete Leistung nur so viele, wie es ganzzahlige Trittfrequenzen gibt.
+  ///
+  /// Nur eines von beidem reicht nicht: Eine gleichmäßig getretene Einheit erfüllt
+  /// Merkmal 1 beinahe, und ein stark geglätteter Messwert Merkmal 2.
+  static bool powerLooksDerived(List<double> verhaeltnisse, int verschiedeneWatt) {
+    // Unter einer Minute Messpunkte ist jede Aussage darüber Zufall.
+    if (verhaeltnisse.length < 60) return false;
+
+    final sortiert = [...verhaeltnisse]..sort();
+    final median = sortiert[sortiert.length ~/ 2];
+    if (median <= 0) return false;
+
+    final nahDran =
+        verhaeltnisse.where((v) => (v - median).abs() / median < 0.10).length;
+    final konstant = nahDran / verhaeltnisse.length >= 0.90;
+
+    // Ein echter Leistungsmesser füllt den Wertebereich; vier Messpunkte je
+    // vorkommendem Wattwert sind dafür schon sehr grob.
+    final grobGerastert = verschiedeneWatt * 4 < verhaeltnisse.length;
+
+    return konstant && grobGerastert;
   }
 
   /// Rechnet den Verlauf auf höchstens [_maxSeriesPoints] Punkte herunter.

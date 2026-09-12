@@ -246,6 +246,14 @@ List<String> activityTips(
         'trotzdem im Puls — der lässt sich nicht unterstützen.');
   }
 
+  // 1c) Gerechnete Leistung: Die Zahl steht in der Datei, misst aber nichts. Das gehört
+  // hierher und nicht ins Kleingedruckte — wer Watt sieht, hält sie für gemessen.
+  if (a.powerDerived && a.powerAvg > 0) {
+    out.add('Die ${a.powerAvg} Watt sind nicht gemessen: Sie sind die Trittfrequenz mal '
+        'einem festen Drehmoment. Als Fortschrittsmaß taugen sie deshalb nicht — '
+        'aussagekräftig bleiben hier Puls und Zeit.');
+  }
+
   // 2) Kadenz, sofern gemessen.
   final cad = Analysis.cadenceCheck(sport, a.cadenceAvg);
   if (cad.verdict != Verdict.noData && type != SessionType.ausflug) {

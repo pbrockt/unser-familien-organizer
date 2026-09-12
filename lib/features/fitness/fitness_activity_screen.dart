@@ -86,7 +86,11 @@ class FitnessActivityScreen extends ConsumerWidget {
               ('Max Puls', '${activity.hrMax} bpm'),
               // Watt stehen bewusst vorn und nicht unter „Weitere Messwerte": Wo es sie
               // gibt, sind sie die belastbarste Zahl der ganzen Einheit.
-              if (activity.powerAvg > 0) ('Ø Leistung', '${activity.powerAvg} W'),
+              if (activity.powerAvg > 0)
+                (
+                  activity.powerDerived ? 'Ø Leistung (gerechnet)' : 'Ø Leistung',
+                  '${activity.powerAvg} W'
+                ),
               if (activity.powerMax > 0) ('Max Leistung', '${activity.powerMax} W'),
               if (cadence.verdict != Verdict.noData)
                 (
@@ -114,10 +118,13 @@ class FitnessActivityScreen extends ConsumerWidget {
           if (activity.laps.length > 1)
             FitnessCard(
               title: 'Runden',
-              subtitle: activity.laps.any((l) => l.avgPower > 0)
-                  ? 'Watt je Abschnitt — daran hängt, ob die Einheit wirklich '
-                      'strukturiert war'
-                  : 'Abschnitte der Einheit',
+              subtitle: !activity.laps.any((l) => l.avgPower > 0)
+                  ? 'Abschnitte der Einheit'
+                  : (activity.powerDerived
+                      ? 'Watt je Abschnitt — aus der Trittfrequenz gerechnet, nicht '
+                          'gemessen'
+                      : 'Watt je Abschnitt — daran hängt, ob die Einheit wirklich '
+                          'strukturiert war'),
               child: _RundenTabelle(laps: activity.laps),
             ),
 
