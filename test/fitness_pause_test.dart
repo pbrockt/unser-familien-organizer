@@ -58,9 +58,11 @@ Activity fahrt({
   required String datum,
   required int durationSec,
   required int movingSec,
+  bool indoor = false,
 }) =>
     Activity(
-      id: '$datum-$durationSec',
+      id: '$datum-$durationSec-$indoor',
+      indoor: indoor,
       date: datum,
       timeOfDay: '19:00',
       sportDetected: Sport.cycling,
@@ -205,6 +207,26 @@ void main() {
       ).single;
 
       expect(woche.minutes, 60);
+    });
+
+    test('weisen drinnen gefahrene Minuten getrennt aus', () {
+      final woche = cyclingWeeks(
+        [
+          fahrt(datum: '2026-08-25', durationSec: 1800, movingSec: 1800),
+          fahrt(datum: '2026-08-26', durationSec: 1200, movingSec: 1200, indoor: true),
+        ],
+        rad,
+        DateTime(2026, 8, 27),
+        weeksBack: 0,
+        weeksForward: 0,
+      ).single;
+
+      expect(woche.minutes, 50, reason: 'Rollentraining zählt voll mit');
+      expect(woche.indoorMinutes, 20);
+      // Dienstag ist Index 1, Mittwoch Index 2.
+      expect(woche.dailyMinutes[1], 30);
+      expect(woche.dailyIndoorMinutes[1], 0);
+      expect(woche.dailyIndoorMinutes[2], 20);
     });
 
     test('färben abgeschlossene Wochen nach der Bewegungszeit', () {

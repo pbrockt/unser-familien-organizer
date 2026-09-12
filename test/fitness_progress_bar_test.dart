@@ -8,6 +8,7 @@ import 'package:flutter_test/flutter_test.dart';
 Future<Size> balkenGroesse(
   WidgetTester tester, {
   required List<int> minuten,
+  List<int> drinnen = const [0, 0, 0, 0, 0, 0, 0],
   bool muted = false,
   double breite = 200,
 }) async {
@@ -19,6 +20,7 @@ Future<Size> balkenGroesse(
             width: breite,
             child: FitnessProgressBar(
               dailyMinutes: minuten,
+              dailyIndoorMinutes: drinnen,
               color: const Color(0xFF3E8E51),
               muted: muted,
             ),
@@ -129,6 +131,51 @@ void main() {
         matching: find.byType(ColoredBox),
       );
       expect(abschnitte.evaluate().length, 1);
+    });
+
+    testWidgets('zeichnet den drinnen gefahrenen Teil sichtbar mit', (tester) async {
+      // Nicht nur vorhanden, sondern gezeichnet: Ein Abschnitt mit null Pixeln Höhe
+      // sieht im Code richtig aus und ist auf dem Gerät nicht da. Genau das ist hier
+      // schon einmal passiert.
+      await balkenGroesse(
+        tester,
+        minuten: [60, 0, 0, 0, 0, 0, 0],
+        drinnen: [30, 0, 0, 0, 0, 0, 0],
+      );
+      final drin = find.byKey(FitnessProgressBar.indoorKey(0));
+      expect(drin, findsOneWidget);
+      final groesse = tester.getSize(drin);
+      expect(groesse.height, greaterThan(0), reason: 'Ohne Höhe wird nichts gezeichnet');
+      expect(groesse.width, greaterThan(0));
+    });
+
+    testWidgets('teilt den Tag zwischen draußen und drinnen auf', (tester) async {
+      // 40 draußen, 20 drinnen: der drinnen gefahrene Teil ist halb so breit.
+      await balkenGroesse(
+        tester,
+        minuten: [60, 0, 0, 0, 0, 0, 0],
+        drinnen: [20, 0, 0, 0, 0, 0, 0],
+      );
+      final drin = tester.getSize(find.byKey(FitnessProgressBar.indoorKey(0)));
+      final gesamt = tester.getSize(find.byKey(FitnessProgressBar.fillKey));
+      expect(drin.width, closeTo(gesamt.width / 3, 1));
+    });
+
+    testWidgets('zeigt keinen Innen-Abschnitt, wenn alles draußen war', (tester) async {
+      await balkenGroesse(tester, minuten: [60, 0, 0, 0, 0, 0, 0]);
+      expect(find.byKey(FitnessProgressBar.indoorKey(0)), findsNothing);
+    });
+
+    testWidgets('verkraftet eine ganz drinnen gefahrene Woche', (tester) async {
+      await balkenGroesse(
+        tester,
+        minuten: [60, 0, 0, 0, 0, 0, 0],
+        drinnen: [60, 0, 0, 0, 0, 0, 0],
+      );
+      final drin = tester.getSize(find.byKey(FitnessProgressBar.indoorKey(0)));
+      final gesamt = tester.getSize(find.byKey(FitnessProgressBar.fillKey));
+      expect(drin.width, closeTo(gesamt.width, 1));
+      expect(drin.height, greaterThan(0));
     });
 
     testWidgets('überlebt eine sehr schmale Karte', (tester) async {

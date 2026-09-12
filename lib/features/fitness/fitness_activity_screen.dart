@@ -41,7 +41,8 @@ class FitnessActivityScreen extends ConsumerWidget {
     return Scaffold(
       appBar: AppBar(
         title: Text(
-          '${sportIcon(sport)} ${sportLabel(sport)}${ebike ? ' ⚡' : ''}',
+          '${sportIcon(sport)} ${sportLabel(sport)}'
+          '${activity.indoor ? ' 🏠' : ''}${ebike ? ' ⚡' : ''}',
         ),
         bottom: PreferredSize(
           preferredSize: const Size.fromHeight(20),
@@ -83,6 +84,10 @@ class FitnessActivityScreen extends ConsumerWidget {
               ('Max Tempo', '${activity.speedMaxKmh.toStringAsFixed(1)} km/h'),
               ('Ø Puls', '${activity.hrAvg} bpm'),
               ('Max Puls', '${activity.hrMax} bpm'),
+              // Watt stehen bewusst vorn und nicht unter „Weitere Messwerte": Wo es sie
+              // gibt, sind sie die belastbarste Zahl der ganzen Einheit.
+              if (activity.powerAvg > 0) ('Ø Leistung', '${activity.powerAvg} W'),
+              if (activity.powerMax > 0) ('Max Leistung', '${activity.powerMax} W'),
               if (cadence.verdict != Verdict.noData)
                 (
                   'Ø Kadenz',
@@ -104,6 +109,16 @@ class FitnessActivityScreen extends ConsumerWidget {
               title: 'Strecke',
               subtitle: 'Farbe nach Tempo · grün Start, rot Ziel',
               child: FitnessRouteMap(points: serie),
+            ),
+
+          if (activity.laps.length > 1)
+            FitnessCard(
+              title: 'Runden',
+              subtitle: activity.laps.any((l) => l.avgPower > 0)
+                  ? 'Watt je Abschnitt — daran hängt, ob die Einheit wirklich '
+                      'strukturiert war'
+                  : 'Abschnitte der Einheit',
+              child: _RundenTabelle(laps: activity.laps),
             ),
 
           _EinstufungCard(
@@ -313,14 +328,129 @@ class _EinstufungCard extends ConsumerWidget {
           ],
           const SizedBox(height: 10),
           Text(
-            'Sportart erkannt an ${activity.metersPerCycle.toStringAsFixed(1)} m pro '
-            'Zyklus (Sicherheit ${(activity.sportConfidence * 100).round()} %).',
+            activity.sportDeclared != null
+                // Bei FIT- und TCX-Dateien steht die Sportart in der Datei. Von einer
+                // „Erkennung mit 100 % Sicherheit" zu sprechen wäre eine Zahl, die nur
+                // so tut, als sei etwas gemessen worden.
+                ? 'Sportart und Ort stehen in der Datei selbst.'
+                : 'Sportart erkannt an ${activity.metersPerCycle.toStringAsFixed(1)} m pro '
+                    'Zyklus (Sicherheit ${(activity.sportConfidence * 100).round()} %).',
             style: Theme.of(context).textTheme.bodySmall?.copyWith(
                   color: Theme.of(context).colorScheme.onSurfaceVariant,
                 ),
           ),
         ],
       )],
+      ),
+    );
+  }
+}
+
+/// Runden als schmale Tabelle.
+///
+/// Bewusst keine Karte je Runde: Bei neun Minutenstufen zählt der Vergleich
+/// untereinander, und der geht nur, wenn die Zahlen in einer Spalte stehen.
+class _RundenTabelle extends StatelessWidget {
+  const _RundenTabelle({required this.laps});
+
+  final List<ActivityLap> laps;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final klein = Theme.of(context).textTheme.labelSmall?.copyWith(
+          color: scheme.onSurfaceVariant,
+        );
+    final wert = Theme.of(context).textTheme.bodySmall;
+    final mitWatt = laps.any((l) => l.avgPower > 0);
+    // Die stärkste Runde bekommt den Balken zum Vergleich — ohne Bezugsgröße sagt eine
+    // Wattzahl allein wenig.
+    final maxWatt = laps.fold<int>(1, (m, l) => l.avgPower > m ? l.avgPower : m);
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Row(children: [
+          SizedBox(width: 24, child: Text('#', style: klein)),
+          SizedBox(width: 52, child: Text('Dauer', style: klein)),
+          SizedBox(width: 52, child: Text('km', style: klein)),
+          if (mitWatt) SizedBox(width: 48, child: Text('Ø Watt', style: klein)),
+          Expanded(child: Text('Ø Puls', style: klein, textAlign: TextAlign.right)),
+        ]),
+        const Divider(height: 12),
+        for (final l in laps)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 6),
+            child: Row(
+              children: [
+                SizedBox(width: 24, child: Text('${l.number}', style: wert)),
+                SizedBox(
+                  width: 52,
+                  child: Text(Analysis.formatDuration(l.durationSec), style: wert),
+                ),
+                SizedBox(
+                  width: 52,
+                  child: Text(l.distanceKm.toStringAsFixed(2), style: wert),
+                ),
+                if (mitWatt)
+                  SizedBox(
+                    width: 48,
+                    child: Text(l.avgPower > 0 ? '${l.avgPower}' : '—', style: wert),
+                  ),
+                Expanded(
+                  child: mitWatt
+                      ? _WattBalken(anteil: l.avgPower / maxWatt, farbe: scheme.tertiary)
+                      : const SizedBox.shrink(),
+                ),
+                SizedBox(
+                  width: 46,
+                  child: Text(
+                    l.avgHr > 0 ? '${l.avgHr}' : '—',
+                    style: wert,
+                    textAlign: TextAlign.right,
+                  ),
+                ),
+              ],
+            ),
+          ),
+      ],
+    );
+  }
+}
+
+class _WattBalken extends StatelessWidget {
+  const _WattBalken({required this.anteil, required this.farbe});
+
+  final double anteil;
+  final Color farbe;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 8),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(3),
+        child: SizedBox(
+          height: 6,
+          child: Stack(
+            fit: StackFit.expand,
+            children: [
+              ColoredBox(color: farbe.withValues(alpha: 0.18)),
+              Align(
+                alignment: Alignment.centerLeft,
+                child: FractionallySizedBox(
+                  alignment: Alignment.centerLeft,
+                  widthFactor: anteil.clamp(0.0, 1.0),
+                  // heightFactor: sonst bestimmt das Kind die Höhe, und eine ColoredBox
+                  // ohne Kind nimmt bei loser Vorgabe null. Derselbe Fallstrick wie beim
+                  // Wochenbalken.
+                  heightFactor: 1,
+                  child: ColoredBox(color: farbe),
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }

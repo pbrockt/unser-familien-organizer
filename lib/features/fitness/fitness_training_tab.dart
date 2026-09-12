@@ -314,7 +314,8 @@ class _EinheitTile extends StatelessWidget {
         onTap: () =>
             context.go('/fitness/einheit/${Uri.encodeComponent(activity.id)}'),
         title: Text(
-          '${sessionTypeIcon(type)}${ebike ? ' ⚡' : ''} ${_kurzDatum(activity.date)}'
+          '${sessionTypeIcon(type)}${activity.indoor ? ' 🏠' : ''}'
+          '${ebike ? ' ⚡' : ''} ${_kurzDatum(activity.date)}'
           '${activity.timeOfDay.isEmpty ? '' : ' · ${activity.timeOfDay}'}',
         ),
         subtitle: Text(

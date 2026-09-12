@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:typed_data';
 
 import 'package:http/http.dart' as http;
 import 'package:xml/xml.dart';
@@ -119,7 +120,14 @@ class WebDavClient {
   }
 
   /// Lädt eine Datei als Text.
-  Future<String> read(NextcloudAccount account, String path) async {
+  Future<String> read(NextcloudAccount account, String path) async =>
+      utf8.decode(await readBytes(account, path));
+
+  /// Lädt eine Datei unverändert.
+  ///
+  /// Für FIT-Dateien unverzichtbar: Die sind binär, und durch [utf8.decode] gedreht
+  /// kämen sie als Folge von Ersatzzeichen an — lesbar aussehend und unbrauchbar.
+  Future<Uint8List> readBytes(NextcloudAccount account, String path) async {
     final uri = Uri.parse('${_base(account)}${_encodePath(path)}');
     final response = await _client.get(uri, headers: {
       'Authorization': _auth(account),
@@ -129,7 +137,7 @@ class WebDavClient {
         'Datei „$path" konnte nicht gelesen werden (${response.statusCode}).',
       );
     }
-    return utf8.decode(response.bodyBytes);
+    return response.bodyBytes;
   }
 
   String _base(NextcloudAccount account) {

@@ -12,6 +12,7 @@ class CyclingWeek {
     required this.km,
     required this.rides,
     required this.dailyMinutes,
+    this.dailyIndoorMinutes = const [0, 0, 0, 0, 0, 0, 0],
     required this.isCurrent,
     required this.isFuture,
   });
@@ -24,6 +25,16 @@ class CyclingWeek {
 
   /// Minuten je Wochentag, Montag zuerst — immer sieben Einträge.
   final List<int> dailyMinutes;
+
+  /// Davon drinnen gefahren, ebenfalls je Wochentag.
+  ///
+  /// Getrennt geführt statt herausgerechnet: Zeit auf der Rolle ist Zeit auf dem Rad und
+  /// zählt voll mit. Sichtbar bleiben soll sie trotzdem — eine Woche aus lauter
+  /// Rollentraining ist eine andere Woche als eine draußen.
+  final List<int> dailyIndoorMinutes;
+
+  /// Minuten der Woche, die drinnen gefahren wurden.
+  int get indoorMinutes => dailyIndoorMinutes.fold<int>(0, (s, m) => s + m);
 
   /// Läuft die Woche gerade? Dann ist die Zahl ein Zwischenstand.
   final bool isCurrent;
@@ -139,11 +150,14 @@ CyclingWeek _woche(
   final fahrten = proWoche[montag] ?? const <Activity>[];
 
   final proTag = List<int>.filled(7, 0);
+  final drinnen = List<int>.filled(7, 0);
   for (final a in fahrten) {
     final d = DateTime.tryParse(a.date);
     if (d == null) continue;
     final index = (d.weekday - 1).clamp(0, 6);
-    proTag[index] += (a.activeSec / 60).round();
+    final minuten = (a.activeSec / 60).round();
+    proTag[index] += minuten;
+    if (a.indoor) drinnen[index] += minuten;
   }
 
   return CyclingWeek(
@@ -152,6 +166,7 @@ CyclingWeek _woche(
     km: fahrten.fold<double>(0, (s, a) => s + a.distanceKm),
     rides: fahrten.length,
     dailyMinutes: proTag,
+    dailyIndoorMinutes: drinnen,
     isCurrent: versatz == 0,
     isFuture: versatz > 0,
   );

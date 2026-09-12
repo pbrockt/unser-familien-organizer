@@ -214,7 +214,8 @@ class FitnessWeekTile extends StatelessWidget {
                           ? 'geplant'
                           : (woche.rides == 0
                               ? 'noch keine Fahrt'
-                              : '${woche.minutes} / $weeklyGoalMinutes min'),
+                              : '${woche.minutes} / $weeklyGoalMinutes min'
+                                  '${woche.indoorMinutes > 0 ? ' · ${woche.indoorMinutes} drin' : ''}'),
                       style: Theme.of(context).textTheme.bodySmall?.copyWith(
                             color: scheme.onSurfaceVariant,
                           ),
@@ -224,6 +225,7 @@ class FitnessWeekTile extends StatelessWidget {
                 const SizedBox(height: 8),
                 FitnessProgressBar(
                   dailyMinutes: woche.dailyMinutes,
+                  dailyIndoorMinutes: woche.dailyIndoorMinutes,
                   color: balken,
                   muted: neutral,
                 ),
@@ -257,11 +259,8 @@ class FitnessWeekTile extends StatelessWidget {
 /// Balken, der sich von links nach rechts füllt.
 ///
 /// Unterteilt nach Fahrtagen: So ist zu sehen, ob die Minuten aus einer langen Runde
-/// stammen oder aus mehreren kurzen — die reine Summe verschweigt das.
-/// Balken, der sich von links nach rechts füllt.
-///
-/// Unterteilt nach Fahrtagen: So ist zu sehen, ob die Minuten aus einer langen Runde
-/// stammen oder aus mehreren kurzen — die reine Summe verschweigt das.
+/// stammen oder aus mehreren kurzen — die reine Summe verschweigt das. Drinnen gefahrene
+/// Abschnitte stehen blasser darin.
 ///
 /// Öffentlich, damit sich die tatsächlich gezeichnete Breite testen lässt. Ein Balken,
 /// der aus Layout-Gründen zu null Pixeln zusammenfällt, sieht im Code völlig gesund aus.
@@ -269,6 +268,7 @@ class FitnessProgressBar extends StatelessWidget {
   const FitnessProgressBar({
     super.key,
     required this.dailyMinutes,
+    this.dailyIndoorMinutes = const [0, 0, 0, 0, 0, 0, 0],
     required this.color,
     this.goalMinutes = weeklyGoalMinutes,
     this.height = 14,
@@ -276,6 +276,11 @@ class FitnessProgressBar extends StatelessWidget {
   });
 
   final List<int> dailyMinutes;
+
+  /// Davon drinnen — wird blasser gezeichnet. Nicht weggelassen: Rollentraining zählt,
+  /// soll aber nicht wie eine Ausfahrt aussehen.
+  final List<int> dailyIndoorMinutes;
+
   final Color color;
   final int goalMinutes;
   final double height;
@@ -285,6 +290,9 @@ class FitnessProgressBar extends StatelessWidget {
 
   /// Schlüssel des gefüllten Teils — nur fürs Testen.
   static const fillKey = Key('fitness-progress-fill');
+
+  /// Schlüssel eines drinnen gefahrenen Abschnitts — je Tag einer, nur fürs Testen.
+  static Key indoorKey(int tag) => ValueKey('fitness-progress-indoor-$tag');
 
   @override
   Widget build(BuildContext context) {
@@ -340,10 +348,22 @@ class FitnessProgressBar extends StatelessWidget {
                           // Feine Trennlinie zwischen den Fahrtagen.
                           if (_hatVorgaenger(i))
                             SizedBox(width: 1.5, child: ColoredBox(color: grund)),
-                          Expanded(
-                            flex: dailyMinutes[i],
-                            child: ColoredBox(color: color),
-                          ),
+                          if (_draussen(i) > 0)
+                            Expanded(
+                              flex: _draussen(i),
+                              child: ColoredBox(color: color),
+                            ),
+                          if (_drinnen(i) > 0)
+                            Expanded(
+                              key: indoorKey(i),
+                              flex: _drinnen(i),
+                              // Derselbe Ton, nur durchscheinend: Der Abschnitt bleibt
+                              // als Teil desselben Balkens lesbar, statt wie eine
+                              // zweite Aussage zu wirken.
+                              child: ColoredBox(
+                                color: color.withValues(alpha: 0.45),
+                              ),
+                            ),
                         ],
                     ],
                   ),
@@ -354,6 +374,14 @@ class FitnessProgressBar extends StatelessWidget {
       ),
     );
   }
+
+  /// Minuten des Tages drinnen — begrenzt, damit ein Zahlendreher den Balken nicht
+  /// aus dem Tritt bringt.
+  int _drinnen(int i) => i < dailyIndoorMinutes.length
+      ? dailyIndoorMinutes[i].clamp(0, dailyMinutes[i])
+      : 0;
+
+  int _draussen(int i) => dailyMinutes[i] - _drinnen(i);
 
   bool _hatVorgaenger(int index) {
     for (var i = 0; i < index; i++) {

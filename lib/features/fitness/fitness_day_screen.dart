@@ -478,7 +478,8 @@ class _ActivityTile extends ConsumerWidget {
                 children: [
                   Expanded(
                     child: Text(
-                      '${sportIcon(sport)} ${sportLabel(sport)} · '
+                      '${sportIcon(sport)} ${sportLabel(sport)}'
+                      '${activity.indoor ? ' 🏠' : ''} · '
                       '${sessionTypeIcon(type)} ${sessionTypeLabel(type)}',
                       style: Theme.of(context).textTheme.titleSmall,
                     ),

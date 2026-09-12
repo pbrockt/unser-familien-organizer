@@ -6,6 +6,7 @@ import 'package:path_provider/path_provider.dart';
 
 import '../../core/auth/nextcloud_account.dart';
 import 'fitness_models.dart';
+import 'fitness_fit_parser.dart';
 import 'fitness_parsers.dart';
 import 'fitness_sport_hint.dart';
 import 'fitness_webdav.dart';
@@ -29,8 +30,8 @@ class FitnessData {
   ///
   /// Hochzählen, sobald aus denselben Dateien etwas anderes herausgelesen wird — dann
   /// wirft [FitnessRepository.load] die Fingerabdrücke weg und liest beim nächsten
-  /// Abgleich alles neu. 2: Bewegungszeit je Einheit.
-  static const int schemaVersion = 2;
+  /// Abgleich alles neu. 2: Bewegungszeit je Einheit. 3: FIT-Dateien.
+  static const int schemaVersion = 3;
 
   Map<String, dynamic> toJson() => {
         'v': schemaVersion,
@@ -88,11 +89,15 @@ class ImportResult {
 /// bloß Feinschliff: die Trainings-CSVs sind sekundengenaue Telemetrie, und den ganzen
 /// Ordner jeden Morgen erneut zu laden wäre Verschwendung von Datenvolumen und Zeit.
 class FitnessRepository {
-  FitnessRepository({WebDavClient? client, this.parser = const CsvParser()})
-      : _client = client ?? const WebDavClient();
+  FitnessRepository({
+    WebDavClient? client,
+    this.parser = const CsvParser(),
+    this.fitParser = const FitParser(),
+  }) : _client = client ?? const WebDavClient();
 
   final WebDavClient _client;
   final CsvParser parser;
+  final FitParser fitParser;
   static const _health = HealthParser();
 
   Future<File> _cacheFile() async {
@@ -159,12 +164,36 @@ class FitnessRepository {
       final lower = entry.name.toLowerCase();
       final isCsv = lower.endsWith('.csv');
       final isMd = lower.endsWith('.md');
-      if (!isCsv && !isMd) continue;
+      final isFit = lower.endsWith('.fit');
+      if (!isCsv && !isMd && !isFit) continue;
 
       // Ohne ETag hilft die Größe — besser als jedes Mal neu zu laden.
       final fingerprint = entry.etag ?? 'size:${entry.size}';
       if (!force && fingerprints[entry.path] == fingerprint) {
         skipped++;
+        continue;
+      }
+
+      // FIT ist binär und wird deshalb ungedreht gelesen. Die Textformate laufen weiter
+      // über `read`, damit sich an ihrem Weg nichts ändert.
+      if (isFit) {
+        Activity? parsed;
+        try {
+          parsed = fitParser.parse(
+            await _client.readBytes(account, entry.path),
+            entry.name,
+          );
+        } catch (_) {
+          unreadable++;
+          continue;
+        }
+        if (parsed == null) {
+          unreadable++;
+          continue;
+        }
+        activities[parsed.id] = parsed;
+        fingerprints[entry.path] = fingerprint;
+        newActivities++;
         continue;
       }
 

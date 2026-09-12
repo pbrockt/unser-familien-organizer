@@ -132,6 +132,60 @@ class ChannelStat {
       );
 }
 
+/// Eine Runde innerhalb einer Einheit.
+///
+/// Strukturierte Einheiten aus einer Trainings-App bestehen aus Runden, und genau darin
+/// steht die Aussage: eine Rampe von 207 auf 420 Watt ist etwas anderes als dieselben
+/// Minuten gleichmäßig getreten. Der Schnitt über die ganze Einheit verwischt das.
+class ActivityLap {
+  const ActivityLap({
+    required this.number,
+    required this.durationSec,
+    required this.distanceKm,
+    required this.avgSpeedKmh,
+    this.avgHr = 0,
+    this.maxHr = 0,
+    this.avgCadence = 0,
+    this.avgPower = 0,
+    this.maxPower = 0,
+  });
+
+  /// Ab 1 gezählt — so steht es auch in der Anzeige.
+  final int number;
+  final int durationSec;
+  final double distanceKm;
+  final double avgSpeedKmh;
+  final int avgHr;
+  final int maxHr;
+  final int avgCadence;
+  final int avgPower;
+  final int maxPower;
+
+  Map<String, dynamic> toJson() => {
+        'n': number,
+        'sec': durationSec,
+        'km': distanceKm,
+        'v': avgSpeedKmh,
+        if (avgHr > 0) 'hr': avgHr,
+        if (maxHr > 0) 'hrMax': maxHr,
+        if (avgCadence > 0) 'cad': avgCadence,
+        if (avgPower > 0) 'w': avgPower,
+        if (maxPower > 0) 'wMax': maxPower,
+      };
+
+  factory ActivityLap.fromJson(Map<String, dynamic> j) => ActivityLap(
+        number: (j['n'] as num?)?.toInt() ?? 0,
+        durationSec: (j['sec'] as num?)?.toInt() ?? 0,
+        distanceKm: (j['km'] as num?)?.toDouble() ?? 0,
+        avgSpeedKmh: (j['v'] as num?)?.toDouble() ?? 0,
+        avgHr: (j['hr'] as num?)?.toInt() ?? 0,
+        maxHr: (j['hrMax'] as num?)?.toInt() ?? 0,
+        avgCadence: (j['cad'] as num?)?.toInt() ?? 0,
+        avgPower: (j['w'] as num?)?.toInt() ?? 0,
+        maxPower: (j['wMax'] as num?)?.toInt() ?? 0,
+      );
+}
+
 /// Eine ausgewertete Trainingseinheit.
 ///
 /// Wichtig: hier stehen bewusst KEINE fertigen Pulszonen-Anteile, sondern das rohe
@@ -161,6 +215,10 @@ class Activity {
     required this.series,
     this.stoppedShare = 0,
     this.channels = const {},
+    this.powerAvg = 0,
+    this.powerMax = 0,
+    this.indoor = false,
+    this.laps = const [],
   });
 
   final String id;
@@ -212,6 +270,24 @@ class Activity {
   /// Anteil der Messpunkte im Stillstand. Trennt eine Ausflugsrunde mit vielen Pausen von
   /// einer durchgefahrenen Trainingseinheit.
   final double stoppedShare;
+
+  /// Mittlere und höchste Tretleistung in Watt, 0 wenn nicht gemessen.
+  ///
+  /// Watt sind die ehrlichste Größe, die diese Daten hergeben: unabhängig von Wind,
+  /// Steigung, Tagesform und Motor. Nur liefert sie kaum ein Gerät — die Rad-CSVs haben
+  /// die Spalte, aber leer.
+  final int powerAvg;
+  final int powerMax;
+
+  /// Drinnen gefahren: Rolle, Spinning oder eine virtuelle Welt.
+  ///
+  /// Die Einheit zählt normal mit, wird aber gekennzeichnet — und eine Karte hat hier
+  /// nichts zu suchen: die Koordinaten einer virtuellen Welt liegen irgendwo auf der
+  /// Erde, gefahren wurde im Wohnzimmer.
+  final bool indoor;
+
+  /// Runden, sofern die Datei welche nennt.
+  final List<ActivityLap> laps;
 
   /// Kennzahlen zu allen weiteren Spalten der CSV — was der Tracker sonst noch liefert,
   /// geht damit nicht verloren, auch wenn die App die Spalte nicht kennt.
@@ -267,6 +343,10 @@ class Activity {
         series: series,
         stoppedShare: stoppedShare ?? this.stoppedShare,
         channels: channels,
+        powerAvg: powerAvg,
+        powerMax: powerMax,
+        indoor: indoor,
+        laps: laps,
       );
 
   Map<String, dynamic> toJson() => {
@@ -289,6 +369,10 @@ class Activity {
         'up': elevGain,
         'down': elevLoss,
         'stop': stoppedShare,
+        if (powerAvg > 0) 'wAvg': powerAvg,
+        if (powerMax > 0) 'wMax': powerMax,
+        if (indoor) 'in': true,
+        if (laps.isNotEmpty) 'laps': laps.map((l) => l.toJson()).toList(),
         'chan': channels.map((k, v) => MapEntry(k, v.toJson())),
         'series': series.map((p) => p.toJson()).toList(),
       };
@@ -323,6 +407,13 @@ class Activity {
         elevGain: (j['up'] as num?)?.toInt() ?? 0,
         elevLoss: (j['down'] as num?)?.toInt() ?? 0,
         stoppedShare: (j['stop'] as num?)?.toDouble() ?? 0,
+        powerAvg: (j['wAvg'] as num?)?.toInt() ?? 0,
+        powerMax: (j['wMax'] as num?)?.toInt() ?? 0,
+        indoor: j['in'] == true,
+        laps: (j['laps'] as List?)
+                ?.map((e) => ActivityLap.fromJson(e as Map<String, dynamic>))
+                .toList() ??
+            const [],
         channels: (j['chan'] as Map?)?.map(
               (k, v) => MapEntry(
                 k as String,

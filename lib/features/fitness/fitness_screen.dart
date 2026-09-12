@@ -403,7 +403,8 @@ class _DayTile extends ConsumerWidget {
                       Padding(
                         padding: const EdgeInsets.only(top: 4),
                         child: Text(
-                          '${a.sportDetected == Sport.running ? '🏃' : '🚴'} '
+                          '${a.sportDetected == Sport.running ? '🏃' : '🚴'}'
+                          '${a.indoor ? '🏠' : ''} '
                           '${a.distanceKm.toStringAsFixed(1)} km · '
                           '${Analysis.formatDuration(a.activeSec)} · '
                           'Ø ${a.hrAvg} bpm',
