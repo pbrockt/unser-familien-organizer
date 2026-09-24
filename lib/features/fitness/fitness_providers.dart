@@ -49,9 +49,36 @@ final fitnessDataProvider =
 class FitnessDataController extends AsyncNotifier<FitnessData> {
   bool _autoSyncDone = false;
 
+  /// Der Stand ohne Zeitkorrekturen. Nur er wird an den Abgleich weitergereicht — sonst
+  /// landete eine Korrektur im Zwischenspeicher und der Wert aus der Datei wäre fort,
+  /// sobald man sie zurücknimmt.
+  FitnessData? _roh;
+
+  /// Legt die Zeitkorrekturen von Hand über den Rohstand. Alle Ansichten lesen diesen
+  /// Provider, also stimmen Woche, Kalender und Widget mit der Korrektur überein.
+  FitnessData _mitKorrekturen(FitnessData roh) {
+    _roh = roh;
+    final edits = ref.read(fitnessOverridesProvider).value?.times ?? const {};
+    return FitnessData(
+      activities: applyTimeEdits(roh.activities, edits),
+      healthDays: roh.healthDays,
+      fingerprints: roh.fingerprints,
+    );
+  }
+
+  /// Die Einheit so, wie sie in der Datei steht — ohne Korrektur von Hand.
+  Activity? rohe(String id) =>
+      _roh?.activities.where((a) => a.id == id).firstOrNull;
+
   @override
   Future<FitnessData> build() async {
     final repo = ref.watch(fitnessRepositoryProvider);
+    // Ändert sich eine Korrektur, genügt es, sie neu über den Rohstand zu legen —
+    // neu laden müsste man dafür nichts.
+    ref.listen(fitnessOverridesProvider.select((o) => o.value?.times), (_, _) {
+      final roh = _roh;
+      if (roh != null) state = AsyncData(_mitKorrekturen(roh));
+    });
     final cached = await repo.load();
 
     final enabled = await ref.watch(fitnessEnabledProvider.future);
@@ -61,7 +88,7 @@ class FitnessDataController extends AsyncNotifier<FitnessData> {
       // Nicht abwarten: der Bestand aus dem Zwischenspeicher reicht zum Anzeigen.
       Future.microtask(() => sync(announceNothingNew: false));
     }
-    return cached;
+    return _mitKorrekturen(cached);
   }
 
   Future<void> sync({bool force = false, bool announceNothingNew = true}) async {
@@ -80,7 +107,7 @@ class FitnessDataController extends AsyncNotifier<FitnessData> {
     ref.read(fitnessSyncingProvider.notifier).set(true);
     try {
       final repo = ref.read(fitnessRepositoryProvider);
-      final previous = state.value ?? await repo.load();
+      final previous = _roh ?? await repo.load();
       final (merged, result) = await repo.import(
         account: account,
         folder: folder,
@@ -88,7 +115,7 @@ class FitnessDataController extends AsyncNotifier<FitnessData> {
         force: force,
       );
 
-      state = AsyncData(merged);
+      state = AsyncData(_mitKorrekturen(merged));
 
       final status = switch (result) {
         ImportResult(error: final e?) => e,
@@ -109,6 +136,7 @@ class FitnessDataController extends AsyncNotifier<FitnessData> {
 
   Future<void> clear() async {
     await ref.read(fitnessRepositoryProvider).clear();
+    _roh = const FitnessData();
     state = const AsyncData(FitnessData());
     ref.read(fitnessStatusProvider.notifier).set(
         'Eingelesene Daten gelöscht. Gewicht und Ordner bleiben erhalten.');

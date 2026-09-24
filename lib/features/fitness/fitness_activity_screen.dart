@@ -61,51 +61,74 @@ class FitnessActivityScreen extends ConsumerWidget {
         children: [
           FitnessCard(
             title: 'Kennzahlen',
-            child: FitnessValueGrid(values: [
-              ('Distanz', '${activity.distanceKm.toStringAsFixed(2)} km'),
-              // Bewegungszeit zuerst: das ist die Zahl, mit der überall gerechnet wird.
-              (
-                istLauf ? 'Laufzeit' : 'Fahrzeit',
-                Analysis.formatDuration(activity.activeSec)
-              ),
-              if (activity.pausedSec > 0)
-                ('Gesamtzeit', Analysis.formatDuration(activity.durationSec)),
-              (
-                istLauf ? 'Pace' : 'Ø Tempo',
-                istLauf
-                    ? Analysis.formatPace(activity.paceSecPerKm)
-                    : '${activity.speedAvgKmh.toStringAsFixed(1)} km/h'
-              ),
-              if (!istLauf && activity.speedMovingAvgKmh > 0)
-                (
-                  'Ø in Bewegung',
-                  '${activity.speedMovingAvgKmh.toStringAsFixed(1)} km/h'
+            subtitle: activity.timesEdited ? '✎ Zeiten von Hand korrigiert' : null,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                FitnessValueGrid(values: [
+                  ('Distanz', '${activity.distanceKm.toStringAsFixed(2)} km'),
+                  // Bewegungszeit zuerst: das ist die Zahl, mit der überall gerechnet wird.
+                  (
+                    istLauf ? 'Laufzeit' : 'Fahrzeit',
+                    Analysis.formatDuration(activity.activeSec)
+                  ),
+                  // Gesamt- und Standzeit immer zeigen, auch ohne Pause: Nur so sieht man
+                  // auf einen Blick, ob die Aufteilung stimmt.
+                  ('Gesamtzeit', Analysis.formatDuration(activity.durationSec)),
+                  (
+                    'Standzeit',
+                    '${Analysis.formatDuration(activity.pausedSec)}'
+                        ' · ${(activity.stoppedShare * 100).round()} %'
+                  ),
+                  (
+                    istLauf ? 'Pace' : 'Ø Tempo',
+                    istLauf
+                        ? Analysis.formatPace(activity.paceSecPerKm)
+                        : '${activity.speedAvgKmh.toStringAsFixed(1)} km/h'
+                  ),
+                  if (!istLauf && activity.speedMovingAvgKmh > 0)
+                    (
+                      'Ø in Bewegung',
+                      '${activity.speedMovingAvgKmh.toStringAsFixed(1)} km/h'
+                    ),
+                  ('Max Tempo', '${activity.speedMaxKmh.toStringAsFixed(1)} km/h'),
+                  ('Ø Puls', '${activity.hrAvg} bpm'),
+                  ('Max Puls', '${activity.hrMax} bpm'),
+                  // Watt stehen bewusst vorn und nicht unter „Weitere Messwerte": Wo es sie
+                  // gibt, sind sie die belastbarste Zahl der ganzen Einheit.
+                  if (activity.powerAvg > 0)
+                    (
+                      activity.powerDerived ? 'Ø Leistung (gerechnet)' : 'Ø Leistung',
+                      '${activity.powerAvg} W'
+                    ),
+                  if (activity.powerMax > 0) ('Max Leistung', '${activity.powerMax} W'),
+                  if (cadence.verdict != Verdict.noData)
+                    (
+                      'Ø Kadenz',
+                      '${cadence.effectiveValue} ${Analysis.cadenceUnit(sport)}'
+                    ),
+                  if (activity.elevGain > 0 || activity.elevLoss > 0)
+                    ('Höhenmeter', '${activity.elevGain} ↑ / ${activity.elevLoss} ↓'),
+                  ('Belastung', '${SessionClassifier.loadScore(activity, zones)} P'),
+                ]),
+                Align(
+                  alignment: Alignment.centerRight,
+                  child: TextButton.icon(
+                    icon: const Icon(Icons.edit_outlined, size: 18),
+                    label: const Text('Zeiten korrigieren'),
+                    onPressed: () => showDialog<void>(
+                      context: context,
+                      builder: (_) => _ZeitenDialog(
+                        activity: activity,
+                        ausDatei:
+                            ref.read(fitnessDataProvider.notifier).rohe(activity.id),
+                        istLauf: istLauf,
+                      ),
+                    ),
+                  ),
                 ),
-              ('Max Tempo', '${activity.speedMaxKmh.toStringAsFixed(1)} km/h'),
-              ('Ø Puls', '${activity.hrAvg} bpm'),
-              ('Max Puls', '${activity.hrMax} bpm'),
-              // Watt stehen bewusst vorn und nicht unter „Weitere Messwerte": Wo es sie
-              // gibt, sind sie die belastbarste Zahl der ganzen Einheit.
-              if (activity.powerAvg > 0)
-                (
-                  activity.powerDerived ? 'Ø Leistung (gerechnet)' : 'Ø Leistung',
-                  '${activity.powerAvg} W'
-                ),
-              if (activity.powerMax > 0) ('Max Leistung', '${activity.powerMax} W'),
-              if (cadence.verdict != Verdict.noData)
-                (
-                  'Ø Kadenz',
-                  '${cadence.effectiveValue} ${Analysis.cadenceUnit(sport)}'
-                ),
-              if (activity.elevGain > 0 || activity.elevLoss > 0)
-                ('Höhenmeter', '${activity.elevGain} ↑ / ${activity.elevLoss} ↓'),
-              ('Belastung', '${SessionClassifier.loadScore(activity, zones)} P'),
-              (
-                'Standzeit',
-                '${(activity.stoppedShare * 100).round()} %'
-                    '${activity.pausedSec >= 60 ? ' · ${Analysis.formatDuration(activity.pausedSec)}' : ''}'
-              ),
-            ]),
+              ],
+            ),
           ),
 
           if (activity.hasTrack)
@@ -349,6 +372,181 @@ class _EinstufungCard extends ConsumerWidget {
         ],
       )],
       ),
+    );
+  }
+}
+
+/// Gesamt- und Standzeit von Hand eintragen, die Fahr- bzw. Laufzeit ergibt sich daraus.
+///
+/// Drei getrennte Felder für Stunden, Minuten und Sekunden statt einer Eingabe wie
+/// „24:27": Die ließe offen, ob Minuten und Sekunden oder Stunden und Minuten gemeint
+/// sind — und genau bei der Standzeit ist beides plausibel.
+class _ZeitenDialog extends ConsumerStatefulWidget {
+  const _ZeitenDialog({
+    required this.activity,
+    required this.ausDatei,
+    required this.istLauf,
+  });
+
+  final Activity activity;
+  final Activity? ausDatei;
+  final bool istLauf;
+
+  @override
+  ConsumerState<_ZeitenDialog> createState() => _ZeitenDialogState();
+}
+
+class _ZeitenDialogState extends ConsumerState<_ZeitenDialog> {
+  late final List<TextEditingController> _gesamt;
+  late final List<TextEditingController> _stand;
+
+  @override
+  void initState() {
+    super.initState();
+    _gesamt = _felder(widget.activity.durationSec);
+    _stand = _felder(widget.activity.pausedSec);
+  }
+
+  @override
+  void dispose() {
+    for (final c in [..._gesamt, ..._stand]) {
+      c.dispose();
+    }
+    super.dispose();
+  }
+
+  static List<TextEditingController> _felder(int sec) => [
+    TextEditingController(text: '${sec ~/ 3600}'),
+    TextEditingController(text: '${(sec % 3600) ~/ 60}'),
+    TextEditingController(text: '${sec % 60}'),
+  ];
+
+  /// `null`, solange ein Feld keine gültige Zahl enthält.
+  static int? _sekunden(List<TextEditingController> f) {
+    final werte = [
+      for (final c in f)
+        int.tryParse(c.text.trim().isEmpty ? '0' : c.text.trim()),
+    ];
+    if (werte.any((w) => w == null || w < 0)) return null;
+    return werte[0]! * 3600 + werte[1]! * 60 + werte[2]!;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final gesamt = _sekunden(_gesamt);
+    final stand = _sekunden(_stand);
+    final fehler = gesamt == null || stand == null
+        ? 'Bitte nur ganze Zahlen eintragen.'
+        : (gesamt == 0
+              ? 'Die Gesamtzeit darf nicht null sein.'
+              : (stand > gesamt
+                    ? 'Die Standzeit ist länger als die Gesamtzeit.'
+                    : null));
+    final datei = widget.ausDatei;
+    final grau = Theme.of(context).textTheme.bodySmall?.copyWith(
+      color: Theme.of(context).colorScheme.onSurfaceVariant,
+    );
+
+    return AlertDialog(
+      title: const Text('Zeiten korrigieren'),
+      content: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('Gesamtzeit', style: Theme.of(context).textTheme.labelMedium),
+            const SizedBox(height: 6),
+            _DauerFelder(felder: _gesamt, onChanged: () => setState(() {})),
+            const SizedBox(height: 14),
+            Text('Standzeit', style: Theme.of(context).textTheme.labelMedium),
+            const SizedBox(height: 6),
+            _DauerFelder(felder: _stand, onChanged: () => setState(() {})),
+            const SizedBox(height: 14),
+            if (fehler != null)
+              Text(
+                fehler,
+                style: TextStyle(color: Theme.of(context).colorScheme.error),
+              )
+            else
+              Text(
+                '${widget.istLauf ? 'Laufzeit' : 'Fahrzeit'}: '
+                '${Analysis.formatDuration(gesamt! - stand!)}'
+                ' · ${(stand / gesamt * 100).round()} % Stand',
+                style: Theme.of(context).textTheme.bodyMedium,
+              ),
+            if (datei != null) ...[
+              const SizedBox(height: 10),
+              Text(
+                'Aus der Datei: gesamt ${Analysis.formatDuration(datei.durationSec)}, '
+                'Stand ${Analysis.formatDuration(datei.pausedSec)}',
+                style: grau,
+              ),
+            ],
+          ],
+        ),
+      ),
+      actions: [
+        if (widget.activity.timesEdited)
+          TextButton(
+            onPressed: () {
+              ref
+                  .read(fitnessOverridesProvider.notifier)
+                  .setTimes(widget.activity.id, null);
+              Navigator.pop(context);
+            },
+            child: const Text('Zurück auf Datei'),
+          ),
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('Abbrechen'),
+        ),
+        FilledButton(
+          onPressed: fehler != null
+              ? null
+              : () {
+                  ref
+                      .read(fitnessOverridesProvider.notifier)
+                      .setTimes(
+                        widget.activity.id,
+                        TimeEdit(totalSec: gesamt!, stoppedSec: stand!),
+                      );
+                  Navigator.pop(context);
+                },
+          child: const Text('Speichern'),
+        ),
+      ],
+    );
+  }
+}
+
+class _DauerFelder extends StatelessWidget {
+  const _DauerFelder({required this.felder, required this.onChanged});
+
+  final List<TextEditingController> felder;
+  final VoidCallback onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    const einheiten = ['Std', 'Min', 'Sek'];
+    return Row(
+      children: [
+        for (var i = 0; i < 3; i++) ...[
+          if (i > 0) const SizedBox(width: 8),
+          Expanded(
+            child: TextField(
+              controller: felder[i],
+              keyboardType: TextInputType.number,
+              textAlign: TextAlign.center,
+              onChanged: (_) => onChanged(),
+              decoration: InputDecoration(
+                isDense: true,
+                suffixText: einheiten[i],
+                border: const OutlineInputBorder(),
+              ),
+            ),
+          ),
+        ],
+      ],
     );
   }
 }

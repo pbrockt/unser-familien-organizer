@@ -72,16 +72,22 @@ class FitParser {
     var hoeheMin = double.infinity, hoeheMax = -double.infinity;
     var anstieg = 0.0, abstieg = 0.0;
     double? vorigeHoehe;
-    DateTime? vorigeZeit;
+    // Je Messgröße die Zeit ihres letzten Werts, nicht die des letzten Messpunkts.
+    // Radcomputer schreiben GPS, Puls und Geschwindigkeit oft als getrennte Punkte in
+    // derselben Sekunde. Gegen den vorigen Punkt gemessen hätte der Geschwindigkeitspunkt
+    // dann den Abstand null, weil der Pulspunkt gerade davor lag — und die Sekunde fiele
+    // als Fahrzeit weg. So zeigte eine Stunde Fahrt nur eine halbe.
+    DateTime? vorigerPuls, vorigesTempo;
+
+    int abstandSeit(DateTime? t, DateTime? vorher) =>
+        (t != null && vorher != null) ? t.difference(vorher).inSeconds : 0;
 
     for (final p in punkte) {
-      final abstand = (p.time != null && vorigeZeit != null)
-          ? p.time!.difference(vorigeZeit).inSeconds
-          : 0;
-      final gewicht = (abstand > 0 && abstand <= _maxGapSec) ? abstand : 1;
-
       final hr = p.hr;
       if (hr != null && hr > 0) {
+        final abstand = abstandSeit(p.time, vorigerPuls);
+        final gewicht = (abstand > 0 && abstand <= _maxGapSec) ? abstand : 1;
+        if (p.time != null) vorigerPuls = p.time;
         // Nach Zeitabstand gewichtet, nicht je Zeile: Ein Gerät, das nur alle fünf
         // Sekunden schreibt, hätte sonst ein fünffach zu dünnes Histogramm — und damit
         // einen Belastungswert, der nicht zu dem einer Sekunden-Aufzeichnung passt.
@@ -99,6 +105,8 @@ class FitParser {
 
       final sp = p.speedMps;
       if (sp != null) {
+        final abstand = abstandSeit(p.time, vorigesTempo);
+        if (p.time != null) vorigesTempo = p.time;
         speedSum += sp;
         speedCount++;
         if (sp > speedMax) speedMax = sp;
@@ -137,8 +145,6 @@ class FitParser {
         }
         vorigeHoehe = h;
       }
-
-      if (p.time != null) vorigeZeit = p.time;
     }
 
     // Die Datei kennt ihre Fahrzeit oft selbst (`total_timer_time`, ohne Auto-Pause).
@@ -262,22 +268,38 @@ class FitParser {
   ///
   /// Bei einer Einheit drinnen bleiben die Koordinaten weg: Sie zeigen auf die Stelle der
   /// Erde, die die virtuelle Welt nachbildet. Eine Karte daraus wäre eine Behauptung.
+  ///
+  /// Jede Größe trägt ihren letzten Wert weiter. Steht an einem Punkt nur GPS, hieße ein
+  /// fehlender Wert sonst 0 km/h und 0 bpm — der Verlauf zackte zwischen Fahrt und
+  /// Stillstand hin und her, obwohl nur ein anderer Sensor geschrieben hat.
   List<TrackPoint> _series(List<_Record> punkte, DateTime? start, bool indoor) {
     final schritt = (punkte.length / _maxSeriesPoints).ceil().clamp(1, 1 << 20);
     final out = <TrackPoint>[];
-    for (var i = 0; i < punkte.length; i += schritt) {
+    int? hr, cadence, power;
+    double? speed, altitude, lat, lon;
+    for (var i = 0; i < punkte.length; i++) {
       final p = punkte[i];
+      hr = p.hr ?? hr;
+      cadence = p.cadence ?? cadence;
+      power = p.power ?? power;
+      speed = p.speedMps ?? speed;
+      altitude = p.altitude ?? altitude;
+      if (p.lat != null && p.lon != null) {
+        lat = p.lat;
+        lon = p.lon;
+      }
+      if (i % schritt != 0) continue;
       out.add(TrackPoint(
         elapsedSec: (p.time != null && start != null)
             ? p.time!.difference(start).inSeconds
             : i,
-        hr: p.hr ?? 0,
-        speedKmh: (p.speedMps ?? 0) * 3.6,
-        cadence: p.cadence ?? 0,
-        altitude: p.altitude ?? 0,
-        lat: indoor ? null : p.lat,
-        lon: indoor ? null : p.lon,
-        extra: {if (p.power != null) 'POWER': p.power!.toDouble()},
+        hr: hr ?? 0,
+        speedKmh: (speed ?? 0) * 3.6,
+        cadence: cadence ?? 0,
+        altitude: altitude ?? 0,
+        lat: indoor ? null : lat,
+        lon: indoor ? null : lon,
+        extra: {if (power != null) 'POWER': power.toDouble()},
       ));
     }
     return out;
@@ -464,7 +486,9 @@ class FitParser {
 
   static Sport _sportOf(int? fit) => switch (fit) {
         1 => Sport.running,
-        2 => Sport.cycling,
+        // 21 = E-Bike: gefahren wird trotzdem Rad. Ob der Motor mitlief, hält der
+        // Haken an der Fahrt fest.
+        2 || 21 => Sport.cycling,
         // 11 = Gehen, 17 = Wandern: beides wird hier wie Laufen bewertet, weil es in
         // denselben Kennzahlen aufgeht. Alles andere bleibt offen statt falsch.
         11 || 17 => Sport.running,

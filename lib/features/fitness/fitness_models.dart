@@ -220,6 +220,7 @@ class Activity {
     this.powerDerived = false,
     this.indoor = false,
     this.laps = const [],
+    this.timesEdited = false,
   });
 
   final String id;
@@ -298,6 +299,11 @@ class Activity {
   /// Runden, sofern die Datei welche nennt.
   final List<ActivityLap> laps;
 
+  /// Gesamt- und Standzeit stammen aus einer Korrektur von Hand, nicht aus der Datei.
+  /// Wird nicht gespeichert: Die Korrektur liegt getrennt und wird bei jedem Laden neu
+  /// darübergelegt — so bleibt der Wert aus der Datei erhalten, falls man sie zurücknimmt.
+  final bool timesEdited;
+
   /// Kennzahlen zu allen weiteren Spalten der CSV — was der Tracker sonst noch liefert,
   /// geht damit nicht verloren, auch wenn die App die Spalte nicht kennt.
   final Map<String, ChannelStat> channels;
@@ -326,9 +332,13 @@ class Activity {
   Activity copyWith({
     String? id,
     String? date,
+    int? durationSec,
+    int? movingSec,
     double? speedAvgKmh,
+    double? speedMovingAvgKmh,
     double? stoppedShare,
     Sport? sportDeclared,
+    bool? timesEdited,
   }) =>
       Activity(
         id: id ?? this.id,
@@ -337,8 +347,8 @@ class Activity {
         sportDetected: sportDetected,
         sportConfidence: sportConfidence,
         sportDeclared: sportDeclared ?? this.sportDeclared,
-        durationSec: durationSec,
-        movingSec: movingSec,
+        durationSec: durationSec ?? this.durationSec,
+        movingSec: movingSec ?? this.movingSec,
         distanceKm: distanceKm,
         hrAvg: hrAvg,
         hrMax: hrMax,
@@ -346,7 +356,7 @@ class Activity {
         cadenceAvg: cadenceAvg,
         speedAvgKmh: speedAvgKmh ?? this.speedAvgKmh,
         speedMaxKmh: speedMaxKmh,
-        speedMovingAvgKmh: speedMovingAvgKmh,
+        speedMovingAvgKmh: speedMovingAvgKmh ?? this.speedMovingAvgKmh,
         elevGain: elevGain,
         elevLoss: elevLoss,
         series: series,
@@ -357,6 +367,7 @@ class Activity {
         powerDerived: powerDerived,
         indoor: indoor,
         laps: laps,
+        timesEdited: timesEdited ?? this.timesEdited,
       );
 
   Map<String, dynamic> toJson() => {

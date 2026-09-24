@@ -30,8 +30,9 @@ class FitnessData {
   ///
   /// Hochzählen, sobald aus denselben Dateien etwas anderes herausgelesen wird — dann
   /// wirft [FitnessRepository.load] die Fingerabdrücke weg und liest beim nächsten
-  /// Abgleich alles neu. 2: Bewegungszeit je Einheit. 3: FIT-Dateien.
-  static const int schemaVersion = 3;
+  /// Abgleich alles neu. 2: Bewegungszeit je Einheit. 3: FIT-Dateien. 4: FIT-Fahrzeit
+  /// bei getrennten Sensorpunkten.
+  static const int schemaVersion = 4;
 
   Map<String, dynamic> toJson() => {
         'v': schemaVersion,
