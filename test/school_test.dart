@@ -223,4 +223,36 @@ void main() {
     final parsed = const IcalParser().parseEvents(done).first;
     expect(parsed.categories, containsAll(['Lernen', 'Vincent', 'Gelernt']));
   });
+
+  group('Startseite', () {
+    final arbeit = _ev(
+      '📝 Arbeit: Mathe',
+      DateTime(2026, 9, 25),
+      categories: const ['Schularbeit', 'Vincent'],
+    );
+
+    test('nennt vorn, wer die Arbeit schreibt', () {
+      expect(examHomeTitle(arbeit), '📝 Vincent: Mathe');
+      final ohne = _ev(
+        '📝 Arbeit: Mathe',
+        DateTime(2026, 9, 25),
+        categories: const ['Schularbeit'],
+      );
+      expect(examHomeTitle(ohne), '📝 Arbeit: Mathe');
+    });
+
+    test('heutige Arbeit steht nur bis 12 Uhr da', () {
+      expect(showOnHome(arbeit, DateTime(2026, 9, 25, 7, 30)), isTrue);
+      expect(showOnHome(arbeit, DateTime(2026, 9, 25, 11, 59)), isTrue);
+      expect(showOnHome(arbeit, DateTime(2026, 9, 25, 12, 0)), isFalse);
+      expect(showOnHome(arbeit, DateTime(2026, 9, 25, 18, 0)), isFalse);
+    });
+
+    test('kommende Arbeiten und andere Termine bleiben ganztags', () {
+      // Am Vortag nachmittags ist die Arbeit von morgen noch wichtig.
+      expect(showOnHome(arbeit, DateTime(2026, 9, 24, 15, 0)), isTrue);
+      final termin = _ev('Zahnarzt', DateTime(2026, 9, 25));
+      expect(showOnHome(termin, DateTime(2026, 9, 25, 18, 0)), isTrue);
+    });
+  });
 }

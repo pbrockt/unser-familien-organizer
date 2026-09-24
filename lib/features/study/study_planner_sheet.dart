@@ -37,7 +37,9 @@ class _StudyPlannerSheet extends ConsumerStatefulWidget {
 class _StudyPlannerSheetState extends ConsumerState<_StudyPlannerSheet> {
   final _subject = TextEditingController();
   DateTime _date = DateTime.now().add(const Duration(days: 7));
-  StudyIntensity _intensity = StudyIntensity.mittel;
+  // Die meisten Arbeiten werden nur eingetragen, damit man sie im Blick hat; einen
+  // Lernplan legt man bewusst an.
+  StudyIntensity _intensity = StudyIntensity.ohne;
   String? _calHref; // gewählter Kalender (überschreibt den Standard)
   String? _person; // Schüler:in, für die die Arbeit ist
   bool _busy = false;

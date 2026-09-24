@@ -24,7 +24,7 @@ class SchoolOverviewCard extends ConsumerWidget {
 
     final arbeiten = <CalendarEvent>[];
     for (final gruppe in groupExamsByPerson(events, today)) {
-      arbeiten.addAll(gruppe.exams);
+      arbeiten.addAll(gruppe.exams.where((e) => showOnHome(e, now)));
     }
     arbeiten.sort((a, b) => a.start.compareTo(b.start));
     if (arbeiten.isEmpty) return const SizedBox.shrink();
@@ -66,8 +66,6 @@ class _ArbeitKachel extends StatelessWidget {
         ? scheme.error
         : (tage <= 6 ? scheme.tertiary : scheme.primary);
 
-    final person = personOf(arbeit);
-    final fach = subjectOf(arbeit.summary);
 
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
@@ -117,13 +115,13 @@ class _ArbeitKachel extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      '📝 $fach',
+                      examHomeTitle(arbeit),
                       style: Theme.of(context).textTheme.titleSmall,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),
                     Text(
-                      _untertitel(person),
+                      _untertitel(),
                       style: Theme.of(context).textTheme.bodySmall?.copyWith(
                             color: scheme.onSurfaceVariant,
                           ),
@@ -146,14 +144,13 @@ class _ArbeitKachel extends StatelessWidget {
         _ => '$tage\nTage',
       };
 
-  String _untertitel(String person) {
+  String _untertitel() {
     final datum = DateFormat('EEE, d. MMM', 'de_DE').format(arbeit.start);
-    final wer = person == kNoPerson ? '' : '$person · ';
     // Ohne offene Einheiten ist der Lernplan entweder abgearbeitet oder es gab nie
     // einen — beides ist eine Aussage wert.
     final lernen = offeneEinheiten > 0
         ? ' · $offeneEinheiten Lern-${offeneEinheiten == 1 ? 'Einheit' : 'Einheiten'} offen'
         : '';
-    return '$wer$datum$lernen';
+    return '$datum$lernen';
   }
 }

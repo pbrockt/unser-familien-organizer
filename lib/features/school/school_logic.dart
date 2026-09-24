@@ -40,6 +40,29 @@ String subjectOf(String summary) {
   return s.replaceAll(RegExp(r'\s*\(\d+/\d+\)\s*$'), '').trim();
 }
 
+/// Titel einer Arbeit für die Startseite: wer sie schreibt, steht vorn.
+///
+/// Mehrere Kinder schreiben oft dasselbe Fach — „📝 Arbeit: Mathe" sagt dann nicht, für
+/// wen es heute ernst wird.
+String examHomeTitle(CalendarEvent e) {
+  final person = personOf(e);
+  final fach = subjectOf(e.summary);
+  return person == kNoPerson ? '📝 Arbeit: $fach' : '📝 $person: $fach';
+}
+
+/// Ab dieser Stunde verschwindet eine heutige Arbeit von der Startseite. Geschrieben
+/// wird vormittags; danach hält sie nur den Platz für das, was noch ansteht.
+const int kExamHomeUntilHour = 12;
+
+/// Steht [e] zu diesem Zeitpunkt noch auf der Startseite? Alles außer heutigen
+/// Arbeiten nach [kExamHomeUntilHour] Uhr bleibt, wie es ist.
+bool showOnHome(CalendarEvent e, DateTime now) {
+  if (!isExam(e)) return true;
+  final heute = DateTime(now.year, now.month, now.day);
+  final tag = DateTime(e.start.year, e.start.month, e.start.day);
+  return tag != heute || now.hour < kExamHomeUntilHour;
+}
+
 /// Ein Personen-Abschnitt mit ihren anstehenden Arbeiten (nach Datum).
 class PersonExams {
   const PersonExams(this.person, this.exams);

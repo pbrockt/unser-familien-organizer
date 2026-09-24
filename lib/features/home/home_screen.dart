@@ -22,6 +22,7 @@ import '../calendar/event_providers.dart';
 import '../family/family_screen.dart';
 import '../fitness/fitness_home_card.dart';
 import '../fitness/fitness_week_list.dart';
+import '../school/school_logic.dart';
 import '../school/school_overview_card.dart';
 import '../fitness/fitness_providers.dart';
 import '../members/member_settings.dart';
@@ -235,6 +236,7 @@ class HomeScreen extends ConsumerWidget {
     final lastDay = today.add(Duration(days: days - 1));
     final endExclusive = today.add(Duration(days: days));
     final list = events.where((e) {
+      if (!showOnHome(e, now)) return false;
       if (e.allDay) {
         return !e.endDayInclusive.isBefore(today) &&
             !e.startDay.isAfter(lastDay);
@@ -861,7 +863,7 @@ class _EventCard extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  event.summary,
+                  isExam(event) ? examHomeTitle(event) : event.summary,
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(
