@@ -6,11 +6,13 @@ import android.net.Uri
 import android.os.Build
 import android.os.PowerManager
 import android.provider.Settings
-import io.flutter.embedding.android.FlutterActivity
+import io.flutter.embedding.android.FlutterFragmentActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
 
-class MainActivity : FlutterActivity() {
+// FragmentActivity statt FlutterActivity: Das Health-Connect-Plugin fragt Rechte über
+// registerForActivityResult an, und das gibt es nur an einer ComponentActivity.
+class MainActivity : FlutterFragmentActivity() {
     private val batteryChannel = "com.pbrockt.family_planner/battery"
     private val widgetChannel = "com.pbrockt.family_planner/widget"
     private val shareChannel = "com.pbrockt.family_planner/share"

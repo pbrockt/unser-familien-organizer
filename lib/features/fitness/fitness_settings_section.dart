@@ -3,10 +3,12 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/auth/account_providers.dart';
 import '../../core/auth/nextcloud_account.dart';
+import '../../core/platform/platform_support.dart';
 import 'fitness_providers.dart';
 import 'fitness_repository.dart';
 import 'fitness_settings.dart';
 import 'fitness_webdav.dart';
+import 'health_connect_screen.dart';
 
 /// Die Einträge des Fitness-Bereichs für den Einstellungs-Bildschirm.
 ///
@@ -108,6 +110,19 @@ List<Widget> fitnessSettingsTiles(BuildContext context, WidgetRef ref) {
             ? null
             : () => ref.read(fitnessDataProvider.notifier).sync(force: true),
       ),
+      if (isAndroid)
+        ListTile(
+          leading: const Icon(Icons.monitor_heart_outlined),
+          title: const Text('Health Connect (Test)'),
+          subtitle: const Text(
+            'Zeigt, welche Gesundheitsdaten auf diesem Handy ankommen — noch ohne '
+            'Speichern',
+          ),
+          trailing: const Icon(Icons.chevron_right),
+          onTap: () => Navigator.of(context).push(
+            MaterialPageRoute<void>(builder: (_) => const HealthConnectScreen()),
+          ),
+        ),
       ListTile(
         leading: const Icon(Icons.delete_outline),
         title: const Text('Eingelesene Daten löschen'),

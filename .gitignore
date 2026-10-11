@@ -48,3 +48,4 @@ app.*.map.json
 **/key.properties
 **/*.keystore
 **/*.jks
+android/.kotlin/

@@ -31,7 +31,8 @@ android {
 
     defaultConfig {
         applicationId = "com.pbrockt.family_planner"
-        minSdk = flutter.minSdkVersion
+        // Health Connect (Paket `health`) verlangt mindestens Android 8.
+        minSdk = 26
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
         versionName = flutter.versionName
