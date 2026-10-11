@@ -7,11 +7,10 @@ import 'fitness_widgets.dart';
 import 'health_connect_mapping.dart';
 import 'health_connect_source.dart';
 
-/// Test-Ansicht für Health Connect: Was kommt auf diesem Handy an, von welcher App, und
+/// Prüfansicht für Health Connect: Was kommt auf diesem Handy an, von welcher App, und
 /// passt es zu den Tageswerten aus den Dateien in der Nextcloud?
 ///
-/// Bewusst nur lesen und zeigen. Erst wenn hier klar ist, was ankommt, lohnt es, den
-/// Abruf im Hintergrund und das Hochladen darauf zu bauen.
+/// Bewusst nur lesen und zeigen — zum Nachsehen, wenn ein Wert merkwürdig aussieht.
 class HealthConnectScreen extends ConsumerStatefulWidget {
   const HealthConnectScreen({super.key});
 
@@ -76,7 +75,7 @@ class _HealthConnectScreenState extends ConsumerState<HealthConnectScreen> {
     };
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Health Connect (Test)')),
+      appBar: AppBar(title: const Text('Health Connect – Details')),
       body: ListView(
         padding: const EdgeInsets.fromLTRB(12, 8, 12, 28),
         children: [
@@ -124,8 +123,8 @@ class _HealthConnectScreenState extends ConsumerState<HealthConnectScreen> {
                 ],
                 const SizedBox(height: 8),
                 Text(
-                  'Es wird nur gelesen und angezeigt — noch nichts gespeichert oder '
-                  'hochgeladen.',
+                  'Diese Ansicht liest nur und zeigt an. Gespeichert wird über den '
+                  'Schalter „Gesundheitsdaten aus Health Connect" in den Einstellungen.',
                   style: grau,
                 ),
               ],

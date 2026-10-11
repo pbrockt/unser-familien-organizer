@@ -7,10 +7,12 @@ import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../core/auth/account_providers.dart';
+import '../../core/platform/platform_support.dart';
 import 'fitness_models.dart';
 import 'fitness_overrides.dart';
 import 'fitness_streak.dart';
 import 'fitness_weekly.dart';
+import 'health_connect_sync.dart';
 import 'fitness_repository.dart';
 import 'fitness_settings.dart';
 
@@ -106,6 +108,13 @@ class FitnessDataController extends AsyncNotifier<FitnessData> {
 
     ref.read(fitnessSyncingProvider.notifier).set(true);
     try {
+      // Erst frische Werte aus Health Connect in die Nextcloud legen (falls
+      // eingeschaltet und fällig) — der Import danach liest sie gleich mit ein.
+      if (isAndroid) {
+        try {
+          await HealthConnectSync().runIfDue(account: account, fitnessFolder: folder);
+        } catch (_) {}
+      }
       final repo = ref.read(fitnessRepositoryProvider);
       final previous = _roh ?? await repo.load();
       final (merged, result) = await repo.import(

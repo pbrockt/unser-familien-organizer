@@ -516,6 +516,7 @@ class HealthParser {
       sleepAwakeHours: d('sleep_awake_hours'),
       bedtime: t('sleep_bedtime'),
       wakeTime: t('sleep_wake'),
+      fromHealthConnect: fm['quelle'] == 'health_connect',
     );
   }
 }

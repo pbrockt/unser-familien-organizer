@@ -4,6 +4,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:workmanager/workmanager.dart';
 
 import '../../features/calendar/events_builder.dart';
+import '../../features/fitness/fitness_settings.dart';
+import '../../features/fitness/health_connect_sync.dart';
 import '../../features/members/member_settings.dart';
 import '../../features/settings/backup_providers.dart';
 import '../../features/settings/briefing_planner.dart';
@@ -30,6 +32,14 @@ void callbackDispatcher() {
     try {
       final account = await container.read(accountProvider.future);
       if (account == null) return true;
+
+      // Gesundheitsdaten aus Health Connect in die Nextcloud — nur wenn eingeschaltet,
+      // höchstens alle 30 Minuten. Vor dem Kalender, damit ein Fehler dort sie nicht
+      // aufhält.
+      try {
+        final ordner = await container.read(fitnessFolderProvider.future);
+        await HealthConnectSync().runIfDue(account: account, fitnessFolder: ordner);
+      } catch (_) {}
 
       // Frisch synchronisieren (Delta). Schlägt das Netz fehl, mit dem
       // gecachten Stand weitermachen, damit das Widget trotzdem aktualisiert.

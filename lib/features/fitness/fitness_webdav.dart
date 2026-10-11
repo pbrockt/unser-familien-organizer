@@ -35,7 +35,8 @@ class WebDavException implements Exception {
 
 /// Minimaler WebDAV-Zugriff auf die Dateien der Nextcloud.
 ///
-/// Bewusst schlank gehalten: gebraucht werden nur „Ordner auflisten" und „Datei lesen".
+/// Bewusst schlank gehalten: Ordner auflisten, Dateien lesen und — für die Tage aus
+/// Health Connect — Dateien schreiben.
 /// Für CalDAV gibt es bereits einen eigenen, ausgereifteren Client — der spricht aber
 /// einen anderen Endpunkt und ist hier nicht wiederverwendbar.
 class WebDavClient {
@@ -138,6 +139,41 @@ class WebDavClient {
       );
     }
     return response.bodyBytes;
+  }
+
+  /// Schreibt eine Textdatei; eine vorhandene wird ersetzt.
+  Future<void> write(NextcloudAccount account, String path, String text) async {
+    final uri = Uri.parse('${_base(account)}${_encodePath(path)}');
+    final response = await _client.put(
+      uri,
+      headers: {
+        'Authorization': _auth(account),
+        'Content-Type': 'text/markdown; charset=utf-8',
+      },
+      body: utf8.encode(text),
+    );
+    // 201 neu angelegt, 204 ersetzt; manche Server sagen schlicht 200.
+    if (response.statusCode != 200 &&
+        response.statusCode != 201 &&
+        response.statusCode != 204) {
+      throw WebDavException(
+        'Datei „$path" konnte nicht gespeichert werden (${response.statusCode}).',
+      );
+    }
+  }
+
+  /// Legt einen Ordner an, falls es ihn noch nicht gibt.
+  Future<void> ensureFolder(NextcloudAccount account, String folder) async {
+    final uri = Uri.parse('${_base(account)}${_encodePath(folder)}');
+    final request = http.Request('MKCOL', uri)
+      ..headers['Authorization'] = _auth(account);
+    final response = await http.Response.fromStream(await _client.send(request));
+    // 405: gibt es schon — genau das Ziel.
+    if (response.statusCode != 201 && response.statusCode != 405) {
+      throw WebDavException(
+        'Ordner „$folder" konnte nicht angelegt werden (${response.statusCode}).',
+      );
+    }
   }
 
   String _base(NextcloudAccount account) {

@@ -8,6 +8,7 @@ import '../../core/auth/nextcloud_account.dart';
 import 'fitness_models.dart';
 import 'fitness_fit_parser.dart';
 import 'fitness_parsers.dart';
+import 'health_connect_file.dart';
 import 'fitness_sport_hint.dart';
 import 'fitness_webdav.dart';
 
@@ -31,8 +32,8 @@ class FitnessData {
   /// Hochzählen, sobald aus denselben Dateien etwas anderes herausgelesen wird — dann
   /// wirft [FitnessRepository.load] die Fingerabdrücke weg und liest beim nächsten
   /// Abgleich alles neu. 2: Bewegungszeit je Einheit. 3: FIT-Dateien. 4: FIT-Fahrzeit
-  /// bei getrennten Sensorpunkten.
-  static const int schemaVersion = 4;
+  /// bei getrennten Sensorpunkten. 5: Tage aus Health Connect gehen anderen Dateien vor.
+  static const int schemaVersion = 5;
 
   Map<String, dynamic> toJson() => {
         'v': schemaVersion,
@@ -220,7 +221,7 @@ class FitnessRepository {
       } else {
         final parsed = _health.parse(text, entry.name);
         if (parsed != null) {
-          healthDays[parsed.date] = parsed;
+          healthDays[parsed.date] = addHealthDay(healthDays[parsed.date], parsed);
           fingerprints[entry.path] = fingerprint;
           newHealth++;
         } else {

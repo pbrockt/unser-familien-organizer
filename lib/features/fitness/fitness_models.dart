@@ -480,6 +480,7 @@ class HealthDay {
     this.sleepAwakeHours,
     this.bedtime,
     this.wakeTime,
+    this.fromHealthConnect = false,
   });
 
   final String date;
@@ -527,6 +528,10 @@ class HealthDay {
   final String? bedtime;
   final String? wakeTime;
 
+  /// Stammt aus einer Datei, die die App selbst aus Health Connect geschrieben hat.
+  /// Gibt es für den Tag noch eine andere Datei, gehen diese Werte vor.
+  final bool fromHealthConnect;
+
   Map<String, dynamic> toJson() => {
         'date': date,
         'steps': steps,
@@ -554,6 +559,7 @@ class HealthDay {
         'sAwake': sleepAwakeHours,
         'bed': bedtime,
         'wake': wakeTime,
+        if (fromHealthConnect) 'hc': true,
       };
 
   factory HealthDay.fromJson(Map<String, dynamic> j) => HealthDay(
@@ -584,6 +590,7 @@ class HealthDay {
         sleepAwakeHours: (j['sAwake'] as num?)?.toDouble(),
         bedtime: j['bed'] as String?,
         wakeTime: j['wake'] as String?,
+        fromHealthConnect: j['hc'] == true,
       );
 }
 

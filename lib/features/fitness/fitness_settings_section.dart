@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../core/auth/account_providers.dart';
 import '../../core/auth/nextcloud_account.dart';
@@ -9,6 +10,18 @@ import 'fitness_repository.dart';
 import 'fitness_settings.dart';
 import 'fitness_webdav.dart';
 import 'health_connect_screen.dart';
+import 'health_connect_source.dart';
+import 'health_connect_sync.dart';
+
+/// Ob Health Connect auf diesem Gerät liefert, und was der letzte Abruf ergab.
+final _hcEinstellungProvider =
+    FutureProvider.autoDispose<(bool, String?)>((ref) async {
+  final prefs = await SharedPreferences.getInstance();
+  return (
+    prefs.getBool(HealthConnectSync.enabledKey) ?? false,
+    prefs.getString(HealthConnectSync.statusKey),
+  );
+});
 
 /// Die Einträge des Fitness-Bereichs für den Einstellungs-Bildschirm.
 ///
@@ -110,19 +123,42 @@ List<Widget> fitnessSettingsTiles(BuildContext context, WidgetRef ref) {
             ? null
             : () => ref.read(fitnessDataProvider.notifier).sync(force: true),
       ),
-      if (isAndroid)
-        ListTile(
-          leading: const Icon(Icons.monitor_heart_outlined),
-          title: const Text('Health Connect (Test)'),
-          subtitle: const Text(
-            'Zeigt, welche Gesundheitsdaten auf diesem Handy ankommen — noch ohne '
-            'Speichern',
+      if (isAndroid) ...[
+        SwitchListTile(
+          secondary: const Icon(Icons.monitor_heart_outlined),
+          title: const Text('Gesundheitsdaten aus Health Connect'),
+          subtitle: Text(
+            (ref.watch(_hcEinstellungProvider).value?.$1 ?? false)
+                ? 'Alle 30 Minuten in die Nextcloud · '
+                    '${ref.watch(_hcEinstellungProvider).value?.$2 ?? 'noch kein Abruf'}'
+                : 'Schritte, Schlaf, Puls und Gewicht automatisch holen und in der '
+                    'Nextcloud sichern — statt Dateien hochzuladen',
           ),
+          value: ref.watch(_hcEinstellungProvider).value?.$1 ?? false,
+          onChanged: folder.isEmpty
+              ? null
+              : (an) => an ? _hcEinrichten(context, ref) : _hcAus(ref),
+        ),
+        if (ref.watch(_hcEinstellungProvider).value?.$1 ?? false)
+          ListTile(
+            leading: const Icon(Icons.history),
+            title: const Text('Alle Gesundheitsdaten erneut holen'),
+            subtitle: const Text(
+              'Liest die ganze Historie aus Health Connect. Von Hand geänderte Tage '
+              'bleiben unangetastet.',
+            ),
+            onTap: syncing ? null : () => _hcEinrichten(context, ref),
+          ),
+        ListTile(
+          leading: const Icon(Icons.manage_search),
+          title: const Text('Health Connect – Details'),
+          subtitle: const Text('Was auf diesem Handy ankommt, und von welcher App'),
           trailing: const Icon(Icons.chevron_right),
           onTap: () => Navigator.of(context).push(
             MaterialPageRoute<void>(builder: (_) => const HealthConnectScreen()),
           ),
         ),
+      ],
       ListTile(
         leading: const Icon(Icons.delete_outline),
         title: const Text('Eingelesene Daten löschen'),
@@ -133,6 +169,84 @@ List<Widget> fitnessSettingsTiles(BuildContext context, WidgetRef ref) {
       ),
     ],
   ];
+}
+
+/// Ersteinrichtung: Zugriff erfragen, die ganze Historie holen und in der Nextcloud
+/// ablegen, dann einlesen. Auch für „erneut holen" — von Hand geänderte Tage schützt
+/// der Abgleich ohnehin.
+Future<void> _hcEinrichten(BuildContext context, WidgetRef ref) async {
+  final messenger = ScaffoldMessenger.of(context);
+  final account = await ref.read(accountProvider.future);
+  final folder = await ref.read(fitnessFolderProvider.future);
+  if (account == null || folder.isEmpty) {
+    messenger.showSnackBar(const SnackBar(
+      content: Text('Erst Nextcloud und Datenordner einrichten.'),
+    ));
+    return;
+  }
+
+  final quelle = HealthConnectSource();
+  if (await quelle.status() != HcStatus.bereit) {
+    messenger.showSnackBar(const SnackBar(
+      content: Text('Health Connect ist auf diesem Gerät nicht bereit — siehe '
+          '„Health Connect – Details".'),
+    ));
+    return;
+  }
+  if (!await quelle.zugriffAnfragen()) {
+    messenger.showSnackBar(const SnackBar(
+      content: Text('Ohne Zugriff auf Health Connect geht es nicht. Nicht erteilte '
+          'Rechte zeigt „Health Connect – Details".'),
+    ));
+    return;
+  }
+  if (!context.mounted) return;
+
+  final fortschritt = ValueNotifier<String>('Starte …');
+  showDialog<void>(
+    context: context,
+    barrierDismissible: false,
+    builder: (_) => AlertDialog(
+      title: const Text('Gesundheitsdaten holen'),
+      content: Row(
+        children: [
+          const CircularProgressIndicator(),
+          const SizedBox(width: 16),
+          Expanded(
+            child: ValueListenableBuilder<String>(
+              valueListenable: fortschritt,
+              builder: (_, text, _) => Text(text),
+            ),
+          ),
+        ],
+      ),
+    ),
+  );
+
+  HcSyncResult ergebnis;
+  try {
+    ergebnis = await HealthConnectSync(quelle: quelle).runFullHistory(
+      account: account,
+      fitnessFolder: folder,
+      fortschritt: (t) => fortschritt.value = t,
+    );
+  } catch (e) {
+    ergebnis = HcSyncResult(fehler: 'Fehler: $e');
+  }
+  if (context.mounted) Navigator.of(context, rootNavigator: true).pop();
+  fortschritt.dispose();
+
+  if (ergebnis.fehler == null) {
+    await HealthConnectSync.setEnabled(true);
+    await ref.read(fitnessDataProvider.notifier).sync();
+  }
+  ref.invalidate(_hcEinstellungProvider);
+  messenger.showSnackBar(SnackBar(content: Text(ergebnis.text)));
+}
+
+Future<void> _hcAus(WidgetRef ref) async {
+  await HealthConnectSync.setEnabled(false);
+  ref.invalidate(_hcEinstellungProvider);
 }
 
 /// Weist auf eine unpassende Zonen-Einstellung hin.
