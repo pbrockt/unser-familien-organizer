@@ -1,0 +1,106 @@
+{
+ "hits": [
+  {
+   "code": "4013200254742",
+   "brands": [
+    "Bio Rinatura Haferflocken",
+    "Rinatura"
+   ],
+   "nutriments": {
+    "energy-kj_100g": 1565,
+    "sodium_100g": 0.08,
+    "fiber_100g": 10,
+    "fat_100g": 7,
+    "salt_100g": 0.2,
+    "saturated-fat_100g": 1.3,
+    "carbohydrates_100g": 59,
+    "sugars_100g": 1.1,
+    "proteins_100g": 13
+   },
+   "product_name": "Haferflocken",
+   "product_name_de": "Haferflocken"
+  },
+  {
+   "code": "4306188047162",
+   "brands": [
+    "Jeden Tag",
+    "Nudeln",
+    "Haferflocken"
+   ],
+   "nutriments": {
+    "carbohydrates_100g": 59,
+    "energy-kcal_100g": 375,
+    "fat_100g": 7,
+    "fiber_100g": 10,
+    "proteins_100g": 14,
+    "salt_100g": 0.02,
+    "saturated-fat_100g": 1.3,
+    "sodium_100g": 0.008,
+    "sugars_100g": 0.7
+   },
+   "product_name": "Haferflocken",
+   "product_name_de": "Haferflocken"
+  },
+  {
+   "code": "29084302",
+   "brands": [
+    "Ideal"
+   ],
+   "nutriments": {
+    "carbohydrates_100g": 58.7,
+    "energy-kj_100g": 1566,
+    "fat_100g": 7,
+    "fiber_100g": 10,
+    "proteins_100g": 13.5,
+    "salt_100g": 0.01,
+    "saturated-fat_100g": 1.3,
+    "sodium_100g": 0.004,
+    "sugars_100g": 0.7
+   },
+   "product_name": "Haferflocken",
+   "product_name_de": "Haferflocken"
+  },
+  {
+   "code": "4337256162463",
+   "brands": [
+    "ja!"
+   ],
+   "nutriments": {
+    "carbohydrates_100g": 58.7,
+    "energy-kcal_100g": 327,
+    "energy-kj_100g": 1566,
+    "fat_100g": 7,
+    "proteins_100g": 13.5,
+    "salt_100g": 0,
+    "saturated-fat_100g": 1.3,
+    "sodium_100g": 0,
+    "sugars_100g": 0.7
+   },
+   "product_name": "Haferflocken",
+   "product_name_de": "Haferflocken"
+  },
+  {
+   "code": "4005009108159",
+   "brands": [
+    "bio Zentrale"
+   ],
+   "nutriments": {
+    "carbohydrates_100g": 56,
+    "energy-kcal_100g": 349,
+    "energy-kj_100g": 1468,
+    "fat_100g": 7.1,
+    "fiber_100g": 9.7,
+    "proteins_100g": 11,
+    "salt_100g": 0.02,
+    "saturated-fat_100g": 1.4,
+    "sodium_100g": 0.008,
+    "sugars_100g": 1.1
+   },
+   "product_name": "Haferflocken",
+   "product_name_de": "Haferflocken"
+  }
+ ],
+ "count": 347,
+ "page": 1,
+ "page_size": 5
+}

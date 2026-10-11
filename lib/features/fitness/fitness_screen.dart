@@ -12,6 +12,7 @@ import 'fitness_sleep.dart';
 import 'fitness_widgets.dart';
 import 'fitness_training_tab.dart';
 import 'fitness_weight_tab.dart';
+import '../nutrition/nutrition_tab.dart';
 
 /// Ein Tag mit allem, was an ihm passiert ist.
 class FitnessDay {
@@ -91,7 +92,7 @@ class FitnessScreen extends ConsumerWidget {
     final syncing = ref.watch(fitnessSyncingProvider);
 
     return DefaultTabController(
-      length: 3,
+      length: 4,
       child: Scaffold(
       appBar: AppBar(
         title: const Text('Fitness'),
@@ -100,6 +101,7 @@ class FitnessScreen extends ConsumerWidget {
             Tab(text: 'Übersicht'),
             Tab(text: 'Training'),
             Tab(text: 'Gewicht'),
+            Tab(text: 'Ernährung'),
           ],
         ),
         actions: [
@@ -174,6 +176,7 @@ class FitnessScreen extends ConsumerWidget {
               ),
               FitnessTrainingTab(data: data),
               const FitnessWeightTab(),
+              const NutritionTab(),
             ],
           );
         },

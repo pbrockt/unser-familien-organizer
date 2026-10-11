@@ -6,6 +6,7 @@ import 'package:workmanager/workmanager.dart';
 import '../../features/calendar/events_builder.dart';
 import '../../features/fitness/fitness_settings.dart';
 import '../../features/fitness/health_connect_sync.dart';
+import '../../features/nutrition/nutrition_refresh.dart';
 import '../../features/members/member_settings.dart';
 import '../../features/settings/backup_providers.dart';
 import '../../features/settings/briefing_planner.dart';
@@ -39,6 +40,12 @@ void callbackDispatcher() {
       try {
         final ordner = await container.read(fitnessFolderProvider.future);
         await HealthConnectSync().runIfDue(account: account, fitnessFolder: ordner);
+      } catch (_) {}
+
+      // Einmal pro Woche „Meine Lebensmittel" bei Open Food Facts auffrischen.
+      try {
+        final ordner = await container.read(fitnessFolderProvider.future);
+        await NutritionWeeklyRefresh().runIfDue(account: account, fitnessFolder: ordner);
       } catch (_) {}
 
       // Frisch synchronisieren (Delta). Schlägt das Netz fehl, mit dem

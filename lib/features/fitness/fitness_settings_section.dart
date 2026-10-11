@@ -93,6 +93,21 @@ List<Widget> fitnessSettingsTiles(BuildContext context, WidgetRef ref) {
         ),
       ),
       ListTile(
+        leading: const Icon(Icons.restaurant_outlined),
+        title: const Text('Kalorien-Tagesziel'),
+        subtitle: Text('${ref.watch(fitnessKcalGoalProvider).value ?? 2000} kcal'),
+        trailing: const Icon(Icons.chevron_right),
+        onTap: () => _editNumber(
+          context,
+          titel: 'Kalorien-Tagesziel',
+          hinweis: 'Für den Balken im Ernährungstagebuch.',
+          einheit: 'kcal',
+          wert: '${ref.read(fitnessKcalGoalProvider).value ?? 2000}',
+          onSave: (v) =>
+              ref.read(fitnessKcalGoalProvider.notifier).set(int.tryParse(v) ?? 2000),
+        ),
+      ),
+      ListTile(
         leading: syncing
             ? const SizedBox(
                 width: 24,

@@ -95,6 +95,29 @@ class FitnessStepGoalController extends AsyncNotifier<int> {
   }
 }
 
+/// Tagesziel für die gegessenen Kalorien.
+final fitnessKcalGoalProvider =
+    AsyncNotifierProvider<FitnessKcalGoalController, int>(
+  FitnessKcalGoalController.new,
+);
+
+class FitnessKcalGoalController extends AsyncNotifier<int> {
+  static const _key = 'fitness_kcal_goal';
+
+  @override
+  Future<int> build() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getInt(_key) ?? 2000;
+  }
+
+  Future<void> set(int value) async {
+    final prefs = await SharedPreferences.getInstance();
+    final v = value.clamp(800, 6000);
+    await prefs.setInt(_key, v);
+    state = AsyncData(v);
+  }
+}
+
 /// Zielgewicht in kg. 0 = kein Ziel gesetzt.
 final fitnessGoalWeightProvider =
     AsyncNotifierProvider<FitnessGoalWeightController, double>(
