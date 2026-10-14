@@ -130,7 +130,7 @@
                 android:resource="@xml/fp_widget_design"/>
         </receiver>
         <receiver android:name=".FitnessWidget" android:exported="true"
-            android:label="Fitness">
+            android:label="Gesundheit">
             <intent-filter>
                 <action android:name="android.appwidget.action.APPWIDGET_UPDATE"/>
             </intent-filter>

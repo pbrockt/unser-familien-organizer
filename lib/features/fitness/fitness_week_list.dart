@@ -250,9 +250,9 @@ class FitnessWeekTile extends StatelessWidget {
   /// Die Kachel steht im Überblick zwischen Countdowns und Listen — ohne den Zusatz
   /// wäre nicht erkennbar, worauf sich „Diese Woche" bezieht.
   String _titel() {
-    if (woche.isCurrent) return 'Fitness · Diese Woche';
-    if (woche.isFuture) return 'Fitness · Nächste Woche';
-    return 'Fitness · Letzte Woche';
+    if (woche.isCurrent) return 'Gesundheit · Diese Woche';
+    if (woche.isFuture) return 'Gesundheit · Nächste Woche';
+    return 'Gesundheit · Letzte Woche';
   }
 }
 

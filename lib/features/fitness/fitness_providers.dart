@@ -284,6 +284,41 @@ final stepGoalDatesProvider = Provider<Set<String>>(
   (ref) => ref.watch(stepStreakProvider).reachedDates,
 );
 
+/// Tab, in den der Gesundheitsbereich springen soll (0 Übersicht, 1 Training,
+/// 2 Gewicht, 3 Ernährung) — gesetzt über den Pfeil in der Navigation, danach wieder
+/// `null`.
+final fitnessTabRequestProvider =
+    NotifierProvider<FitnessTabRequestController, int?>(
+  FitnessTabRequestController.new,
+);
+
+class FitnessTabRequestController extends Notifier<int?> {
+  @override
+  int? build() => null;
+
+  void set(int? tab) => state = tab;
+}
+
+/// Tage mit mindestens einer Radfahrt — drinnen wie draußen.
+///
+/// Öffentlich und ohne Provider, damit sich die Auswahl ohne Gerät prüfen lässt: Es
+/// zählt die Sportart, die gilt — also auch eine von Hand korrigierte.
+Set<String> bikeDates(Iterable<Activity> activities, Sport Function(Activity) sportOf) =>
+    {for (final a in activities) if (sportOf(a) == Sport.cycling) a.date};
+
+/// Alle Tage mit einer Radfahrt — für das 🚲 im Kalender.
+final bikeDatesProvider = Provider<Set<String>>((ref) {
+  final enabled = ref.watch(fitnessEnabledProvider).value ?? false;
+  if (!enabled) return const {};
+  final data = ref.watch(fitnessDataProvider).value;
+  if (data == null || data.activities.isEmpty) return const {};
+  final overrides = ref.watch(fitnessOverridesProvider).value;
+  return bikeDates(
+    data.activities,
+    (a) => overrides?.sports[a.id] ?? a.sportEffective,
+  );
+});
+
 /// Schritte des heutigen Tages, sofern schon eingelesen.
 final todayStepsProvider = Provider<int?>((ref) {
   final data = ref.watch(fitnessDataProvider).value;

@@ -93,9 +93,24 @@ class FitnessScreen extends ConsumerWidget {
 
     return DefaultTabController(
       length: 4,
-      child: Scaffold(
+      // Sprung aus dem Pfeil-Menü der Navigation. Nach dem ersten Bild, weil der
+      // Bereich beim Sprung oft gerade erst aufgebaut wird; der Wunsch steht dann
+      // schon im Provider, und ein Listener bekäme ihn nicht mehr mit.
+      child: Consumer(
+        builder: (context, ref, child) {
+          final wunsch = ref.watch(fitnessTabRequestProvider);
+          if (wunsch != null) {
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              if (!context.mounted) return;
+              DefaultTabController.maybeOf(context)?.animateTo(wunsch);
+              ref.read(fitnessTabRequestProvider.notifier).set(null);
+            });
+          }
+          return child!;
+        },
+        child: Scaffold(
       appBar: AppBar(
-        title: const Text('Fitness'),
+        title: const Text('Gesundheit'),
         bottom: const TabBar(
           tabs: [
             Tab(text: 'Übersicht'),
@@ -131,7 +146,7 @@ class FitnessScreen extends ConsumerWidget {
         data: (data) {
           if (folder.isEmpty) {
             return const _Hinweis(
-              'Noch kein Datenordner gewählt. In den Einstellungen unter „Fitness" den Ordner '
+              'Noch kein Datenordner gewählt. In den Einstellungen unter „Gesundheit" den Ordner '
               'in deiner Nextcloud auswählen, in dem die Trainings- und Gesundheitsdateien '
               'liegen.',
             );
@@ -180,6 +195,7 @@ class FitnessScreen extends ConsumerWidget {
             ],
           );
         },
+      ),
       ),
       ),
     );

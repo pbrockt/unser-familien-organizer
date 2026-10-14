@@ -40,9 +40,10 @@ List<Widget> fitnessSettingsTiles(BuildContext context, WidgetRef ref) {
   return [
     SwitchListTile(
       secondary: const Icon(Icons.directions_bike_outlined),
-      title: const Text('Fitness-Bereich'),
+      title: const Text('Gesundheits-Bereich'),
       subtitle: const Text(
-        'Blendet „Fitness" in der Navigation ein: Trainings, Schritte und Schlaf',
+        'Blendet „Gesundheit" in der Navigation ein: Trainings, Schritte, Schlaf, '
+        'Gewicht und Ernährung',
       ),
       value: enabled,
       onChanged: (v) => ref.read(fitnessEnabledProvider.notifier).set(v),

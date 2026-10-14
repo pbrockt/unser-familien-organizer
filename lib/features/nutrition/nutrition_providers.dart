@@ -38,7 +38,9 @@ class NutritionController extends AsyncNotifier<NutritionData> {
   Future<String?> sync() async {
     final account = await ref.read(accountProvider.future);
     final folder = await ref.read(fitnessFolderProvider.future);
-    if (account == null || folder.isEmpty) return 'Keine Nextcloud oder kein Fitness-Ordner.';
+    if (account == null || folder.isEmpty) {
+      return 'Keine Nextcloud oder kein Datenordner gewählt.';
+    }
     try {
       final neu = await _repo.sync(
         account: account,

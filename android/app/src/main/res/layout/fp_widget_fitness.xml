@@ -22,7 +22,7 @@
         android:textStyle="bold"
         android:maxLines="1"
         android:ellipsize="end"
-        android:text="Fitness" />
+        android:text="Gesundheit" />
 
     <TextView
         android:id="@+id/fp_widget_bar"

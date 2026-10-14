@@ -170,7 +170,7 @@ class _NutritionTabState extends ConsumerState<NutritionTab> {
           const SizedBox(height: 4),
           Text(
             'Nährwerte von Open Food Facts (openfoodfacts.org, ODbL). Das Tagebuch liegt in '
-            'deinem Fitness-Ordner unter „Ernährung".',
+            'deinem Datenordner unter „Ernährung".',
             style: grau,
             textAlign: TextAlign.center,
           ),

@@ -505,11 +505,13 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
     required Color bg,
     required Color fg,
     Set<String> schrittZiel = const {},
+    Set<String> radTage = const {},
   }) {
     final key = DateFormat('yyyy-MM-dd').format(day);
     final w = weather[key];
-    // Turnschuh unten links — oben rechts sitzt bereits das Wetter.
+    // Turnschuh unten links, Fahrrad unten rechts — oben rechts sitzt das Wetter.
     final zielErreicht = schrittZiel.contains(key);
+    final radGefahren = radTage.contains(key);
     return Stack(
       clipBehavior: Clip.none,
       children: [
@@ -543,6 +545,12 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
             left: 4,
             child: Text('👟', style: TextStyle(fontSize: 10)),
           ),
+        if (radGefahren)
+          const Positioned(
+            bottom: 2,
+            right: 4,
+            child: Text('🚲', style: TextStyle(fontSize: 10)),
+          ),
       ],
     );
   }
@@ -553,6 +561,7 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
     final eventsAsync = ref.watch(eventsControllerProvider);
     final eventsByDay = ref.watch(eventsByDayProvider);
     final schrittZiel = ref.watch(stepGoalDatesProvider);
+    final radTage = ref.watch(bikeDatesProvider);
     final wochenStufen = ref.watch(completedWeekLevelsProvider);
     // weekNumberBuilder liefert nur die Nummer, kein Datum. Wochennummern wiederholen
     // sich jährlich, deshalb wird nur der gerade sichtbare Bereich zugeordnet — dort
@@ -857,6 +866,7 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
                                         .withValues(alpha: 0.035),
                                     fg: Theme.of(context).colorScheme.onSurface,
                                     schrittZiel: schrittZiel,
+                                    radTage: radTage,
                                   ),
                               todayBuilder: (context, day, _) => _monthDayCell(
                                 day,
@@ -869,6 +879,7 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
                                   context,
                                 ).colorScheme.onPrimaryContainer,
                                 schrittZiel: schrittZiel,
+                                radTage: radTage,
                               ),
                               selectedBuilder: (context, day, _) =>
                                   _monthDayCell(
@@ -878,6 +889,7 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
                                     bg: Theme.of(context).colorScheme.primary,
                                     fg: Theme.of(context).colorScheme.onPrimary,
                                     schrittZiel: schrittZiel,
+                                    radTage: radTage,
                                   ),
                               outsideBuilder: (context, day, _) =>
                                   _monthDayCell(
@@ -888,6 +900,7 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
                                     fg: Theme.of(context).colorScheme.onSurface
                                         .withValues(alpha: 0.32),
                                     schrittZiel: schrittZiel,
+                                    radTage: radTage,
                                   ),
                               markerBuilder: (context, day, events) {
                                 if (events.isEmpty) return null;

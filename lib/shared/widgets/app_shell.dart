@@ -11,6 +11,7 @@ import '../../core/platform/share_intent.dart';
 import '../../features/calendar/event_editor_sheet.dart';
 import '../../features/calendar/event_providers.dart';
 import '../../features/calendar/quick_entry_sheet.dart';
+import '../../features/fitness/fitness_providers.dart';
 import '../../features/fitness/fitness_settings.dart';
 import '../../features/onboarding/onboarding_screen.dart';
 import '../../features/study/study_planner_sheet.dart';
@@ -58,6 +59,7 @@ class _AppShellState extends ConsumerState<AppShell> {
 
   int get _plusIndex => _items.indexOf(_Nav.plus);
   int get _listeDisplay => _items.indexOf(_Nav.liste);
+  int get _sportDisplay => _items.indexOf(_Nav.sport);
 
   /// Anzeige-Index → Branch-Index.
   int _branchForDisplay(int display) {
@@ -258,6 +260,39 @@ class _AppShellState extends ConsumerState<AppShell> {
     }
   }
 
+  /// Sprungmenü für den Gesundheitsbereich: direkt zu Gewicht oder Ernährung, ohne
+  /// erst die Übersicht zu öffnen und dann den Tab zu wechseln.
+  Future<void> _showSportMenu() async {
+    const ziele = [
+      (0, Icons.favorite_border, 'Übersicht'),
+      (1, Icons.directions_bike_outlined, 'Training'),
+      (2, Icons.monitor_weight_outlined, 'Gewicht'),
+      (3, Icons.restaurant_outlined, 'Ernährung'),
+    ];
+    final tab = await showModalBottomSheet<int>(
+      context: context,
+      showDragHandle: true,
+      builder: (ctx) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            for (final (i, icon, label) in ziele)
+              ListTile(
+                leading: Icon(icon),
+                title: Text(label),
+                onTap: () => Navigator.pop(ctx, i),
+              ),
+          ],
+        ),
+      ),
+    );
+    if (tab == null || !mounted) return;
+    ref.read(fitnessTabRequestProvider.notifier).set(tab);
+    // Zur Wurzel des Bereichs: Aus einer Tages- oder Fahrtansicht heraus wären die
+    // Tabs sonst gar nicht zu sehen.
+    widget.navigationShell.goBranch(5, initialLocation: true);
+  }
+
   void _handleBack() {
     if (_history.length <= 1) return;
     _history.removeLast();
@@ -409,8 +444,7 @@ class _AppShellState extends ConsumerState<AppShell> {
   /// Bottom-Navigation für schmale Fenster (Handy).
   Widget _buildBottomBar(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    final onListe =
-        _displayForBranch(widget.navigationShell.currentIndex) == _listeDisplay;
+    final aktiv = _displayForBranch(widget.navigationShell.currentIndex);
     final bar = NavigationBar(
       selectedIndex: _displayForBranch(widget.navigationShell.currentIndex),
       onDestinationSelected: _onDestination,
@@ -437,40 +471,41 @@ class _AppShellState extends ConsumerState<AppShell> {
             ),
       ],
     );
-    // Kleiner Aufwärtspfeil über dem „Liste"-Tab: Tippen auf den Pfeil öffnet
-    // das Listen-/Einkauf-Menü, Tippen auf „Liste" selbst öffnet die Aufgaben.
+    // Kleine Aufwärtspfeile über „Liste" und „Gesundheit": Der Pfeil öffnet ein
+    // Menü zum direkten Sprung, das Symbol selbst die Übersicht des Bereichs.
     return LayoutBuilder(
       builder: (context, c) {
         const btn = 26.0;
         final slotW = c.maxWidth / _items.length;
-        // Rechts neben dem Listen-Symbol (nicht mittig darüber).
-        final left = slotW * (_listeDisplay + 0.5) + 9;
-        return Stack(
-          children: [
-            bar,
-            Positioned(
-              left: left,
+        Widget pfeil(int display, VoidCallback onTap) => Positioned(
+              // Rechts neben dem Symbol (nicht mittig darüber).
+              left: slotW * (display + 0.5) + 9,
               top: 1,
               child: Material(
                 color: Colors.transparent,
                 shape: const CircleBorder(),
                 child: InkWell(
                   customBorder: const CircleBorder(),
-                  onTap: _showListMenu,
+                  onTap: onTap,
                   child: SizedBox(
                     width: btn,
                     height: btn,
                     child: Icon(
                       Icons.keyboard_arrow_up,
                       size: 20,
-                      color: onListe
+                      color: aktiv == display
                           ? scheme.onSecondaryContainer
                           : scheme.onSurfaceVariant,
                     ),
                   ),
                 ),
               ),
-            ),
+            );
+        return Stack(
+          children: [
+            bar,
+            pfeil(_listeDisplay, _showListMenu),
+            if (_sportDisplay >= 0) pfeil(_sportDisplay, _showSportMenu),
           ],
         );
       },
@@ -517,7 +552,7 @@ class _AppShellState extends ConsumerState<AppShell> {
     _Nav.kalender => selected ? Icons.calendar_month : Icons.calendar_month_outlined,
     _Nav.liste => selected ? Icons.list_alt : Icons.list_alt_outlined,
     _Nav.schule => selected ? Icons.school : Icons.school_outlined,
-    _Nav.sport => selected ? Icons.directions_bike : Icons.directions_bike_outlined,
+    _Nav.sport => selected ? Icons.favorite : Icons.favorite_border,
     _Nav.plus => Icons.add,
   };
 
@@ -526,7 +561,7 @@ class _AppShellState extends ConsumerState<AppShell> {
     _Nav.kalender => 'Kalender',
     _Nav.liste => 'Liste',
     _Nav.schule => 'Schule',
-    _Nav.sport => 'Fitness',
+    _Nav.sport => 'Gesundheit',
     _Nav.plus => 'Neu',
   };
 

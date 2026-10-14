@@ -169,6 +169,7 @@ class HomeScreen extends ConsumerWidget {
                           Theme.of(context).colorScheme.primary,
                       onTapDay: openDay,
                       schrittZiel: ref.watch(stepGoalDatesProvider),
+                      radTage: ref.watch(bikeDatesProvider),
                     ),
                     const FitnessHomeCard(),
                     const _SectionLabel('Anstehende Termine'),
@@ -500,6 +501,7 @@ class _TwoWeekCalendar extends StatelessWidget {
     required this.accent,
     required this.onTapDay,
     this.schrittZiel = const {},
+    this.radTage = const {},
   });
   final DateTime today;
   final List<CalendarEvent> events;
@@ -510,6 +512,9 @@ class _TwoWeekCalendar extends StatelessWidget {
 
   /// Tage mit erreichtem Schritteziel (yyyy-MM-dd).
   final Set<String> schrittZiel;
+
+  /// Tage mit Radfahrt — 🚲 unten rechts, gegenüber dem Turnschuh.
+  final Set<String> radTage;
 
   @override
   Widget build(BuildContext context) {
@@ -528,6 +533,7 @@ class _TwoWeekCalendar extends StatelessWidget {
       final isPast = day.isBefore(today);
       final zielErreicht =
           schrittZiel.contains(DateFormat('yyyy-MM-dd').format(day));
+      final radGefahren = radTage.contains(DateFormat('yyyy-MM-dd').format(day));
       final dayEvents = events.where((e) => e.occursOn(day)).toList();
       return Expanded(
         child: GestureDetector(
@@ -590,6 +596,12 @@ class _TwoWeekCalendar extends StatelessWidget {
                           bottom: -1,
                           left: 0,
                           child: Text('👟', style: TextStyle(fontSize: 9)),
+                        ),
+                      if (radGefahren)
+                        const Positioned(
+                          bottom: -1,
+                          right: 0,
+                          child: Text('🚲', style: TextStyle(fontSize: 9)),
                         ),
                     ],
                   ),
