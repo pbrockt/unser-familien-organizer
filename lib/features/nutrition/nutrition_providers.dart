@@ -87,6 +87,51 @@ class NutritionController extends AsyncNotifier<NutritionData> {
     );
   }
 
+  Future<void> _speichereVorlagen(Map<String, MealTemplate> vorlagen) async {
+    state = AsyncData(await _repo.saveTemplates(
+      account: await ref.read(accountProvider.future),
+      fitnessFolder: await ref.read(fitnessFolderProvider.future),
+      data: (await _aktuell()).copyWith(templates: vorlagen),
+    ));
+  }
+
+  /// Speichert die Einträge einer Mahlzeit als Vorlage. Gleicher Name ersetzt die
+  /// bisherige — so lässt sich „Mein Frühstück" einfach neu speichern.
+  Future<void> saveTemplate(String name, List<MealEntry> eintraege) async {
+    final daten = await _aktuell();
+    final bisher = daten.activeTemplates
+        .where((t) => t.name.toLowerCase() == name.toLowerCase())
+        .firstOrNull;
+    final jetzt = DateTime.now();
+    final t = MealTemplate(
+      id: bisher?.id ?? 'v${jetzt.microsecondsSinceEpoch}',
+      name: name,
+      items: eintraege,
+      updated: jetzt,
+    );
+    await _speichereVorlagen({...daten.templates, t.id: t});
+  }
+
+  Future<void> deleteTemplate(MealTemplate t) async {
+    final daten = await _aktuell();
+    await _speichereVorlagen({
+      ...daten.templates,
+      t.id: MealTemplate(
+        id: t.id,
+        name: t.name,
+        items: const [],
+        updated: DateTime.now(),
+        deleted: true,
+      ),
+    });
+  }
+
+  /// Trägt alle Lebensmittel einer Vorlage auf einmal ein.
+  Future<void> applyTemplate(String date, Meal meal, MealTemplate t, String time) async {
+    final tag = (await _aktuell()).day(date);
+    await _speichereTag(tag.withEntries([...tag.entries, ...t.entriesFor(meal, time)]));
+  }
+
   /// Ändert die Menge eines Eintrags; die Nährwerte wachsen im selben Verhältnis mit.
   Future<void> changeGrams(String date, MealEntry entry, double grams) async {
     if (entry.grams <= 0 || grams <= 0) return;

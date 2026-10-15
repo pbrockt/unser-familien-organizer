@@ -34,8 +34,9 @@ void main() {
     expect(a.stoppedShare, closeTo(301 / 1199, 0.01));
   });
 
-  test('E-Bike ist Rad', () {
+  test('E-Bike ist Rad, und die Datei meldet den Motor', () {
     expect(a.sportDeclared, Sport.cycling);
+    expect(a.ebikeDeclared, isTrue);
   });
 
   test('Verlauf ohne falsche Nullen', () {

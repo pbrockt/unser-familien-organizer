@@ -133,6 +133,7 @@ class HealthConnectSync {
     DateTime bis,
   ) async {
     final List<HealthDay> tage;
+    final trainingsJeTag = <String, List<HcTraining>>{};
     try {
       // Einen Tag früher anfragen: Eine Nacht, die um 23 Uhr beginnt, gehört zum
       // ersten Tag des Zeitraums, beginnt aber davor.
@@ -151,6 +152,9 @@ class HealthConnectSync {
           .where((t) =>
               t.date.compareTo(ersterTag) >= 0 && t.date.compareTo(letzterTag) <= 0)
           .toList();
+      for (final t in trainingsFromHc(workouts: abruf.workouts, samples: abruf.samples)) {
+        trainingsJeTag.putIfAbsent(dayKey(t.from), () => []).add(t);
+      }
     } catch (e) {
       return HcSyncResult(fehler: 'Health Connect nicht lesbar: $e');
     }
@@ -172,7 +176,7 @@ class HealthConnectSync {
             geschuetzt++;
             continue;
           }
-          if (sameMeasuredValues(alt, tag)) {
+          if (sameMeasuredValues(alt, tag, trainings: trainingsJeTag[tag.date] ?? const [])) {
             unveraendert++;
             continue;
           }
@@ -180,7 +184,11 @@ class HealthConnectSync {
         await _client.write(
           account,
           '$ordner/$name',
-          healthDayToMarkdown(tag, stand: stand),
+          healthDayToMarkdown(
+            tag,
+            stand: stand,
+            trainings: trainingsJeTag[tag.date] ?? const [],
+          ),
         );
         geschrieben++;
       }

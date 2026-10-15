@@ -7,12 +7,15 @@ import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../core/auth/account_providers.dart';
+import '../../core/auth/nextcloud_account.dart';
 import '../../core/platform/platform_support.dart';
 import 'fitness_models.dart';
 import 'fitness_overrides.dart';
+import 'fitness_overrides_cloud.dart';
 import 'fitness_streak.dart';
 import 'fitness_weekly.dart';
 import 'health_connect_sync.dart';
+import 'health_connect_mapping.dart';
 import 'fitness_repository.dart';
 import 'fitness_settings.dart';
 
@@ -62,7 +65,7 @@ class FitnessDataController extends AsyncNotifier<FitnessData> {
     _roh = roh;
     final edits = ref.read(fitnessOverridesProvider).value?.times ?? const {};
     return FitnessData(
-      activities: applyTimeEdits(roh.activities, edits),
+      activities: applyTimeEdits(withoutHcDuplicates(roh.activities), edits),
       healthDays: roh.healthDays,
       fingerprints: roh.fingerprints,
     );
@@ -72,9 +75,48 @@ class FitnessDataController extends AsyncNotifier<FitnessData> {
   Activity? rohe(String id) =>
       _roh?.activities.where((a) => a.id == id).firstOrNull;
 
+  /// Lädt eine geänderte Korrektur sofort hoch. Ohne Netz bleibt sie lokal und geht
+  /// beim nächsten Abgleich mit, weil ihr Zeitstempel dann jünger ist.
+  Future<void> _korrekturHochladen(FitnessOverrides o) async {
+    try {
+      final account = await ref.read(accountProvider.future);
+      final folder = await ref.read(fitnessFolderProvider.future);
+      if (account == null || folder.isEmpty) return;
+      final prefs = await SharedPreferences.getInstance();
+      final ms = prefs.getInt(FitnessOverridesController.standKey);
+      await OverridesCloud().upload(
+        account: account,
+        folder: folder,
+        overrides: o,
+        stand: ms == null ? DateTime.now() : DateTime.fromMillisecondsSinceEpoch(ms),
+      );
+    } catch (_) {}
+  }
+
+  Future<void> _korrekturenAbgleichen(NextcloudAccount account, String folder) async {
+    try {
+      final ctrl = ref.read(fitnessOverridesProvider.notifier);
+      final lokal = await ref.read(fitnessOverridesProvider.future);
+      final prefs = await SharedPreferences.getInstance();
+      final ms = prefs.getInt(FitnessOverridesController.standKey);
+      final r = await OverridesCloud().sync(
+        account: account,
+        folder: folder,
+        lokal: lokal,
+        lokalStand: ms == null ? null : DateTime.fromMillisecondsSinceEpoch(ms),
+      );
+      if (r.uebernehmen != null) {
+        await ctrl.replaceFromCloud(r.uebernehmen!, r.stand ?? DateTime.now());
+      }
+    } catch (_) {
+      // Kein Grund, den übrigen Abgleich scheitern zu lassen.
+    }
+  }
+
   @override
   Future<FitnessData> build() async {
     final repo = ref.watch(fitnessRepositoryProvider);
+    ref.read(fitnessOverridesProvider.notifier).onChanged = _korrekturHochladen;
     // Ändert sich eine Korrektur, genügt es, sie neu über den Rohstand zu legen —
     // neu laden müsste man dafür nichts.
     ref.listen(fitnessOverridesProvider.select((o) => o.value?.times), (_, _) {
@@ -108,6 +150,7 @@ class FitnessDataController extends AsyncNotifier<FitnessData> {
 
     ref.read(fitnessSyncingProvider.notifier).set(true);
     try {
+      await _korrekturenAbgleichen(account, folder);
       // Erst frische Werte aus Health Connect in die Nextcloud legen (falls
       // eingeschaltet und fällig) — der Import danach liest sie gleich mit ein.
       if (isAndroid) {

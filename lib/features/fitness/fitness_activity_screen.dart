@@ -91,7 +91,9 @@ class FitnessActivityScreen extends ConsumerWidget {
                       'Ø in Bewegung',
                       '${activity.speedMovingAvgKmh.toStringAsFixed(1)} km/h'
                     ),
-                  ('Max Tempo', '${activity.speedMaxKmh.toStringAsFixed(1)} km/h'),
+                  // Aus Health Connect kommt nur die Zusammenfassung — ohne Höchsttempo.
+                  if (activity.speedMaxKmh > 0)
+                    ('Max Tempo', '${activity.speedMaxKmh.toStringAsFixed(1)} km/h'),
                   ('Ø Puls', '${activity.hrAvg} bpm'),
                   ('Max Puls', '${activity.hrMax} bpm'),
                   // Watt stehen bewusst vorn und nicht unter „Weitere Messwerte": Wo es sie
@@ -341,7 +343,11 @@ class _EinstufungCard extends ConsumerWidget {
             const SizedBox(height: 6),
             CheckboxListTile(
               value: ebike,
-              onChanged: (an) => ctrl.setEbike(activity.id, an ?? false),
+              onChanged: (an) => ctrl.setEbike(
+                activity.id,
+                an ?? false,
+                declared: activity.ebikeDeclared,
+              ),
               contentPadding: EdgeInsets.zero,
               controlAffinity: ListTileControlAffinity.leading,
               dense: true,

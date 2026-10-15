@@ -33,7 +33,7 @@ class _FitnessTrainingTabState extends ConsumerState<FitnessTrainingTab> {
         overrides?.sports[a.id] ?? a.sportDetected;
     SessionType typeOf(Activity a) =>
         overrides?.types[a.id] ?? SessionClassifier.suggest(a, zones);
-    bool ebikeOf(Activity a) => overrides?.ebikes.contains(a.id) ?? false;
+    bool ebikeOf(Activity a) => overrides?.isEbike(a) ?? a.ebikeDeclared;
 
     final bySport = <Sport, List<Activity>>{};
     for (final a in widget.data.activities) {

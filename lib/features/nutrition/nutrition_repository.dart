@@ -19,6 +19,8 @@ class NutritionData {
     this.etags = const {},
     this.pendingDays = const {},
     this.foodsPending = false,
+    this.templates = const {},
+    this.templatesPending = false,
   });
 
   final Map<String, NutritionDay> days;
@@ -30,6 +32,16 @@ class NutritionData {
   /// Tage, die ohne Netz geändert wurden und noch hochmüssen.
   final Set<String> pendingDays;
   final bool foodsPending;
+
+  /// Vorlagen nach Kennung, gelöschte als Marke mit dabei.
+  final Map<String, MealTemplate> templates;
+  final bool templatesPending;
+
+  /// Die nutzbaren Vorlagen, nach Name.
+  List<MealTemplate> get activeTemplates => templates.values
+      .where((t) => !t.deleted)
+      .toList()
+    ..sort((a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()));
 
   NutritionDay day(String date) => days[date] ?? NutritionDay(date: date);
 
@@ -53,6 +65,8 @@ class NutritionData {
     Map<String, String>? etags,
     Set<String>? pendingDays,
     bool? foodsPending,
+    Map<String, MealTemplate>? templates,
+    bool? templatesPending,
   }) =>
       NutritionData(
         days: days ?? this.days,
@@ -60,6 +74,8 @@ class NutritionData {
         etags: etags ?? this.etags,
         pendingDays: pendingDays ?? this.pendingDays,
         foodsPending: foodsPending ?? this.foodsPending,
+        templates: templates ?? this.templates,
+        templatesPending: templatesPending ?? this.templatesPending,
       );
 
   Map<String, dynamic> toJson() => {
@@ -68,6 +84,8 @@ class NutritionData {
         'etags': etags,
         'pending': pendingDays.toList(),
         'foodsPending': foodsPending,
+        'templates': [for (final t in templates.values) t.toJson()],
+        'templatesPending': templatesPending,
       };
 
   factory NutritionData.fromJson(Map<String, dynamic> j) => NutritionData(
@@ -79,6 +97,8 @@ class NutritionData {
         etags: (j['etags'] as Map?)?.cast<String, String>() ?? const {},
         pendingDays: {...(j['pending'] as List? ?? const []).cast<String>()},
         foodsPending: j['foodsPending'] == true,
+        templates: decodeTemplates(j['templates']),
+        templatesPending: j['templatesPending'] == true,
       );
 }
 
@@ -112,6 +132,31 @@ Food foodFromOffFresh(Food neu, String id, DateTime jetzt) => Food(
       source: 'off',
       updated: jetzt,
     );
+
+Map<String, MealTemplate> decodeTemplates(Object? raw) {
+  final out = <String, MealTemplate>{};
+  if (raw is! List) return out;
+  for (final t in raw) {
+    try {
+      final v = MealTemplate.fromJson(t as Map<String, dynamic>);
+      out[v.id] = v;
+    } catch (_) {}
+  }
+  return out;
+}
+
+/// Je Vorlage gewinnt der jüngere Stand — auch eine Löschung.
+Map<String, MealTemplate> mergeTemplates(
+  Map<String, MealTemplate> a,
+  Map<String, MealTemplate> b,
+) {
+  final out = {...a};
+  b.forEach((id, t) {
+    final alt = out[id];
+    if (alt == null || !t.updated.isBefore(alt.updated)) out[id] = t;
+  });
+  return out;
+}
 
 /// Führt zwei Lebensmittel-Listen zusammen; je Lebensmittel gewinnt der jüngere Stand.
 Map<String, Food> mergeFoods(Map<String, Food> a, Map<String, Food> b) {
@@ -183,16 +228,30 @@ class NutritionRepository {
       await _writeFoods(account, ordner, d.foods);
       d = d.copyWith(foodsPending: false);
     }
+    if (d.templatesPending) {
+      await _writeTemplates(account, ordner, d.templates);
+      d = d.copyWith(templatesPending: false);
+    }
 
     final etags = {...d.etags};
     final days = {...d.days};
     var foods = d.foods;
+    var vorlagen = d.templates;
     for (final e in await _client.list(account, ordner)) {
       if (e.isDirectory) continue;
       final kennung = e.etag ?? 'size:${e.size}';
       if (etags[e.path] == kennung) continue;
       final name = e.name.toLowerCase();
-      if (name == kFoodsFileName) {
+      if (name == kTemplatesFileName) {
+        try {
+          final roh = jsonDecode(await _client.read(account, e.path));
+          vorlagen = mergeTemplates(
+            vorlagen,
+            decodeTemplates(roh is Map ? roh['vorlagen'] : roh),
+          );
+          etags[e.path] = kennung;
+        } catch (_) {}
+      } else if (name == kFoodsFileName) {
         try {
           final roh = jsonDecode(await _client.read(account, e.path));
           foods = mergeFoods(foods, decodeFoods(roh is Map ? roh['foods'] : roh));
@@ -204,7 +263,7 @@ class NutritionRepository {
         etags[e.path] = kennung;
       }
     }
-    return d.copyWith(days: days, foods: foods, etags: etags);
+    return d.copyWith(days: days, foods: foods, templates: vorlagen, etags: etags);
   }
 
   /// Schreibt einen Tag sofort. Klappt das nicht, bleibt er vorgemerkt.
@@ -296,6 +355,40 @@ class NutritionRepository {
     }
     await save(d);
     return d;
+  }
+
+  /// Legt die Vorlagen ab; ohne Netz bleiben sie vorgemerkt.
+  Future<NutritionData> saveTemplates({
+    required NextcloudAccount? account,
+    required String fitnessFolder,
+    required NutritionData data,
+  }) async {
+    var d = data;
+    try {
+      if (account == null || fitnessFolder.isEmpty) throw StateError('offline');
+      await _writeTemplates(account, folderOf(fitnessFolder), d.templates);
+      d = d.copyWith(templatesPending: false);
+    } catch (_) {
+      d = d.copyWith(templatesPending: true);
+    }
+    await save(d);
+    return d;
+  }
+
+  Future<void> _writeTemplates(
+    NextcloudAccount account,
+    String ordner,
+    Map<String, MealTemplate> vorlagen,
+  ) async {
+    await _client.ensureFolder(account, ordner);
+    const enc = JsonEncoder.withIndent(' ');
+    await _client.write(
+      account,
+      '$ordner/$kTemplatesFileName',
+      enc.convert({
+        'vorlagen': [for (final t in vorlagen.values) t.toJson()],
+      }),
+    );
   }
 
   Future<void> _writeFoods(

@@ -3,6 +3,9 @@ import 'nutrition_models.dart';
 /// Unterordner im Fitness-Ordner für das Ernährungstagebuch.
 const String kNutritionFolderName = 'Ernährung';
 
+/// Datei mit den Mahlzeiten-Vorlagen („Mein Frühstück").
+const String kTemplatesFileName = 'vorlagen.json';
+
 /// Datei mit den bekannten Lebensmitteln („Meine Lebensmittel").
 const String kFoodsFileName = 'lebensmittel.json';
 

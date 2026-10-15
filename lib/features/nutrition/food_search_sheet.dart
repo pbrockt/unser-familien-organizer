@@ -110,6 +110,37 @@ class _FoodSearchSheetState extends ConsumerState<_FoodSearchSheet> {
     if (mounted) Navigator.of(context).pop();
   }
 
+  Future<void> _vorlage(MealTemplate t) async {
+    await ref.read(nutritionProvider.notifier).applyTemplate(
+          widget.date,
+          widget.meal,
+          t,
+          DateFormat('HH:mm').format(DateTime.now()),
+        );
+    if (mounted) Navigator.of(context).pop();
+  }
+
+  Future<void> _vorlageLoeschen(MealTemplate t) async {
+    final ja = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text('„${t.name}" löschen?'),
+        content: const Text('Bereits eingetragene Mahlzeiten bleiben erhalten.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Abbrechen'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Löschen'),
+          ),
+        ],
+      ),
+    );
+    if (ja == true) await ref.read(nutritionProvider.notifier).deleteTemplate(t);
+  }
+
   Future<void> _eigenes({String? barcode}) async {
     final f = await showDialog<Food>(
       context: context,
@@ -167,6 +198,9 @@ class _FoodSearchSheetState extends ConsumerState<_FoodSearchSheet> {
                 .toList() ??
             const <Food>[]);
     final bekannteIds = bekannt.map((f) => f.id).toSet();
+    final vorlagen = (daten?.activeTemplates ?? const <MealTemplate>[])
+        .where((t) => suchtext.isEmpty || t.name.toLowerCase().contains(suchtext))
+        .toList();
     final online = _online.where((f) => !bekannteIds.contains(f.id)).toList();
     final grau = Theme.of(context).textTheme.labelMedium?.copyWith(
           color: Theme.of(context).colorScheme.onSurfaceVariant,
@@ -210,6 +244,22 @@ class _FoodSearchSheetState extends ConsumerState<_FoodSearchSheet> {
             Expanded(
               child: ListView(
                 children: [
+                  if (vorlagen.isNotEmpty) ...[
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
+                      child: Text('MEINE VORLAGEN', style: grau),
+                    ),
+                    for (final t in vorlagen)
+                      ListTile(
+                        leading: const Icon(Icons.bookmark_outline),
+                        title: Text(t.name),
+                        subtitle: Text(
+                          '${t.items.length} Lebensmittel · ${t.kcal.round()} kcal',
+                        ),
+                        onTap: () => _vorlage(t),
+                        onLongPress: () => _vorlageLoeschen(t),
+                      ),
+                  ],
                   if (bekannt.isNotEmpty) ...[
                     Padding(
                       padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),

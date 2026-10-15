@@ -29,6 +29,7 @@ void main() {
           reason: 'Die Datei nennt die Sportart — geraten wird hier nichts');
       expect(a.sportConfidence, 1.0);
       expect(a.indoor, isTrue, reason: 'Unterart virtual_activity');
+      expect(a.ebikeDeclared, isFalse, reason: 'Rolle, kein Motor');
     });
 
     test('liest Datum und Uhrzeit in Ortszeit', () {

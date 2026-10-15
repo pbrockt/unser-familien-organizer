@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -16,21 +18,99 @@ class FitnessOverrides {
     this.sports = const {},
     this.types = const {},
     this.ebikes = const {},
+    this.notEbikes = const {},
     this.times = const {},
   });
 
   final Map<String, Sport> sports;
   final Map<String, SessionType> types;
 
-  /// Fahrten mit Motorunterstützung. Anders als Sportart und Art der Einheit lässt sich
-  /// das aus den Messwerten nicht ablesen — ein Tritt am Berg sieht mit Motor aus wie
-  /// ohne, nur schneller. Also gibt es hier keine Schätzung, die man korrigieren würde,
-  /// sondern nur die Angabe selbst.
+  /// Fahrten mit Motorunterstützung, von Hand angegeben. Aus den Messwerten lässt sich
+  /// das nicht ablesen — ein Tritt am Berg sieht mit Motor aus wie ohne, nur schneller.
+  /// Manche FIT-Dateien nennen es selbst (Sportart E-Bike); dann gilt die Datei, bis
+  /// man widerspricht ([notEbikes]).
   final Set<String> ebikes;
 
   /// Von Hand korrigierte Gesamt- und Standzeit. Für den Fall, dass die Aufzeichnung
   /// danebenliegt: Gerät zu spät gestartet, vergessen zu stoppen, Pause nicht erkannt.
   final Map<String, TimeEdit> times;
+
+  /// Fahrten, die die Datei als E-Bike nennt, die es laut Nutzer aber nicht waren.
+  final Set<String> notEbikes;
+
+  /// Mit Motor? Die eigene Angabe schlägt die der Datei, in beide Richtungen.
+  bool isEbike(Activity a) {
+    if (notEbikes.contains(a.id)) return false;
+    return ebikes.contains(a.id) || a.ebikeDeclared;
+  }
+
+  bool get isEmpty =>
+      sports.isEmpty &&
+      types.isEmpty &&
+      ebikes.isEmpty &&
+      notEbikes.isEmpty &&
+      times.isEmpty;
+
+  FitnessOverrides copyWith({
+    Map<String, Sport>? sports,
+    Map<String, SessionType>? types,
+    Set<String>? ebikes,
+    Set<String>? notEbikes,
+    Map<String, TimeEdit>? times,
+  }) =>
+      FitnessOverrides(
+        sports: sports ?? this.sports,
+        types: types ?? this.types,
+        ebikes: ebikes ?? this.ebikes,
+        notEbikes: notEbikes ?? this.notEbikes,
+        times: times ?? this.times,
+      );
+
+  /// Für `korrekturen.json` in der Nextcloud — lesbar, damit man notfalls auch dort
+  /// nachsehen kann, was korrigiert wurde.
+  Map<String, dynamic> toJson() => {
+        'sportart': {for (final e in sports.entries) e.key: e.value.name},
+        'art': {for (final e in types.entries) e.key: e.value.name},
+        'ebike': ebikes.toList()..sort(),
+        'kein_ebike': notEbikes.toList()..sort(),
+        'zeiten': {
+          for (final e in times.entries)
+            e.key: {'gesamt_s': e.value.totalSec, 'stand_s': e.value.stoppedSec},
+        },
+      };
+
+  factory FitnessOverrides.fromJson(Map<String, dynamic> j) {
+    Map<String, T> enums<T extends Enum>(Object? raw, List<T> values) {
+      final out = <String, T>{};
+      if (raw is! Map) return out;
+      for (final e in raw.entries) {
+        // Unbekannte Werte (etwa aus einer neueren App-Version) still übergehen.
+        final v = values.where((v) => v.name == e.value).firstOrNull;
+        if (v != null) out[e.key as String] = v;
+      }
+      return out;
+    }
+    Set<String> menge(Object? raw) =>
+        raw is List ? {for (final v in raw) v.toString()} : <String>{};
+    final zeiten = j['zeiten'];
+    return FitnessOverrides(
+      sports: enums(j['sportart'], Sport.values),
+      types: enums(j['art'], SessionType.values),
+      ebikes: menge(j['ebike']),
+      notEbikes: menge(j['kein_ebike']),
+      times: {
+        if (zeiten is Map)
+          for (final e in zeiten.entries)
+            if (e.value is Map &&
+                (e.value as Map)['gesamt_s'] is num &&
+                (e.value as Map)['stand_s'] is num)
+              e.key as String: TimeEdit(
+                totalSec: ((e.value as Map)['gesamt_s'] as num).toInt(),
+                stoppedSec: ((e.value as Map)['stand_s'] as num).toInt(),
+              ),
+      },
+    );
+  }
 }
 
 /// Gesamt- und Standzeit einer Einheit, von Hand eingetragen. Die Fahrzeit ist der Rest —
@@ -96,7 +176,12 @@ class FitnessOverridesController extends AsyncNotifier<FitnessOverrides> {
   static const _sportKey = 'fitness_sport_overrides';
   static const _typeKey = 'fitness_type_overrides';
   static const _ebikeKey = 'fitness_ebike_ids';
+  static const _notEbikeKey = 'fitness_not_ebike_ids';
   static const _timesKey = 'fitness_time_edits';
+
+  /// Zeitpunkt der letzten Änderung auf diesem Gerät — entscheidet beim Abgleich mit
+  /// der Nextcloud, welcher Stand gilt.
+  static const standKey = 'fitness_overrides_stand';
 
   @override
   Future<FitnessOverrides> build() async {
@@ -105,80 +190,84 @@ class FitnessOverridesController extends AsyncNotifier<FitnessOverrides> {
       sports: _decode(prefs.getStringList(_sportKey), Sport.values),
       types: _decode(prefs.getStringList(_typeKey), SessionType.values),
       ebikes: (prefs.getStringList(_ebikeKey) ?? const []).toSet(),
+      notEbikes: (prefs.getStringList(_notEbikeKey) ?? const []).toSet(),
       times: _decodeTimes(prefs.getStringList(_timesKey)),
     );
   }
 
-  Future<void> setSport(String activityId, Sport? sport) async {
+  FitnessOverrides get _jetzt => state.value ?? const FitnessOverrides();
+
+  /// Schreibt den ganzen Stand lokal und — ohne darauf zu warten — in die Nextcloud.
+  Future<void> _speichern(FitnessOverrides neu) async {
+    await _lokal(neu, DateTime.now());
+    state = AsyncData(neu);
+    final hochladen = onChanged;
+    if (hochladen != null) unawaited(hochladen(neu));
+  }
+
+  Future<void> _lokal(FitnessOverrides o, DateTime stand) async {
     final prefs = await SharedPreferences.getInstance();
-    final current = Map<String, Sport>.from(state.value?.sports ?? const {});
+    await prefs.setStringList(_sportKey, _encode(o.sports));
+    await prefs.setStringList(_typeKey, _encode(o.types));
+    await prefs.setStringList(_ebikeKey, o.ebikes.toList());
+    await prefs.setStringList(_notEbikeKey, o.notEbikes.toList());
+    await prefs.setStringList(_timesKey, [
+      for (final e in o.times.entries)
+        '${e.value.totalSec}\t${e.value.stoppedSec}\t${e.key}',
+    ]);
+    await prefs.setInt(standKey, stand.millisecondsSinceEpoch);
+  }
+
+  /// Wird nach jeder Änderung aufgerufen — gesetzt vom Abgleich mit der Nextcloud.
+  /// Bleibt hier ein Haken statt einer festen Abhängigkeit, damit der Controller ohne
+  /// Konto und Netz testbar bleibt.
+  Future<void> Function(FitnessOverrides)? onChanged;
+
+  /// Übernimmt einen Stand aus der Nextcloud, ohne ihn gleich wieder hochzuladen.
+  Future<void> replaceFromCloud(FitnessOverrides o, DateTime stand) async {
+    await _lokal(o, stand);
+    state = AsyncData(o);
+  }
+
+  Future<void> setSport(String activityId, Sport? sport) {
+    final current = Map<String, Sport>.from(_jetzt.sports);
     if (sport == null) {
       current.remove(activityId);
     } else {
       current[activityId] = sport;
     }
-    await prefs.setStringList(_sportKey, _encode(current));
-    state = AsyncData(FitnessOverrides(
-      sports: current,
-      types: state.value?.types ?? const {},
-      ebikes: state.value?.ebikes ?? const {},
-      times: state.value?.times ?? const {},
-    ));
+    return _speichern(_jetzt.copyWith(sports: current));
   }
 
-  Future<void> setType(String activityId, SessionType? type) async {
-    final prefs = await SharedPreferences.getInstance();
-    final current = Map<String, SessionType>.from(state.value?.types ?? const {});
+  Future<void> setType(String activityId, SessionType? type) {
+    final current = Map<String, SessionType>.from(_jetzt.types);
     if (type == null) {
       current.remove(activityId);
     } else {
       current[activityId] = type;
     }
-    await prefs.setStringList(_typeKey, _encode(current));
-    state = AsyncData(FitnessOverrides(
-      sports: state.value?.sports ?? const {},
-      types: current,
-      ebikes: state.value?.ebikes ?? const {},
-      times: state.value?.times ?? const {},
-    ));
+    return _speichern(_jetzt.copyWith(types: current));
   }
 
-  Future<void> setEbike(String activityId, bool ebike) async {
-    final prefs = await SharedPreferences.getInstance();
-    final current = Set<String>.from(state.value?.ebikes ?? const <String>{});
-    if (ebike) {
-      current.add(activityId);
-    } else {
-      current.remove(activityId);
-    }
-    await prefs.setStringList(_ebikeKey, current.toList());
-    state = AsyncData(FitnessOverrides(
-      sports: state.value?.sports ?? const {},
-      types: state.value?.types ?? const {},
-      ebikes: current,
-      times: state.value?.times ?? const {},
-    ));
+  /// [declared]: Die Datei selbst nennt die Fahrt ein E-Bike. Dann heißt „aus" eine
+  /// ausdrückliche Gegenangabe, sonst stünde der Haken beim nächsten Laden wieder da.
+  Future<void> setEbike(String activityId, bool ebike, {bool declared = false}) {
+    final an = Set<String>.from(_jetzt.ebikes)..remove(activityId);
+    final aus = Set<String>.from(_jetzt.notEbikes)..remove(activityId);
+    if (ebike && !declared) an.add(activityId);
+    if (!ebike && declared) aus.add(activityId);
+    return _speichern(_jetzt.copyWith(ebikes: an, notEbikes: aus));
   }
 
   /// `null` nimmt die Korrektur zurück; dann gelten wieder die Zeiten aus der Datei.
-  Future<void> setTimes(String activityId, TimeEdit? edit) async {
-    final prefs = await SharedPreferences.getInstance();
-    final current = Map<String, TimeEdit>.from(state.value?.times ?? const {});
+  Future<void> setTimes(String activityId, TimeEdit? edit) {
+    final current = Map<String, TimeEdit>.from(_jetzt.times);
     if (edit == null) {
       current.remove(activityId);
     } else {
       current[activityId] = edit;
     }
-    await prefs.setStringList(_timesKey, [
-      for (final e in current.entries)
-        '${e.value.totalSec}\t${e.value.stoppedSec}\t${e.key}',
-    ]);
-    state = AsyncData(FitnessOverrides(
-      sports: state.value?.sports ?? const {},
-      types: state.value?.types ?? const {},
-      ebikes: state.value?.ebikes ?? const {},
-      times: current,
-    ));
+    return _speichern(_jetzt.copyWith(times: current));
   }
 
   static Map<String, TimeEdit> _decodeTimes(List<String>? raw) {
@@ -234,7 +323,7 @@ final effectiveSportProvider = Provider.family<Sport, Activity>((ref, activity) 
 /// Wurde diese Fahrt mit Motorunterstützung gemacht?
 final ebikeProvider = Provider.family<bool, Activity>((ref, activity) {
   final o = ref.watch(fitnessOverridesProvider).value;
-  return o?.ebikes.contains(activity.id) ?? false;
+  return o?.isEbike(activity) ?? activity.ebikeDeclared;
 });
 
 /// Die geltende Art einer Einheit: manuelle Wahl schlägt Schätzung.

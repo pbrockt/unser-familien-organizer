@@ -49,6 +49,7 @@ class FitParser {
 
     final sitzung = datei.session;
     final sport = _sportOf(sitzung?[_fSport] as int?);
+    final ebike = (sitzung?[_fSport] as int?) == 21;
     final indoor = _indoorSubSports.contains(sitzung?[_fSubSport] as int?);
 
     // Zeit: die Datei nennt Gesamt- und Uhrzeit selbst. Wo sie das nicht tut, bleibt der
@@ -226,6 +227,7 @@ class FitParser {
       powerDerived: gerechnet,
       indoor: indoor,
       laps: datei.laps.length > 1 ? _laps(datei.laps) : const [],
+      ebikeDeclared: ebike,
     );
   }
 
@@ -486,8 +488,8 @@ class FitParser {
 
   static Sport _sportOf(int? fit) => switch (fit) {
         1 => Sport.running,
-        // 21 = E-Bike: gefahren wird trotzdem Rad. Ob der Motor mitlief, hält der
-        // Haken an der Fahrt fest.
+        // 21 = E-Bike: gefahren wird trotzdem Rad. Der Motor steht als eigene Angabe
+        // an der Einheit (ebikeDeclared) und setzt den ⚡-Haken.
         2 || 21 => Sport.cycling,
         // 11 = Gehen, 17 = Wandern: beides wird hier wie Laufen bewertet, weil es in
         // denselben Kennzahlen aufgeht. Alles andere bleibt offen statt falsch.

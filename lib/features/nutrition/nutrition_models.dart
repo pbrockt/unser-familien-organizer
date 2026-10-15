@@ -231,3 +231,64 @@ class NutritionDay {
             .toList(),
       );
 }
+
+/// Eine gespeicherte Mahlzeit — „Mein Frühstück" —, die sich mit einem Tipp eintragen
+/// lässt.
+///
+/// Die Einträge tragen ihre Nährwerte selbst, wie im Tagebuch. Eine Vorlage bleibt so
+/// verlässlich, auch wenn ein Produkt aus „Meine Lebensmittel" später aufgefrischt wird.
+class MealTemplate {
+  const MealTemplate({
+    required this.id,
+    required this.name,
+    required this.items,
+    required this.updated,
+    this.deleted = false,
+  });
+
+  final String id;
+  final String name;
+  final List<MealEntry> items;
+  final DateTime updated;
+
+  /// Gelöscht, aber als Marke behalten: Sonst brächte der Abgleich mit einem zweiten
+  /// Gerät die Vorlage zurück.
+  final bool deleted;
+
+  double get kcal => items.fold(0, (s, e) => s + e.kcal);
+
+  /// Die Einträge für [meal] um [time] — so, als hätte man sie einzeln eingetragen.
+  List<MealEntry> entriesFor(Meal meal, String time) => [
+        for (final e in items)
+          MealEntry(
+            time: time,
+            meal: meal,
+            name: e.name,
+            grams: e.grams,
+            kcal: e.kcal,
+            protein: e.protein,
+            carbs: e.carbs,
+            fat: e.fat,
+            foodId: e.foodId,
+          ),
+      ];
+
+  Map<String, dynamic> toJson() => {
+        'id': id,
+        'name': name,
+        'updated': updated.toUtc().toIso8601String(),
+        if (deleted) 'deleted': true,
+        'items': items.map((e) => e.toJson()).toList(),
+      };
+
+  factory MealTemplate.fromJson(Map<String, dynamic> j) => MealTemplate(
+        id: j['id'] as String,
+        name: j['name'] as String? ?? 'Vorlage',
+        updated: DateTime.tryParse(j['updated'] as String? ?? '')?.toLocal() ??
+            DateTime(2000),
+        deleted: j['deleted'] == true,
+        items: (j['items'] as List? ?? const [])
+            .map((e) => MealEntry.fromJson(e as Map<String, dynamic>))
+            .toList(),
+      );
+}

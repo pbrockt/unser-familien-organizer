@@ -249,3 +249,125 @@ class _Tag {
   int workoutMin = 0;
   double workoutKm = 0;
 }
+
+/// Eine Trainingseinheit aus Health Connect, wie sie die App als Training führt.
+///
+/// Nur Rad und Laufen: Dafür gibt es eine Auswertung. Spaziergänge stehen weiter als
+/// Zusammenfassung beim Tag.
+class HcTraining {
+  const HcTraining({
+    required this.from,
+    required this.to,
+    required this.type,
+    this.distanceM,
+    this.kcal,
+    this.hrAvg,
+    this.hrMax,
+    this.hrSeconds = const {},
+  });
+
+  final DateTime from;
+  final DateTime to;
+
+  /// `BIKING`, `BIKING_STATIONARY`, `RUNNING` oder `RUNNING_TREADMILL`.
+  final String type;
+  final double? distanceM;
+  final double? kcal;
+  final int? hrAvg;
+  final int? hrMax;
+
+  /// Sekunden je Pulswert — daraus werden Zonen und Belastung.
+  final Map<int, int> hrSeconds;
+
+  int get durationSec => to.difference(from).inSeconds;
+  bool get isCycling => type.startsWith('BIKING');
+  bool get indoor => type == 'BIKING_STATIONARY' || type == 'RUNNING_TREADMILL';
+}
+
+const _trainingsArten = {'BIKING', 'BIKING_STATIONARY', 'RUNNING', 'RUNNING_TREADMILL'};
+
+/// Macht aus den Einheiten Trainings und ordnet ihnen den Puls aus ihrem Zeitraum zu.
+///
+/// Der Puls kommt aus derselben Quelle, die auch für den Tag zählt. Jeder Messwert gilt
+/// bis zum nächsten, höchstens eine Minute — so ergibt ein Band, das nur alle paar
+/// Sekunden misst, trotzdem Zonen in echter Zeit.
+List<HcTraining> trainingsFromHc({
+  required List<HcWorkout> workouts,
+  required List<HcSample> samples,
+}) {
+  final quelle = dominantSources(samples)[HcKind.heartRate];
+  final puls = samples
+      .where((s) => s.kind == HcKind.heartRate && s.source == quelle)
+      .toList()
+    ..sort((a, b) => a.from.compareTo(b.from));
+
+  final out = <HcTraining>[];
+  for (final w in workouts) {
+    if (!_trainingsArten.contains(w.type)) continue;
+    if (w.to.difference(w.from).inMinutes < 3) continue;
+    final drin = puls
+        .where((p) => !p.from.isBefore(w.from) && p.from.isBefore(w.to))
+        .toList();
+    final sekunden = <int, int>{};
+    var summe = 0.0, gewicht = 0, maxHr = 0;
+    for (var i = 0; i < drin.length; i++) {
+      final bis = i + 1 < drin.length ? drin[i + 1].from : w.to;
+      final dt = bis.difference(drin[i].from).inSeconds.clamp(1, 60);
+      final bpm = drin[i].value.round();
+      if (bpm <= 0 || bpm >= hrHistogramSize) continue;
+      sekunden[bpm] = (sekunden[bpm] ?? 0) + dt;
+      summe += bpm * dt;
+      gewicht += dt;
+      if (bpm > maxHr) maxHr = bpm;
+    }
+    out.add(HcTraining(
+      from: w.from,
+      to: w.to,
+      type: w.type,
+      distanceM: w.distanceM,
+      kcal: w.kcal,
+      hrAvg: gewicht > 0 ? (summe / gewicht).round() : null,
+      hrMax: maxHr > 0 ? maxHr : null,
+      hrSeconds: sekunden,
+    ));
+  }
+  return out;
+}
+
+/// Wirft Trainings aus Health Connect hinaus, die es auch als Datei gibt.
+///
+/// Dieselbe Fahrt steht oft zweimal da: als FIT aus der Bosch-App und als Einheit, die
+/// die Uhr nach Health Connect geschrieben hat. Die Datei ist genauer — Verlauf,
+/// Standzeit, Höhe, Watt —, also gewinnt sie. Als dieselbe gilt eine Einheit, die sich
+/// zu mehr als der Hälfte der kürzeren überschneidet oder höchstens zehn Minuten
+/// versetzt beginnt.
+List<Activity> withoutHcDuplicates(List<Activity> alle) {
+  DateTime? beginn(Activity a) =>
+      DateTime.tryParse('${a.date}T${a.timeOfDay.length == 5 ? a.timeOfDay : '00:00'}:00');
+
+  final dateien = [
+    for (final a in alle)
+      if (!a.id.startsWith('hc:'))
+        if (beginn(a) case final b?) (b, b.add(Duration(seconds: a.durationSec))),
+  ];
+  bool doppelt(Activity hc) {
+    final b = beginn(hc);
+    if (b == null) return false;
+    final e = b.add(Duration(seconds: hc.durationSec));
+    for (final (db, de) in dateien) {
+      if (b.difference(db).inMinutes.abs() <= 10) return true;
+      final von = b.isAfter(db) ? b : db;
+      final bis = e.isBefore(de) ? e : de;
+      final ueber = bis.difference(von).inSeconds;
+      final kuerzer = [e.difference(b).inSeconds, de.difference(db).inSeconds]
+          .reduce((x, y) => x < y ? x : y);
+      if (kuerzer > 0 && ueber > kuerzer / 2) return true;
+    }
+    return false;
+  }
+
+  return [
+    for (final a in alle)
+      if (!a.id.startsWith('hc:') || !doppelt(a)) a,
+  ];
+}

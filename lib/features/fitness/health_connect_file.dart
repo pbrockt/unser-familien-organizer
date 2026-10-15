@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'fitness_models.dart';
+import 'health_connect_mapping.dart';
 
 /// Unterordner im Fitness-Ordner, in den die App die Tage aus Health Connect schreibt.
 const String kHcFolderName = 'Health Connect';
@@ -11,8 +12,12 @@ const String kHcFolderName = 'Health Connect';
 ///
 /// Die Prüfsumme deckt alle Messwerte ab. Stimmt sie beim nächsten Abruf nicht mehr,
 /// hat jemand die Datei geändert — dann bleibt sie, wie sie ist.
-String healthDayToMarkdown(HealthDay d, {required DateTime stand}) {
-  final werte = _werteZeilen(d);
+String healthDayToMarkdown(
+  HealthDay d, {
+  required DateTime stand,
+  List<HcTraining> trainings = const [],
+}) {
+  final werte = _werteZeilen(d, trainings);
   final st = stand.toLocal();
   return [
     '---',
@@ -47,11 +52,100 @@ bool isUntouchedHcFile(String text) {
 
 /// Ergäbe [neu] dieselben Messwerte wie die Datei [alt]? Dann braucht es kein
 /// Hochladen — nur der Zeitstempel wäre anders.
-bool sameMeasuredValues(String alt, HealthDay neu) {
+bool sameMeasuredValues(
+  String alt,
+  HealthDay neu, {
+  List<HcTraining> trainings = const [],
+}) {
   final fm = _frontmatter(alt);
   if (fm == null) return false;
   final werte = fm.where((z) => !_verwaltung.any(z.startsWith)).toList();
-  return _pruefsumme(werte) == _pruefsumme(_werteZeilen(neu));
+  return _pruefsumme(werte) == _pruefsumme(_werteZeilen(neu, trainings));
+}
+
+/// Liest die Trainingszeilen einer Tagesdatei als Einheiten.
+///
+/// Die Kennung `hc:<Datum> <Uhrzeit>` bleibt gleich, solange die Einheit gleich bleibt —
+/// daran hängen Korrekturen wie die Art der Einheit.
+List<Activity> hcTrainingsFromMarkdown(String text) {
+  final fm = _frontmatter(text);
+  if (fm == null) return const [];
+  final datum = fm
+      .where((z) => z.startsWith('date:'))
+      .map((z) => z.substring(5).trim())
+      .firstOrNull;
+  if (datum == null) return const [];
+  final out = <Activity>[];
+  for (final z in fm) {
+    if (!z.startsWith('training_')) continue;
+    final a = _training(datum, z.substring(z.indexOf(':') + 1));
+    if (a != null) out.add(a);
+  }
+  return out;
+}
+
+Activity? _training(String datum, String zeile) {
+  final teile = zeile.split('|').map((t) => t.trim()).toList();
+  if (teile.length < 3) return null;
+  final art = teile[0].toUpperCase();
+  final uhr = teile[1];
+  if (!RegExp(r'^\d{1,2}:\d{2}(:\d{2})?$').hasMatch(uhr)) return null;
+
+  int? sek, hrAvg, hrMax;
+  double? meter;
+  final histogramm = List<int>.filled(hrHistogramSize, 0);
+  for (final t in teile.skip(2)) {
+    final k = t.toLowerCase();
+    double? zahl(String s) => double.tryParse(s.trim().replaceAll(',', '.'));
+    if (k.endsWith(' s')) {
+      sek = zahl(k.substring(0, k.length - 2))?.round();
+    } else if (k.endsWith(' min')) {
+      sek = ((zahl(k.substring(0, k.length - 4)) ?? 0) * 60).round();
+    } else if (k.endsWith(' km')) {
+      meter = (zahl(k.substring(0, k.length - 3)) ?? 0) * 1000;
+    } else if (k.endsWith(' m')) {
+      meter = zahl(k.substring(0, k.length - 2));
+    } else if (k.startsWith('ø ')) {
+      hrAvg = zahl(k.substring(2))?.round();
+    } else if (k.startsWith('max ')) {
+      hrMax = zahl(k.substring(4))?.round();
+    } else if (k.startsWith('puls ')) {
+      for (final p in k.substring(5).split(' ')) {
+        final x = p.split('x');
+        if (x.length != 2) continue;
+        final bpm = int.tryParse(x[0]), s = int.tryParse(x[1]);
+        if (bpm != null && s != null && bpm > 0 && bpm < hrHistogramSize) {
+          histogramm[bpm] += s;
+        }
+      }
+    }
+  }
+  if (sek == null || sek <= 0) return null;
+
+  final rad = art.startsWith('BIKING');
+  final sport = rad ? Sport.cycling : (art.startsWith('RUNNING') ? Sport.running : null);
+  if (sport == null) return null;
+  final km = (meter ?? 0) / 1000;
+  return Activity(
+    id: 'hc:$datum ${uhr.length == 5 ? '$uhr:00' : uhr}',
+    date: datum,
+    timeOfDay: uhr.substring(0, 5),
+    sportDetected: sport,
+    sportConfidence: 1,
+    sportDeclared: sport,
+    durationSec: sek,
+    distanceKm: km,
+    hrAvg: hrAvg ?? 0,
+    hrMax: hrMax ?? 0,
+    hrHistogram: histogramm,
+    cadenceAvg: 0,
+    speedAvgKmh: km > 0 ? km / sek * 3600 : 0,
+    speedMaxKmh: 0,
+    elevGain: 0,
+    elevLoss: 0,
+    series: const [],
+    indoor: art == 'BIKING_STATIONARY' || art == 'RUNNING_TREADMILL',
+  );
 }
 
 /// Führt zwei Tagesdateien desselben Datums zusammen: [vorrang] gewinnt, wo es einen
@@ -99,7 +193,7 @@ HealthDay addHealthDay(HealthDay? vorhanden, HealthDay neu) {
 // Zeilen, die die App verwaltet und die nicht in die Prüfsumme gehören.
 const _verwaltung = ['quelle:', 'stand:', 'pruefsumme:'];
 
-List<String> _werteZeilen(HealthDay d) {
+List<String> _werteZeilen(HealthDay d, [List<HcTraining> trainings = const []]) {
   String zahl(double v) {
     final s = v.toStringAsFixed(2);
     // 7.50 → 7.5, 81.00 → 81: kürzer zu lesen, und der Parser nimmt beides.
@@ -141,7 +235,29 @@ List<String> _werteZeilen(HealthDay d) {
   i('workout_minutes', d.workoutMinutes);
   f('workout_distance_km', d.workoutDistanceKm);
   if (d.workouts.isNotEmpty) z.add('workouts: [${d.workouts.join(', ')}]');
+  // Trainings als eigene Zeilen: Der normale Import übergeht unbekannte Schlüssel, und
+  // als Teil des Frontmatters zählen sie zur Prüfsumme — von Hand geändert, bleiben sie.
+  final sortiert = [...trainings]..sort((a, b) => a.from.compareTo(b.from));
+  for (var i = 0; i < sortiert.length; i++) {
+    z.add('training_${i + 1}: ${_trainingZeile(sortiert[i])}');
+  }
   return z;
+}
+
+String _trainingZeile(HcTraining t) {
+  final von = t.from.toLocal();
+  final teile = <String>[
+    t.type,
+    '${_zweistellig(von.hour)}:${_zweistellig(von.minute)}:${_zweistellig(von.second)}',
+    '${t.durationSec} s',
+    if ((t.distanceM ?? 0) > 0) '${t.distanceM!.round()} m',
+    if ((t.kcal ?? 0) > 0) '${t.kcal!.round()} kcal',
+    if (t.hrAvg != null) 'Ø ${t.hrAvg}',
+    if (t.hrMax != null) 'max ${t.hrMax}',
+    if (t.hrSeconds.isNotEmpty)
+      'puls ${(t.hrSeconds.keys.toList()..sort()).map((b) => '${b}x${t.hrSeconds[b]}').join(' ')}',
+  ];
+  return teile.join(' | ');
 }
 
 List<String>? _frontmatter(String text) {

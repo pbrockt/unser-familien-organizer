@@ -34,6 +34,20 @@ class _NutritionTabState extends ConsumerState<NutritionTab> {
     }
   }
 
+  Future<void> _alsVorlage(Meal m, List<MealEntry> eintraege) async {
+    final name = await showDialog<String>(
+      context: context,
+      builder: (_) => _VorlagenName(vorschlag: 'Mein ${mealLabel(m)}'),
+    );
+    if (name == null || name.trim().isEmpty) return;
+    await ref.read(nutritionProvider.notifier).saveTemplate(name.trim(), eintraege);
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text('„${name.trim()}" gespeichert — beim nächsten Eintragen ganz oben.'),
+      ));
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final daten = ref.watch(nutritionProvider).value;
@@ -149,6 +163,7 @@ class _NutritionTabState extends ConsumerState<NutritionTab> {
               onChange: (e, g) =>
                   ref.read(nutritionProvider.notifier).changeGrams(_datum, e, g),
               onRemove: (e) => ref.read(nutritionProvider.notifier).remove(_datum, e),
+              onSaveTemplate: () => _alsVorlage(m, tag.ofMeal(m)),
             ),
           if (woche != null && woche.erfasst > 0)
             FitnessCard(
@@ -180,6 +195,49 @@ class _NutritionTabState extends ConsumerState<NutritionTab> {
   }
 }
 
+class _VorlagenName extends StatefulWidget {
+  const _VorlagenName({required this.vorschlag});
+
+  final String vorschlag;
+
+  @override
+  State<_VorlagenName> createState() => _VorlagenNameState();
+}
+
+class _VorlagenNameState extends State<_VorlagenName> {
+  late final _feld = TextEditingController(text: widget.vorschlag);
+
+  @override
+  void dispose() {
+    _feld.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => AlertDialog(
+        title: const Text('Als Vorlage speichern'),
+        content: TextField(
+          controller: _feld,
+          autofocus: true,
+          decoration: const InputDecoration(
+            labelText: 'Name',
+            helperText: 'Gleicher Name ersetzt die bisherige Vorlage',
+            border: OutlineInputBorder(),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Abbrechen'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, _feld.text),
+            child: const Text('Speichern'),
+          ),
+        ],
+      );
+}
+
 /// Mit Vorzeichen: −350 heißt weniger gegessen als verbraucht.
 String _bilanz(double v) {
   final r = v.round();
@@ -193,6 +251,7 @@ class _MahlzeitKarte extends StatelessWidget {
     required this.onAdd,
     required this.onChange,
     required this.onRemove,
+    required this.onSaveTemplate,
   });
 
   final Meal meal;
@@ -200,6 +259,7 @@ class _MahlzeitKarte extends StatelessWidget {
   final VoidCallback onAdd;
   final void Function(MealEntry, double) onChange;
   final void Function(MealEntry) onRemove;
+  final VoidCallback onSaveTemplate;
 
   @override
   Widget build(BuildContext context) {
@@ -220,6 +280,21 @@ class _MahlzeitKarte extends StatelessWidget {
                     style: Theme.of(context).textTheme.titleSmall),
                 const Spacer(),
                 if (summe > 0) Text('${summe.round()} kcal', style: grau),
+                if (eintraege.isNotEmpty)
+                  PopupMenuButton<void>(
+                    tooltip: 'Mehr',
+                    icon: const Icon(Icons.more_vert, size: 20),
+                    itemBuilder: (_) => [
+                      PopupMenuItem(
+                        onTap: onSaveTemplate,
+                        child: const ListTile(
+                          leading: Icon(Icons.bookmark_add_outlined),
+                          title: Text('Als Vorlage speichern'),
+                          contentPadding: EdgeInsets.zero,
+                        ),
+                      ),
+                    ],
+                  ),
                 IconButton(
                   tooltip: '${mealLabel(meal)} hinzufügen',
                   onPressed: onAdd,

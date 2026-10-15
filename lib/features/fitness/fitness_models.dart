@@ -221,6 +221,7 @@ class Activity {
     this.indoor = false,
     this.laps = const [],
     this.timesEdited = false,
+    this.ebikeDeclared = false,
   });
 
   final String id;
@@ -304,6 +305,9 @@ class Activity {
   /// darübergelegt — so bleibt der Wert aus der Datei erhalten, falls man sie zurücknimmt.
   final bool timesEdited;
 
+  /// Die Datei selbst nennt die Fahrt ein E-Bike (FIT-Sportart 21).
+  final bool ebikeDeclared;
+
   /// Kennzahlen zu allen weiteren Spalten der CSV — was der Tracker sonst noch liefert,
   /// geht damit nicht verloren, auch wenn die App die Spalte nicht kennt.
   final Map<String, ChannelStat> channels;
@@ -368,6 +372,7 @@ class Activity {
         indoor: indoor,
         laps: laps,
         timesEdited: timesEdited ?? this.timesEdited,
+        ebikeDeclared: ebikeDeclared,
       );
 
   Map<String, dynamic> toJson() => {
@@ -395,6 +400,7 @@ class Activity {
         if (powerDerived) 'wDer': true,
         if (indoor) 'in': true,
         if (laps.isNotEmpty) 'laps': laps.map((l) => l.toJson()).toList(),
+        if (ebikeDeclared) 'ebike': true,
         'chan': channels.map((k, v) => MapEntry(k, v.toJson())),
         'series': series.map((p) => p.toJson()).toList(),
       };
@@ -433,6 +439,7 @@ class Activity {
         powerMax: (j['wMax'] as num?)?.toInt() ?? 0,
         powerDerived: j['wDer'] == true,
         indoor: j['in'] == true,
+        ebikeDeclared: j['ebike'] == true,
         laps: (j['laps'] as List?)
                 ?.map((e) => ActivityLap.fromJson(e as Map<String, dynamic>))
                 .toList() ??

@@ -33,7 +33,8 @@ class FitnessData {
   /// wirft [FitnessRepository.load] die Fingerabdrücke weg und liest beim nächsten
   /// Abgleich alles neu. 2: Bewegungszeit je Einheit. 3: FIT-Dateien. 4: FIT-Fahrzeit
   /// bei getrennten Sensorpunkten. 5: Tage aus Health Connect gehen anderen Dateien vor.
-  static const int schemaVersion = 5;
+  /// 6: E-Bike aus der FIT-Datei.
+  static const int schemaVersion = 6;
 
   Map<String, dynamic> toJson() => {
         'v': schemaVersion,
@@ -222,6 +223,14 @@ class FitnessRepository {
         final parsed = _health.parse(text, entry.name);
         if (parsed != null) {
           healthDays[parsed.date] = addHealthDay(healthDays[parsed.date], parsed);
+          if (parsed.fromHealthConnect) {
+            // Die Trainings des Tages ersetzen, nicht ergänzen: Hat sich eine Einheit
+            // verschoben, bliebe sonst die alte als Geist stehen.
+            activities.removeWhere((id, _) => id.startsWith('hc:${parsed.date} '));
+            for (final a in hcTrainingsFromMarkdown(text)) {
+              activities[a.id] = a;
+            }
+          }
           fingerprints[entry.path] = fingerprint;
           newHealth++;
         } else {
