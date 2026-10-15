@@ -77,6 +77,7 @@ void main() {
   });
 
   vorlagenTest();
+  wasserTest();
 
   testWidgets('leerer Tag ohne Fehler', (tester) async {
     await tester.pumpWidget(ProviderScope(
@@ -120,6 +121,48 @@ class _MitVorlage extends NutritionController {
     });
     state = AsyncData(daten);
   }
+}
+
+class _Wasser extends NutritionController {
+  NutritionData daten = const NutritionData();
+  final gesetzt = <int>[];
+
+  @override
+  Future<NutritionData> build() async => daten;
+
+  @override
+  Future<String?> sync() async => null;
+
+  @override
+  Future<void> setWater(String date, int ml) async {
+    gesetzt.add(ml);
+    daten = daten.copyWith(days: {date: daten.day(date).withWater(ml)});
+    state = AsyncData(daten);
+  }
+}
+
+void wasserTest() {
+  testWidgets('Gläser antippen füllt bis dorthin, das letzte nimmt zurück', (tester) async {
+    final ctrl = _Wasser();
+    await tester.pumpWidget(ProviderScope(
+      overrides: [
+        nutritionProvider.overrideWith(() => ctrl),
+        fitnessDataProvider.overrideWith(() => _Fitness(const FitnessData())),
+      ],
+      child: const MaterialApp(home: Scaffold(body: NutritionTab())),
+    ));
+    await tester.pumpAndSettle();
+    expect(find.text('0 von 2 l'), findsOneWidget);
+
+    await tester.tap(find.byTooltip('Glas 3'));
+    await tester.pumpAndSettle();
+    expect(ctrl.gesetzt.last, 750);
+    expect(find.text('0,75 von 2 l'), findsOneWidget);
+
+    await tester.tap(find.byTooltip('Glas 3 (voll)'));
+    await tester.pumpAndSettle();
+    expect(ctrl.gesetzt.last, 500);
+  });
 }
 
 void vorlagenTest() {

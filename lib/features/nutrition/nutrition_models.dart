@@ -198,11 +198,14 @@ class MealEntry {
 
 /// Alles, was an einem Tag gegessen wurde.
 class NutritionDay {
-  const NutritionDay({required this.date, this.entries = const []});
+  const NutritionDay({required this.date, this.entries = const [], this.waterMl = 0});
 
   /// yyyy-MM-dd.
   final String date;
   final List<MealEntry> entries;
+
+  /// Getrunkenes Wasser in Millilitern.
+  final int waterMl;
 
   double get kcal => entries.fold(0, (s, e) => s + e.kcal);
   double get protein => entries.fold(0, (s, e) => s + (e.protein ?? 0));
@@ -216,12 +219,16 @@ class NutritionDay {
         final m = a.meal.index.compareTo(b.meal.index);
         return m != 0 ? m : a.time.compareTo(b.time);
       });
-    return NutritionDay(date: date, entries: sortiert);
+    return NutritionDay(date: date, entries: sortiert, waterMl: waterMl);
   }
+
+  NutritionDay withWater(int ml) =>
+      NutritionDay(date: date, entries: entries, waterMl: ml < 0 ? 0 : ml);
 
   Map<String, dynamic> toJson() => {
         'date': date,
         'entries': entries.map((e) => e.toJson()).toList(),
+        if (waterMl > 0) 'water': waterMl,
       };
 
   factory NutritionDay.fromJson(Map<String, dynamic> j) => NutritionDay(
@@ -229,6 +236,7 @@ class NutritionDay {
         entries: (j['entries'] as List? ?? const [])
             .map((e) => MealEntry.fromJson(e as Map<String, dynamic>))
             .toList(),
+        waterMl: (j['water'] as num?)?.toInt() ?? 0,
       );
 }
 

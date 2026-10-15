@@ -1,15 +1,27 @@
+import 'dart:async';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/auth/account_providers.dart';
 import '../fitness/fitness_settings.dart';
+import 'nutrition_health_connect.dart';
 import 'nutrition_models.dart';
 import 'nutrition_repository.dart';
 import 'off_client.dart';
+import 'photo_estimate.dart';
 
 final nutritionRepositoryProvider =
     Provider<NutritionRepository>((ref) => NutritionRepository());
 
 final offClientProvider = Provider<OffClient>((ref) => OffClient());
+
+final claudeSettingsProvider = Provider<ClaudeSettings>((ref) => ClaudeSettings());
+
+final claudePhotoClientProvider =
+    Provider<ClaudePhotoClient>((ref) => ClaudePhotoClient());
+
+final nutritionHcProvider =
+    Provider<NutritionHealthConnect>((ref) => NutritionHealthConnect());
 
 final nutritionProvider =
     AsyncNotifierProvider<NutritionController, NutritionData>(NutritionController.new);
@@ -63,6 +75,21 @@ class NutritionController extends AsyncNotifier<NutritionData> {
       day: tag,
     );
     state = AsyncData(neu);
+    // Spiegel nach Health Connect, falls eingeschaltet — ohne darauf zu warten.
+    unawaited(ref.read(nutritionHcProvider).schreibeTag(tag));
+  }
+
+  /// Gibt die letzten [tage] Tage an Health Connect — nach dem Einschalten.
+  Future<void> spiegelnNachHealthConnect({int tage = 7}) async {
+    final daten = await _aktuell();
+    final heute = DateTime.now();
+    for (var i = 0; i < tage; i++) {
+      final d = DateTime(heute.year, heute.month, heute.day - i);
+      final key = '${d.year.toString().padLeft(4, '0')}-'
+          '${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
+      final tag = daten.days[key];
+      if (tag != null) await ref.read(nutritionHcProvider).schreibeTag(tag);
+    }
   }
 
   /// Trägt ein Lebensmittel ein und merkt es sich für „Zuletzt gegessen".
@@ -78,6 +105,13 @@ class NutritionController extends AsyncNotifier<NutritionData> {
     }
     final tag = (await _aktuell()).day(date);
     await _speichereTag(tag.withEntries([...tag.entries, entry]));
+  }
+
+  /// Trägt mehrere Einträge auf einmal ein — etwa die Schätzung zu einem Foto.
+  Future<void> addEntries(String date, List<MealEntry> entries) async {
+    if (entries.isEmpty) return;
+    final tag = (await _aktuell()).day(date);
+    await _speichereTag(tag.withEntries([...tag.entries, ...entries]));
   }
 
   Future<void> remove(String date, MealEntry entry) async {
@@ -130,6 +164,11 @@ class NutritionController extends AsyncNotifier<NutritionData> {
   Future<void> applyTemplate(String date, Meal meal, MealTemplate t, String time) async {
     final tag = (await _aktuell()).day(date);
     await _speichereTag(tag.withEntries([...tag.entries, ...t.entriesFor(meal, time)]));
+  }
+
+  Future<void> setWater(String date, int ml) async {
+    final tag = (await _aktuell()).day(date);
+    await _speichereTag(tag.withWater(ml));
   }
 
   /// Ändert die Menge eines Eintrags; die Nährwerte wachsen im selben Verhältnis mit.

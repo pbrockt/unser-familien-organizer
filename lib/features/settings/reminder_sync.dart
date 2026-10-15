@@ -7,6 +7,8 @@ import '../fitness/fitness_overrides.dart';
 import '../fitness/fitness_providers.dart';
 import '../fitness/fitness_settings.dart';
 import '../fitness/fitness_widget_data.dart';
+import '../fitness/weekly_report.dart';
+import '../nutrition/nutrition_providers.dart';
 import '../calendar/event_providers.dart';
 import '../members/member_settings.dart';
 import '../tasks/task_providers.dart';
@@ -61,6 +63,8 @@ class _ReminderSyncState extends ConsumerState<ReminderSync>
     ref.listen(memberSettingsProvider, (_, _) => _reschedule());
     ref.listen(weatherProvider, (_, _) => _reschedule());
     ref.listen(fitnessDataProvider, (_, _) => _reschedule());
+    ref.listen(nutritionProvider, (_, _) => _reschedule());
+    ref.listen(fitnessWeeklyReportProvider, (_, _) => _reschedule());
     return widget.child;
   }
 
@@ -74,12 +78,20 @@ class _ReminderSyncState extends ConsumerState<ReminderSync>
     if (daten == null || daten.activities.isEmpty) return null;
 
     final overrides = ref.read(fitnessOverridesProvider).value;
+    final ernaehrung = ref.read(nutritionProvider).value;
+    final heute = DateTime.now();
+    final key = '${heute.year.toString().padLeft(4, '0')}-'
+        '${heute.month.toString().padLeft(2, '0')}-${heute.day.toString().padLeft(2, '0')}';
+    // Nur wer das Tagebuch benutzt, bekommt die Kalorienzeile.
+    final nutzt = ernaehrung?.days.values.any((d) => d.entries.isNotEmpty) ?? false;
     return buildFitnessWidgetData(
       activities: daten.activities,
       sportOf: (a) => overrides?.sports[a.id] ?? a.sportEffective,
       healthDays: daten.healthDays,
       stepGoal: ref.read(fitnessStepGoalProvider).value ?? 8000,
-      today: DateTime.now(),
+      today: heute,
+      kcalEaten: nutzt ? ernaehrung!.day(key).kcal.round() : null,
+      kcalGoal: ref.read(fitnessKcalGoalProvider).value ?? 2000,
     );
   }
 
@@ -120,6 +132,23 @@ class _ReminderSyncState extends ConsumerState<ReminderSync>
       minutesOfDay: briefingCfg.minutesOfDay,
     );
     if (briefing != null) items.add(briefing);
+    final bericht = _wochenbericht();
+    if (bericht != null) items.add(bericht);
     await service.schedule(items);
+  }
+
+  ScheduledReminder? _wochenbericht() {
+    final an = (ref.read(fitnessEnabledProvider).value ?? false) &&
+        (ref.read(fitnessWeeklyReportProvider).value ?? true);
+    final daten = ref.read(fitnessDataProvider).value;
+    final overrides = ref.read(fitnessOverridesProvider).value;
+    return planWeeklyReport(
+      enabled: an,
+      activities: daten?.activities ?? const [],
+      sportOf: (a) => overrides?.sports[a.id] ?? a.sportEffective,
+      healthDays: daten?.healthDays ?? const [],
+      nutrition: ref.read(nutritionProvider).value?.days ?? const {},
+      weights: ref.read(mergedWeightProvider),
+    );
   }
 }

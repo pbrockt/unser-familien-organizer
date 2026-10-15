@@ -4,7 +4,12 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:workmanager/workmanager.dart';
 
 import '../../features/calendar/events_builder.dart';
+import '../../features/fitness/fitness_overrides.dart';
+import '../../features/fitness/fitness_providers.dart';
+import '../../features/fitness/fitness_repository.dart';
 import '../../features/fitness/fitness_settings.dart';
+import '../../features/fitness/weekly_report.dart';
+import '../../features/nutrition/nutrition_repository.dart';
 import '../../features/fitness/health_connect_sync.dart';
 import '../../features/nutrition/nutrition_refresh.dart';
 import '../../features/members/member_settings.dart';
@@ -102,6 +107,12 @@ void callbackDispatcher() {
           minutesOfDay: briefingCfg.minutesOfDay,
         );
         if (briefing != null) items.add(briefing);
+        // Wochenbericht: Auch er muss hier mit in die Liste, sonst nähme ihn das
+        // Neuplanen (das zuerst alles löscht) wieder heraus.
+        try {
+          final bericht = await _wochenbericht(container);
+          if (bericht != null) items.add(bericht);
+        } catch (_) {}
         await service.schedule(items);
       }
 
@@ -130,6 +141,26 @@ void callbackDispatcher() {
       container.dispose();
     }
   });
+}
+
+/// Liest für den Wochenbericht die lokalen Zwischenstände direkt — die Provider würden
+/// hier jedes Mal einen vollständigen Abgleich anstoßen.
+Future<ScheduledReminder?> _wochenbericht(ProviderContainer container) async {
+  final an = await container.read(fitnessEnabledProvider.future) &&
+      await container.read(fitnessWeeklyReportProvider.future);
+  if (!an) return null;
+  final fitness = await FitnessRepository().load();
+  final ernaehrung = await NutritionRepository().load();
+  final overrides = await container.read(fitnessOverridesProvider.future);
+  final manuell = await container.read(weightEntriesProvider.future);
+  return planWeeklyReport(
+    enabled: true,
+    activities: fitness.activities,
+    sportOf: (a) => overrides.sports[a.id] ?? a.sportEffective,
+    healthDays: fitness.healthDays,
+    nutrition: ernaehrung.days,
+    weights: mergeWeights(manuell, fitness.healthDays),
+  );
 }
 
 /// Initialisiert WorkManager (in main aufrufen). Nur Android.

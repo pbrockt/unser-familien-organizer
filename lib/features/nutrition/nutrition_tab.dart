@@ -155,6 +155,11 @@ class _NutritionTabState extends ConsumerState<NutritionTab> {
               ],
             ),
           ),
+          _WasserKarte(
+            ml: tag.waterMl,
+            zielMl: ref.watch(fitnessWaterGoalProvider).value ?? 2000,
+            onSet: (ml) => ref.read(nutritionProvider.notifier).setWater(_datum, ml),
+          ),
           for (final m in Meal.values)
             _MahlzeitKarte(
               meal: m,
@@ -189,6 +194,57 @@ class _NutritionTabState extends ConsumerState<NutritionTab> {
             style: grau,
             textAlign: TextAlign.center,
           ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Gläser à 250 ml zum Antippen.
+class _WasserKarte extends StatelessWidget {
+  const _WasserKarte({required this.ml, required this.zielMl, required this.onSet});
+
+  final int ml;
+  final int zielMl;
+  final void Function(int) onSet;
+
+  static const glasMl = 250;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final ziel = (zielMl / glasMl).round().clamp(1, 24);
+    final voll = (ml / glasMl).floor();
+    // Über das Ziel hinaus Getrunkenes bleibt sichtbar: ein Glas mehr als volle.
+    final anzahl = voll >= ziel ? voll + 1 : ziel;
+    // 0 → „0", 750 → „0,75", 1500 → „1,5", 2000 → „2". Nullen nur hinter dem Komma
+    // abschneiden — sonst würden aus 10 Litern 1.
+    String liter(int v) {
+      if (v % 1000 == 0) return '${v ~/ 1000}';
+      final s = (v / 1000).toStringAsFixed(2).replaceFirst(RegExp(r'0$'), '');
+      return s.replaceAll('.', ',');
+    }
+
+    return FitnessCard(
+      title: '💧 Wasser',
+      subtitle: '${liter(ml)} von ${liter(zielMl)} l'
+          '${ml >= zielMl ? ' — Ziel erreicht' : ''}',
+      child: Wrap(
+        spacing: 2,
+        runSpacing: 2,
+        children: [
+          for (var i = 0; i < anzahl; i++)
+            IconButton(
+              visualDensity: VisualDensity.compact,
+              tooltip: i < voll ? 'Glas ${i + 1} (voll)' : 'Glas ${i + 1}',
+              // Das letzte volle Glas noch einmal antippen nimmt es zurück — für den
+              // Fall, dass man sich vertippt hat.
+              onPressed: () => onSet(i + 1 == voll ? i * glasMl : (i + 1) * glasMl),
+              icon: Icon(
+                i < voll ? Icons.local_drink : Icons.local_drink_outlined,
+                color: i < voll ? scheme.primary : scheme.onSurfaceVariant,
+              ),
+            ),
         ],
       ),
     );

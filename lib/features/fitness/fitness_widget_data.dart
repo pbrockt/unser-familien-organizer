@@ -42,6 +42,8 @@ FitnessWidgetData buildFitnessWidgetData({
   required List<HealthDay> healthDays,
   required int stepGoal,
   required DateTime today,
+  int? kcalEaten,
+  int? kcalGoal,
 }) {
   final diese = cyclingWeeks(activities, sportOf, today,
           weeksBack: 1, weeksForward: 0)
@@ -58,6 +60,8 @@ FitnessWidgetData buildFitnessWidgetData({
       healthDays: healthDays,
       stepGoal: stepGoal,
       today: today,
+      kcalEaten: kcalEaten,
+      kcalGoal: kcalGoal,
     ),
     progressPercent: anteil,
     colorHex: widgetLevelColor(stufe),
@@ -73,12 +77,17 @@ FitnessWidgetData buildFitnessWidgetData({
 /// GROSSGESCHRIEBENE Zeilen werden zur Überschrift, Zeilen mit `#RRGGBB` + Tabulator
 /// bekommen einen farbigen Marker. Steuerzeichen außer dem Tabulator sind tabu — die
 /// Daten landen in einer XML-Datei, die daran zerbricht.
+///
+/// [kcalEaten] ist `null`, solange das Ernährungstagebuch nie benutzt wurde — dann
+/// bleibt die Zeile weg, statt jeden Tag „noch 2000 kcal" zu behaupten.
 String buildFitnessWidgetBody({
   required List<Activity> activities,
   required Sport Function(Activity) sportOf,
   required List<HealthDay> healthDays,
   required int stepGoal,
   required DateTime today,
+  int? kcalEaten,
+  int? kcalGoal,
 }) {
   final wochen = cyclingWeeks(activities, sportOf, today, weeksBack: 1, weeksForward: 0);
   final diese = wochen.last;
@@ -107,6 +116,17 @@ String buildFitnessWidgetBody({
     zeilen.add(
       '${widgetLevelColor(letzteStufe)}$_sep${letzte.minutes} Minuten'
       '${weeklyStar(letzte.minutes) ? '  *' : ''}',
+    );
+  }
+
+  if (kcalEaten != null && kcalGoal != null && kcalGoal > 0) {
+    final rest = kcalGoal - kcalEaten;
+    zeilen.add('');
+    zeilen.add('HEUTE');
+    zeilen.add(
+      rest >= 0
+          ? '${widgetLevelColor(WeeklyLevel.geschafft)}${_sep}noch $rest kcal'
+          : '${widgetLevelColor(WeeklyLevel.zuWenig)}$_sep${-rest} kcal drüber',
     );
   }
 

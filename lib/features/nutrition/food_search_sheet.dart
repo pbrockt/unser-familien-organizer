@@ -8,6 +8,7 @@ import '../../core/platform/platform_support.dart';
 import 'barcode_scan_screen.dart';
 import 'nutrition_models.dart';
 import 'nutrition_providers.dart';
+import 'photo_estimate_sheet.dart';
 
 /// Öffnet die Suche und trägt das gewählte Lebensmittel in [meal] an [date] ein.
 Future<void> showFoodSearch(
@@ -108,6 +109,16 @@ class _FoodSearchSheetState extends ConsumerState<_FoodSearchSheet> {
     );
     await ref.read(nutritionProvider.notifier).add(widget.date, f, entry);
     if (mounted) Navigator.of(context).pop();
+  }
+
+  Future<void> _foto() async {
+    final ok = await estimateFromPhoto(
+      context,
+      ref,
+      date: widget.date,
+      meal: widget.meal,
+    );
+    if (ok && mounted) Navigator.of(context).pop();
   }
 
   Future<void> _vorlage(MealTemplate t) async {
@@ -231,10 +242,20 @@ class _FoodSearchSheetState extends ConsumerState<_FoodSearchSheet> {
                           ),
                         )
                       : (isAndroid
-                          ? IconButton(
-                              tooltip: 'Barcode scannen',
-                              onPressed: _scannen,
-                              icon: const Icon(Icons.qr_code_scanner),
+                          ? Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                IconButton(
+                                  tooltip: 'Foto schätzen lassen',
+                                  onPressed: _foto,
+                                  icon: const Icon(Icons.photo_camera_outlined),
+                                ),
+                                IconButton(
+                                  tooltip: 'Barcode scannen',
+                                  onPressed: _scannen,
+                                  icon: const Icon(Icons.qr_code_scanner),
+                                ),
+                              ],
                             )
                           : null),
                   border: const OutlineInputBorder(),

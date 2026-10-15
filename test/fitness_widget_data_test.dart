@@ -160,4 +160,32 @@ void main() {
       expect(text.split('\n').first, 'DIESE WOCHE');
     });
   });
+
+  group('Kalorien im Widget', () {
+    String mitKcal(int? gegessen) => buildFitnessWidgetBody(
+          activities: [fahrt('2026-08-25', 60)],
+          sportOf: (a) => a.sportEffective,
+          healthDays: const [],
+          stepGoal: 8000,
+          today: DateTime(2026, 8, 27),
+          kcalEaten: gegessen,
+          kcalGoal: 2000,
+        );
+
+    test('noch übrig in Grün', () {
+      expect(mitKcal(1350), contains('HEUTE\n#3E8E51\tnoch 650 kcal'));
+    });
+
+    test('drüber in Rot', () {
+      expect(mitKcal(2120), contains('#C0503F\t120 kcal drüber'));
+    });
+
+    test('ohne Tagebuch keine Zeile', () {
+      expect(mitKcal(null), isNot(contains('kcal')));
+    });
+
+    test('keine Steuerzeichen außer Tabulator und Zeilenumbruch', () {
+      expect(RegExp(r'[\x00-\x08\x0B-\x1F]').hasMatch(mitKcal(1350)), isFalse);
+    });
+  });
 }

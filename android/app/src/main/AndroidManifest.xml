@@ -27,6 +27,9 @@
     <uses-permission android:name="android.permission.health.READ_DISTANCE"/>
     <uses-permission android:name="android.permission.health.READ_SLEEP"/>
     <uses-permission android:name="android.permission.health.READ_EXERCISE"/>
+    <!-- Schreiben nur für Ernährung: Mahlzeiten aus dem Tagebuch, damit Yazio & Co.
+         sie sehen. Gelöscht werden dabei nur die eigenen Einträge. -->
+    <uses-permission android:name="android.permission.health.WRITE_NUTRITION"/>
     <!-- Mehr als die letzten 30 Tage, und Lesen ohne geöffnete App (für den
          späteren Abruf alle 30 Minuten). -->
     <uses-permission android:name="android.permission.health.READ_HEALTH_DATA_HISTORY"/>

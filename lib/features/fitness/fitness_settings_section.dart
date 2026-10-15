@@ -9,11 +9,24 @@ import 'fitness_providers.dart';
 import 'fitness_repository.dart';
 import 'fitness_settings.dart';
 import 'fitness_webdav.dart';
+import '../nutrition/nutrition_health_connect.dart';
+import '../nutrition/nutrition_providers.dart';
+import '../nutrition/photo_estimate.dart';
 import 'health_connect_screen.dart';
 import 'health_connect_source.dart';
 import 'health_connect_sync.dart';
 
 /// Ob Health Connect auf diesem Gerät liefert, und was der letzte Abruf ergab.
+/// Ob ein Claude-Schlüssel hinterlegt ist, und welches Modell gilt.
+final _claudeStatusProvider = FutureProvider.autoDispose<(bool, String)>((ref) async {
+  final s = ref.read(claudeSettingsProvider);
+  return (await s.apiKey() != null, await s.model());
+});
+
+final _mahlzeitenAnHcProvider = FutureProvider.autoDispose<bool>(
+  (ref) => NutritionHealthConnect.isEnabled(),
+);
+
 final _hcEinstellungProvider =
     FutureProvider.autoDispose<(bool, String?)>((ref) async {
   final prefs = await SharedPreferences.getInstance();
@@ -93,6 +106,52 @@ List<Widget> fitnessSettingsTiles(BuildContext context, WidgetRef ref) {
               ref.read(fitnessStepGoalProvider.notifier).set(int.tryParse(v) ?? 8000),
         ),
       ),
+      SwitchListTile(
+        secondary: const Icon(Icons.summarize_outlined),
+        title: const Text('Wochenbericht am Sonntag'),
+        subtitle: const Text(
+          'Um 19 Uhr: Ø Schritte, Radminuten, Ø Kalorien und Gewichtstrend der Woche',
+        ),
+        value: ref.watch(fitnessWeeklyReportProvider).value ?? true,
+        onChanged: (v) => ref.read(fitnessWeeklyReportProvider.notifier).set(v),
+      ),
+      ListTile(
+        leading: const Icon(Icons.water_drop_outlined),
+        title: const Text('Trinkziel'),
+        subtitle: Text(
+          '${ref.watch(fitnessWaterGoalProvider).value ?? 2000} ml · '
+          '${((ref.watch(fitnessWaterGoalProvider).value ?? 2000) / 250).round()} Gläser',
+        ),
+        trailing: const Icon(Icons.chevron_right),
+        onTap: () => _editNumber(
+          context,
+          titel: 'Trinkziel',
+          hinweis: 'In Millilitern; ein Glas sind 250 ml.',
+          einheit: 'ml',
+          wert: '${ref.read(fitnessWaterGoalProvider).value ?? 2000}',
+          onSave: (v) =>
+              ref.read(fitnessWaterGoalProvider.notifier).set(int.tryParse(v) ?? 2000),
+        ),
+      ),
+      if (isAndroid)
+        ListTile(
+          leading: const Icon(Icons.photo_camera_outlined),
+          title: const Text('Foto-Erkennung (Claude)'),
+          subtitle: Text(switch (ref.watch(_claudeStatusProvider).value) {
+            (true, final m) =>
+              'Schlüssel hinterlegt · ${kClaudeModels.where((x) => x.$1 == m).firstOrNull?.$2.split(' — ').first ?? m}',
+            _ => 'Mahlzeit fotografieren, Claude schätzt die Kalorien — braucht einen '
+                'eigenen API-Schlüssel',
+          }),
+          trailing: const Icon(Icons.chevron_right),
+          onTap: () async {
+            await showDialog<void>(
+              context: context,
+              builder: (_) => const _ClaudeDialog(),
+            );
+            ref.invalidate(_claudeStatusProvider);
+          },
+        ),
       ListTile(
         leading: const Icon(Icons.restaurant_outlined),
         title: const Text('Kalorien-Tagesziel'),
@@ -165,6 +224,30 @@ List<Widget> fitnessSettingsTiles(BuildContext context, WidgetRef ref) {
             ),
             onTap: syncing ? null : () => _hcEinrichten(context, ref),
           ),
+        SwitchListTile(
+          secondary: const Icon(Icons.restaurant_menu),
+          title: const Text('Mahlzeiten an Health Connect geben'),
+          subtitle: const Text(
+            'Dann sehen Yazio und andere Apps, was im Ernährungstagebuch steht',
+          ),
+          value: ref.watch(_mahlzeitenAnHcProvider).value ?? false,
+          onChanged: (an) async {
+            if (an) {
+              final ok = await ref.read(nutritionHcProvider).zugriffAnfragen();
+              if (!ok) {
+                if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+                    content: Text('Ohne Schreibrecht für Ernährung geht es nicht.'),
+                  ));
+                }
+                return;
+              }
+            }
+            await NutritionHealthConnect.setEnabled(an);
+            ref.invalidate(_mahlzeitenAnHcProvider);
+            if (an) await ref.read(nutritionProvider.notifier).spiegelnNachHealthConnect();
+          },
+        ),
         ListTile(
           leading: const Icon(Icons.manage_search),
           title: const Text('Health Connect – Details'),
@@ -263,6 +346,118 @@ Future<void> _hcEinrichten(BuildContext context, WidgetRef ref) async {
 Future<void> _hcAus(WidgetRef ref) async {
   await HealthConnectSync.setEnabled(false);
   ref.invalidate(_hcEinstellungProvider);
+}
+
+/// Schlüssel und Modell für die Foto-Erkennung.
+class _ClaudeDialog extends ConsumerStatefulWidget {
+  const _ClaudeDialog();
+
+  @override
+  ConsumerState<_ClaudeDialog> createState() => _ClaudeDialogState();
+}
+
+class _ClaudeDialogState extends ConsumerState<_ClaudeDialog> {
+  final _key = TextEditingController();
+  String _modell = kDefaultClaudeModel;
+  bool _hatSchluessel = false;
+
+  @override
+  void initState() {
+    super.initState();
+    () async {
+      final s = ref.read(claudeSettingsProvider);
+      final k = await s.apiKey();
+      final m = await s.model();
+      if (mounted) {
+        setState(() {
+          _hatSchluessel = k != null;
+          _modell = m;
+        });
+      }
+    }();
+  }
+
+  @override
+  void dispose() {
+    _key.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final grau = Theme.of(context).textTheme.bodySmall?.copyWith(
+          color: Theme.of(context).colorScheme.onSurfaceVariant,
+        );
+    return AlertDialog(
+      title: const Text('Foto-Erkennung'),
+      content: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            TextField(
+              controller: _key,
+              obscureText: true,
+              autocorrect: false,
+              enableSuggestions: false,
+              decoration: InputDecoration(
+                labelText: 'Claude-API-Schlüssel',
+                hintText: _hatSchluessel ? 'hinterlegt — leer lassen zum Behalten' : 'sk-ant-…',
+                border: const OutlineInputBorder(),
+              ),
+            ),
+            const SizedBox(height: 6),
+            Text(
+              'Aus console.anthropic.com. Das Guthaben dort wird separat aufgeladen — '
+              'claude.ai (auch Pro) reicht dafür nicht. Der Schlüssel bleibt nur auf diesem '
+              'Gerät, verschlüsselt.',
+              style: grau,
+            ),
+            const SizedBox(height: 12),
+            Text('Modell', style: Theme.of(context).textTheme.labelLarge),
+            RadioGroup<String>(
+              groupValue: _modell,
+              onChanged: (v) => setState(() => _modell = v ?? _modell),
+              child: Column(
+                children: [
+                  for (final (id, text) in kClaudeModels)
+                    RadioListTile<String>(
+                      value: id,
+                      dense: true,
+                      contentPadding: EdgeInsets.zero,
+                      title: Text(text),
+                    ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+      actions: [
+        if (_hatSchluessel)
+          TextButton(
+            onPressed: () async {
+              await ref.read(claudeSettingsProvider).setApiKey(null);
+              if (context.mounted) Navigator.pop(context);
+            },
+            child: const Text('Schlüssel löschen'),
+          ),
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('Abbrechen'),
+        ),
+        FilledButton(
+          onPressed: () async {
+            final s = ref.read(claudeSettingsProvider);
+            if (_key.text.trim().isNotEmpty) await s.setApiKey(_key.text);
+            await s.setModel(_modell);
+            if (context.mounted) Navigator.pop(context);
+          },
+          child: const Text('Speichern'),
+        ),
+      ],
+    );
+  }
 }
 
 /// Weist auf eine unpassende Zonen-Einstellung hin.

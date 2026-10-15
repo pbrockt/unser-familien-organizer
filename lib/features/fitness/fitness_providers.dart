@@ -383,9 +383,13 @@ final todayStepsProvider = Provider<int?>((ref) {
 final mergedWeightProvider = Provider<List<WeightEntry>>((ref) {
   final manual = ref.watch(weightEntriesProvider).value ?? const <WeightEntry>[];
   final data = ref.watch(fitnessDataProvider).value;
+  return mergeWeights(manual, data?.healthDays ?? const []);
+});
 
+/// Gewichte aus den Tagesdateien und von Hand; der eigene Eintrag gewinnt.
+List<WeightEntry> mergeWeights(List<WeightEntry> manual, List<HealthDay> healthDays) {
   final byDate = <String, WeightEntry>{};
-  for (final h in data?.healthDays ?? const <HealthDay>[]) {
+  for (final h in healthDays) {
     final kg = h.weightKg;
     // Aus einer Tagesdatei kommt nur der Wert, keine Uhrzeit.
     if (kg != null) byDate[h.date] = WeightEntry(h.date, kg);
@@ -395,4 +399,4 @@ final mergedWeightProvider = Provider<List<WeightEntry>>((ref) {
   }
 
   return byDate.values.toList()..sort((a, b) => a.date.compareTo(b.date));
-});
+}

@@ -23,6 +23,7 @@ String nutritionDayToMarkdown(NutritionDay d) {
     'carbs_g: ${d.carbs.round()}',
     'fat_g: ${d.fat.round()}',
     'eintraege: ${d.entries.length}',
+    if (d.waterMl > 0) 'wasser_ml: ${d.waterMl}',
     'quelle: ernaehrung',
     '---',
     '',
@@ -77,7 +78,11 @@ NutritionDay? nutritionDayFromMarkdown(String text, String filename) {
     final e = _parseZeile(z.substring(2));
     if (e != null) eintraege.add(e);
   }
-  return NutritionDay(date: datum).withEntries(eintraege);
+  final wasser = int.tryParse(
+        RegExp(r'^wasser_ml:\s*(\d+)', multiLine: true).firstMatch(norm)?.group(1) ?? '',
+      ) ??
+      0;
+  return NutritionDay(date: datum, waterMl: wasser).withEntries(eintraege);
 }
 
 MealEntry? _parseZeile(String z) {

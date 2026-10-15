@@ -99,4 +99,29 @@ void main() {
       expect(nutritionDayFromMarkdown(md, 'x.md')!.entries, isEmpty);
     });
   });
+
+  group('Wasser', () {
+    test('steht in der Tagesdatei und kommt zurück', () {
+      final tag = const NutritionDay(date: '2026-10-15', waterMl: 1250).withEntries([
+        _hafer.portion(grams: 60, meal: Meal.fruehstueck, time: '08:15'),
+      ]);
+      expect(tag.waterMl, 1250, reason: 'withEntries behält das Wasser');
+      final md = nutritionDayToMarkdown(tag);
+      expect(md, contains('wasser_ml: 1250'));
+      expect(nutritionDayFromMarkdown(md, 'x.md')!.waterMl, 1250);
+    });
+
+    test('ein Tag nur mit Wasser', () {
+      final md = nutritionDayToMarkdown(
+        const NutritionDay(date: '2026-10-15').withWater(500),
+      );
+      final z = nutritionDayFromMarkdown(md, 'x.md')!;
+      expect(z.waterMl, 500);
+      expect(z.entries, isEmpty);
+    });
+
+    test('nie unter null', () {
+      expect(const NutritionDay(date: 'x').withWater(-250).waterMl, 0);
+    });
+  });
 }

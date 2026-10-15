@@ -95,6 +95,46 @@ class FitnessStepGoalController extends AsyncNotifier<int> {
   }
 }
 
+/// Wochenbericht am Sonntagabend — standardmäßig an, sobald der Bereich an ist.
+final fitnessWeeklyReportProvider =
+    AsyncNotifierProvider<FitnessWeeklyReportController, bool>(
+  FitnessWeeklyReportController.new,
+);
+
+class FitnessWeeklyReportController extends AsyncNotifier<bool> {
+  static const key = 'fitness_weekly_report';
+
+  @override
+  Future<bool> build() async =>
+      (await SharedPreferences.getInstance()).getBool(key) ?? true;
+
+  Future<void> set(bool an) async {
+    await (await SharedPreferences.getInstance()).setBool(key, an);
+    state = AsyncData(an);
+  }
+}
+
+/// Trinkziel in Millilitern.
+final fitnessWaterGoalProvider =
+    AsyncNotifierProvider<FitnessWaterGoalController, int>(
+  FitnessWaterGoalController.new,
+);
+
+class FitnessWaterGoalController extends AsyncNotifier<int> {
+  static const _key = 'fitness_water_goal';
+
+  @override
+  Future<int> build() async =>
+      (await SharedPreferences.getInstance()).getInt(_key) ?? 2000;
+
+  Future<void> set(int ml) async {
+    // Auf ganze Gläser runden: Das Ziel wird in Gläsern angezeigt.
+    final v = (ml.clamp(500, 6000) / 250).round() * 250;
+    await (await SharedPreferences.getInstance()).setInt(_key, v);
+    state = AsyncData(v);
+  }
+}
+
 /// Tagesziel für die gegessenen Kalorien.
 final fitnessKcalGoalProvider =
     AsyncNotifierProvider<FitnessKcalGoalController, int>(
