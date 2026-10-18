@@ -15,10 +15,14 @@ class HcAbruf {
     required this.fehler,
     required this.hintergrund,
     required this.verlauf,
+    this.routes = const [],
   });
 
   final List<HcSample> samples;
   final List<HcWorkout> workouts;
+
+  /// GPS-Strecken der Einheiten, soweit Health Connect sie herausgibt.
+  final List<HcRoute> routes;
   final Map<String, int> stepsPerDay;
 
   /// Art → Grund, warum sie nicht gelesen werden konnte.
@@ -53,9 +57,11 @@ class HealthConnectSource {
     HealthDataType.SLEEP_LIGHT: HcKind.sleepLight,
     HealthDataType.SLEEP_REM: HcKind.sleepRem,
     HealthDataType.SLEEP_AWAKE: HcKind.sleepAwake,
+    HealthDataType.SPEED: HcKind.speed,
   };
 
-  static List<HealthDataType> get _alleTypen => [..._arten.keys, HealthDataType.WORKOUT];
+  static List<HealthDataType> get _alleTypen =>
+      [..._arten.keys, HealthDataType.WORKOUT, HealthDataType.WORKOUT_ROUTE];
 
   Future<void> _konfigurieren() async {
     if (_konfiguriert) return;
@@ -159,6 +165,37 @@ class HealthConnectSource {
       fehler['Trainings'] = '$err';
     }
 
+    // Strecken einzeln: Fehlt die Zustimmung dazu, sollen die Einheiten trotzdem kommen.
+    final routes = <HcRoute>[];
+    if (workouts.isNotEmpty) {
+      try {
+        final punkte = await _health.getHealthDataFromTypes(
+          types: [HealthDataType.WORKOUT_ROUTE],
+          startTime: von,
+          endTime: bis,
+        );
+        for (final p in punkte) {
+          final v = p.value;
+          if (v is! WorkoutRouteHealthValue || v.locations.isEmpty) continue;
+          routes.add(HcRoute(
+            from: p.dateFrom.toLocal(),
+            to: p.dateTo.toLocal(),
+            points: [
+              for (final l in v.locations)
+                HcRoutePoint(
+                  time: l.timestamp.toLocal(),
+                  lat: l.latitude,
+                  lon: l.longitude,
+                  altitude: l.altitude,
+                ),
+            ],
+          ));
+        }
+      } catch (err) {
+        fehler['Strecken'] = '$err';
+      }
+    }
+
     // Schritte zusätzlich als Tagessumme von Health Connect selbst — ohne Doppelungen
     // zwischen Quellen.
     final stepsPerDay = <String, int>{};
@@ -190,6 +227,7 @@ class HealthConnectSource {
       fehler: fehler,
       hintergrund: hintergrund,
       verlauf: verlauf,
+      routes: routes,
     );
   }
 }

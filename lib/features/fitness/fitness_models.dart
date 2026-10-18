@@ -488,6 +488,7 @@ class HealthDay {
     this.bedtime,
     this.wakeTime,
     this.fromHealthConnect = false,
+    this.stepsSource,
   });
 
   final String date;
@@ -539,6 +540,10 @@ class HealthDay {
   /// Gibt es für den Tag noch eine andere Datei, gehen diese Werte vor.
   final bool fromHealthConnect;
 
+  /// Woher die Schritte stammen, etwa „Huawei Health" — `null` bei Dateien, die es
+  /// nicht sagen.
+  final String? stepsSource;
+
   Map<String, dynamic> toJson() => {
         'date': date,
         'steps': steps,
@@ -567,6 +572,7 @@ class HealthDay {
         'bed': bedtime,
         'wake': wakeTime,
         if (fromHealthConnect) 'hc': true,
+        if (stepsSource != null) 'stepsSrc': stepsSource,
       };
 
   factory HealthDay.fromJson(Map<String, dynamic> j) => HealthDay(
@@ -598,6 +604,7 @@ class HealthDay {
         bedtime: j['bed'] as String?,
         wakeTime: j['wake'] as String?,
         fromHealthConnect: j['hc'] == true,
+        stepsSource: j['stepsSrc'] as String?,
       );
 }
 

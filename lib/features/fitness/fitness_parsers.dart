@@ -517,6 +517,7 @@ class HealthParser {
       bedtime: t('sleep_bedtime'),
       wakeTime: t('sleep_wake'),
       fromHealthConnect: fm['quelle'] == 'health_connect',
+      stepsSource: t('steps_source'),
     );
   }
 }

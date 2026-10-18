@@ -139,7 +139,7 @@ class _HealthConnectScreenState extends ConsumerState<HealthConnectScreen> {
               ]),
             ),
             _QuellenKarte(abruf: abruf),
-            if (abruf.workouts.isNotEmpty) _TrainingsKarte(workouts: abruf.workouts),
+            if (abruf.workouts.isNotEmpty) _TrainingsKarte(abruf: abruf),
             _TageKarte(abruf: abruf, ausDateien: ausDateien),
             if (abruf.fehler.isNotEmpty)
               FitnessCard(
@@ -220,20 +220,35 @@ class _QuellenKarte extends StatelessWidget {
 }
 
 class _TrainingsKarte extends StatelessWidget {
-  const _TrainingsKarte({required this.workouts});
+  const _TrainingsKarte({required this.abruf});
 
-  final List<HcWorkout> workouts;
+  final HcAbruf abruf;
+
+  /// Was es zu einer Einheit an Verlauf gibt — davon hängt ab, ob sie mit Karte und
+  /// Tempo erscheinen kann.
+  String _verlauf(HcWorkout w) {
+    bool drin(DateTime t) => !t.isBefore(w.from) && !t.isAfter(w.to);
+    final tempo = abruf.samples.where((s) => s.kind == HcKind.speed && drin(s.from)).length;
+    final puls = abruf.samples.where((s) => s.kind == HcKind.heartRate && drin(s.from)).length;
+    final gps = [
+      for (final r in abruf.routes)
+        for (final p in r.points)
+          if (drin(p.time)) p,
+    ].length;
+    return 'Puls $puls · Tempo $tempo · GPS $gps Punkte';
+  }
 
   @override
   Widget build(BuildContext context) {
     final grau = Theme.of(context).textTheme.bodySmall?.copyWith(
           color: Theme.of(context).colorScheme.onSurfaceVariant,
         );
-    final sortiert = [...workouts]..sort((a, b) => b.from.compareTo(a.from));
+    final sortiert = [...abruf.workouts]..sort((a, b) => b.from.compareTo(a.from));
     return FitnessCard(
       title: 'Trainings',
-      subtitle: 'Nur die Zusammenfassung — für Verlauf, Standzeit und Watt bleiben '
-          'die FIT-/CSV-Dateien',
+      subtitle: 'Mit Tempo oder GPS entsteht eine Fahrt mit Verlauf und Karte. Keine '
+          'GPS-Punkte? In Health Connect bei dieser App „Trainingsstrecken: Immer '
+          'erlauben" setzen.',
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -245,7 +260,7 @@ class _TrainingsKarte extends StatelessWidget {
                 '${w.from.minute.toString().padLeft(2, '0')} · ${w.type} · '
                 '${w.minutes} Min'
                 '${w.distanceM != null && w.distanceM! > 0 ? ' · ${(w.distanceM! / 1000).toStringAsFixed(1)} km' : ''}'
-                ' · ${w.source}',
+                ' · ${w.source}\n${_verlauf(w)}',
                 style: grau,
               ),
             ),

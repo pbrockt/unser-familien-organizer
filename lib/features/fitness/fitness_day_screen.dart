@@ -299,6 +299,16 @@ class _HealthCard extends StatelessWidget {
                 minHeight: 7,
               ),
             ),
+            if (health.stepsSource != null)
+              Padding(
+                padding: const EdgeInsets.only(top: 4),
+                child: Text(
+                  'Quelle: ${health.stepsSource}',
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: scheme.onSurfaceVariant,
+                      ),
+                ),
+              ),
             const SizedBox(height: 14),
           ],
           FitnessValueGrid(values: [

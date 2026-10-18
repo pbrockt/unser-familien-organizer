@@ -27,6 +27,11 @@
     <uses-permission android:name="android.permission.health.READ_DISTANCE"/>
     <uses-permission android:name="android.permission.health.READ_SLEEP"/>
     <uses-permission android:name="android.permission.health.READ_EXERCISE"/>
+    <!-- Für Fahrten aus Health Connect mit Verlauf und Karte: Momentangeschwindigkeit
+         und GPS-Strecke. Fremde Strecken gibt Health Connect nur heraus, wenn man dort
+         „Trainingsstrecken: Immer erlauben" setzt. -->
+    <uses-permission android:name="android.permission.health.READ_SPEED"/>
+    <uses-permission android:name="android.permission.health.READ_EXERCISE_ROUTE"/>
     <!-- Schreiben nur für Ernährung: Mahlzeiten aus dem Tagebuch, damit Yazio & Co.
          sie sehen. Gelöscht werden dabei nur die eigenen Einträge. -->
     <uses-permission android:name="android.permission.health.WRITE_NUTRITION"/>

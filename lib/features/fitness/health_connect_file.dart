@@ -154,6 +154,7 @@ Activity? _training(String datum, String zeile) {
 HealthDay mergeHealthDays(HealthDay vorrang, HealthDay rest) => HealthDay(
       date: vorrang.date,
       steps: vorrang.steps ?? rest.steps,
+      stepsSource: vorrang.steps != null ? vorrang.stepsSource : rest.stepsSource,
       sleepHours: vorrang.sleepHours ?? rest.sleepHours,
       activeCalories: vorrang.activeCalories ?? rest.activeCalories,
       totalCalories: vorrang.totalCalories ?? rest.totalCalories,
@@ -214,6 +215,7 @@ List<String> _werteZeilen(HealthDay d, [List<HcTraining> trainings = const []]) 
   }
 
   i('steps', d.steps);
+  t('steps_source', d.stepsSource);
   f('sleep_total_hours', d.sleepHours);
   f('sleep_deep_hours', d.sleepDeepHours);
   f('sleep_core_hours', d.sleepCoreHours);

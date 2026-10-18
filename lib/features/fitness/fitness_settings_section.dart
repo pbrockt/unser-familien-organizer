@@ -23,6 +23,11 @@ final _claudeStatusProvider = FutureProvider.autoDispose<(bool, String)>((ref) a
   return (await s.apiKey() != null, await s.model());
 });
 
+/// Gewählte Schrittquelle und die Schritte je App von heute.
+final _schrittQuelleProvider =
+    FutureProvider.autoDispose<(String?, (String, Map<String, int>)?)>((ref) async =>
+        (await HealthConnectSync.stepsSource(), await HealthConnectSync.stepsToday()));
+
 final _mahlzeitenAnHcProvider = FutureProvider.autoDispose<bool>(
   (ref) => NutritionHealthConnect.isEnabled(),
 );
@@ -224,6 +229,17 @@ List<Widget> fitnessSettingsTiles(BuildContext context, WidgetRef ref) {
             ),
             onTap: syncing ? null : () => _hcEinrichten(context, ref),
           ),
+        if (ref.watch(_hcEinstellungProvider).value?.$1 ?? false)
+          ListTile(
+            leading: const Icon(Icons.directions_walk),
+            title: const Text('Schritte zählen von'),
+            subtitle: Text(
+              ref.watch(_schrittQuelleProvider).value?.$1 ??
+                  'Automatisch — Summe aller Apps in Health Connect',
+            ),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: () => _schrittQuelleWaehlen(context, ref),
+          ),
         SwitchListTile(
           secondary: const Icon(Icons.restaurant_menu),
           title: const Text('Mahlzeiten an Health Connect geben'),
@@ -341,6 +357,97 @@ Future<void> _hcEinrichten(BuildContext context, WidgetRef ref) async {
   }
   ref.invalidate(_hcEinstellungProvider);
   messenger.showSnackBar(SnackBar(content: Text(ergebnis.text)));
+}
+
+/// Auswahl der Schrittquelle. Zu jeder App steht ihr heutiger Wert — so sieht man
+/// direkt, welche zur Uhr passt.
+Future<void> _schrittQuelleWaehlen(BuildContext context, WidgetRef ref) async {
+  final (aktuell, heute) = await ref.read(_schrittQuelleProvider.future);
+  if (!context.mounted) return;
+  final quellen = {...?heute?.$2};
+  if (aktuell != null) quellen.putIfAbsent(aktuell, () => 0);
+  const auto = '__auto__';
+
+  final wahl = await showDialog<String>(
+    context: context,
+    builder: (ctx) {
+      var auswahl = aktuell ?? auto;
+      return StatefulBuilder(
+        builder: (ctx, setState) => AlertDialog(
+          title: const Text('Schritte zählen von'),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                RadioGroup<String>(
+                  groupValue: auswahl,
+                  onChanged: (v) => setState(() => auswahl = v ?? auswahl),
+                  child: Column(
+                    children: [
+                      const RadioListTile<String>(
+                        value: auto,
+                        contentPadding: EdgeInsets.zero,
+                        title: Text('Automatisch'),
+                        subtitle: Text(
+                          'Health Connect rechnet alle Apps zusammen und entfernt '
+                          'Doppelungen nach seiner eigenen Rangfolge',
+                        ),
+                      ),
+                      for (final e in quellen.entries)
+                        RadioListTile<String>(
+                          value: e.key,
+                          contentPadding: EdgeInsets.zero,
+                          title: Text(e.key),
+                          subtitle: heute == null
+                              ? null
+                              : Text('heute ${e.value} Schritte'),
+                        ),
+                    ],
+                  ),
+                ),
+                if (quellen.isEmpty)
+                  const Padding(
+                    padding: EdgeInsets.only(top: 8),
+                    child: Text(
+                      'Noch keine Apps bekannt — die Liste füllt sich beim nächsten '
+                      'Abruf aus Health Connect.',
+                    ),
+                  ),
+                const SizedBox(height: 8),
+                Text(
+                  'Gilt für heute und die letzten Tage sofort. Für ältere Tage: „Alle '
+                  'Gesundheitsdaten erneut holen".',
+                  style: Theme.of(ctx).textTheme.bodySmall,
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('Abbrechen'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(ctx, auswahl),
+              child: const Text('Übernehmen'),
+            ),
+          ],
+        ),
+      );
+    },
+  );
+  if (wahl == null || wahl == (aktuell ?? auto)) return;
+
+  await HealthConnectSync.setStepsSource(wahl == auto ? null : wahl);
+  ref.invalidate(_schrittQuelleProvider);
+  // Gleich neu holen, damit die Wahl sichtbar wird und nicht erst in 30 Minuten.
+  final account = await ref.read(accountProvider.future);
+  final folder = await ref.read(fitnessFolderProvider.future);
+  if (account != null && folder.isNotEmpty) {
+    await HealthConnectSync().runIfDue(account: account, fitnessFolder: folder, force: true);
+    await ref.read(fitnessDataProvider.notifier).sync();
+  }
 }
 
 Future<void> _hcAus(WidgetRef ref) async {

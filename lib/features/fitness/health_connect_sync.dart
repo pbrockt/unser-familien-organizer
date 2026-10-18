@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../core/auth/nextcloud_account.dart';
@@ -5,6 +7,7 @@ import 'fitness_models.dart';
 import 'fitness_webdav.dart';
 import 'health_connect_file.dart';
 import 'health_connect_mapping.dart';
+import 'health_connect_track.dart';
 import 'health_connect_source.dart';
 
 /// Was ein Abgleich mit Health Connect bewirkt hat.
@@ -61,6 +64,39 @@ class HealthConnectSync {
   static const enabledKey = 'fitness_hc_enabled';
   static const _lastRunKey = 'fitness_hc_last_run';
   static const statusKey = 'fitness_hc_status';
+
+  /// Gewählte Quelle der Schritte; fehlt der Eintrag, gilt die Summe von Health Connect.
+  static const stepsSourceKey = 'fitness_steps_source';
+
+  /// Schritte je App von heute, als JSON — für die Auswahl in den Einstellungen.
+  static const stepsTodayKey = 'fitness_steps_by_source_today';
+
+  static Future<String?> stepsSource() async =>
+      (await SharedPreferences.getInstance()).getString(stepsSourceKey);
+
+  static Future<void> setStepsSource(String? quelle) async {
+    final prefs = await SharedPreferences.getInstance();
+    if (quelle == null) {
+      await prefs.remove(stepsSourceKey);
+    } else {
+      await prefs.setString(stepsSourceKey, quelle);
+    }
+  }
+
+  /// Datum und Schritte je App vom letzten Abruf.
+  static Future<(String, Map<String, int>)?> stepsToday() async {
+    final roh = (await SharedPreferences.getInstance()).getString(stepsTodayKey);
+    if (roh == null) return null;
+    try {
+      final j = jsonDecode(roh) as Map<String, dynamic>;
+      return (
+        j['date'] as String,
+        (j['sources'] as Map).map((k, v) => MapEntry(k as String, (v as num).toInt())),
+      );
+    } catch (_) {
+      return null;
+    }
+  }
 
   /// Abstand zwischen zwei Abrufen. Etwas unter 30 Minuten, weil der Hintergrund-Job
   /// alle 15 Minuten läuft und Android ihn gern ein paar Sekunden früher startet.
@@ -134,6 +170,8 @@ class HealthConnectSync {
   ) async {
     final List<HealthDay> tage;
     final trainingsJeTag = <String, List<HcTraining>>{};
+    // Fahrten mit Verlauf: Dateiname → CSV.
+    final fahrten = <String, String>{};
     try {
       // Einen Tag früher anfragen: Eine Nacht, die um 23 Uhr beginnt, gehört zum
       // ersten Tag des Zeitraums, beginnt aber davor.
@@ -142,18 +180,39 @@ class HealthConnectSync {
         bis: bis,
       );
       final ersterTag = dayKey(von);
+      final prefs = await SharedPreferences.getInstance();
+      final heute = dayKey(DateTime.now());
+      final heuteJeQuelle = stepsBySource(abruf.samples, heute);
+      if (heuteJeQuelle.isNotEmpty) {
+        await prefs.setString(
+          stepsTodayKey,
+          jsonEncode({'date': heute, 'sources': heuteJeQuelle}),
+        );
+      }
       // Endet der Zeitraum um Mitternacht, gehört dieser Tag schon zum nächsten Block.
       final letzterTag = dayKey(bis.subtract(const Duration(seconds: 1)));
       tage = healthDaysFromHc(
         samples: abruf.samples,
         workouts: abruf.workouts,
         stepsPerDay: abruf.stepsPerDay,
+        stepsSource: prefs.getString(stepsSourceKey),
       )
           .where((t) =>
               t.date.compareTo(ersterTag) >= 0 && t.date.compareTo(letzterTag) <= 0)
           .toList();
+      final jetzt = DateTime.now();
       for (final t in trainingsFromHc(workouts: abruf.workouts, samples: abruf.samples)) {
         trainingsJeTag.putIfAbsent(dayKey(t.from), () => []).add(t);
+        // Nur abgeschlossene Einheiten: Eine laufende Fahrt ergäbe einen halben Verlauf,
+        // der danach nicht mehr ersetzt würde.
+        if (t.to.isAfter(jetzt.subtract(const Duration(minutes: 5)))) continue;
+        if (dayKey(t.from).compareTo(ersterTag) < 0) continue;
+        final csv = trainingTrackCsv(
+          training: t,
+          samples: abruf.samples,
+          routes: abruf.routes,
+        );
+        if (csv != null) fahrten[trainingTrackFileName(t)] = csv;
       }
     } catch (e) {
       return HcSyncResult(fehler: 'Health Connect nicht lesbar: $e');
@@ -163,6 +222,18 @@ class HealthConnectSync {
     final ordner = '${_ohneSchraegstrich(fitnessFolder)}/$kHcFolderName';
     try {
       await _client.ensureFolder(account, ordner);
+      if (fahrten.isNotEmpty) {
+        // Eine Fahrt ändert sich nicht mehr; vorhandene Dateien bleiben, auch von Hand
+        // geänderte.
+        final fahrtOrdner = '$ordner/$kHcTrackFolderName';
+        await _client.ensureFolder(account, fahrtOrdner);
+        final da = {for (final e in await _client.list(account, fahrtOrdner)) e.name};
+        for (final f in fahrten.entries) {
+          if (!da.contains(f.key)) {
+            await _client.write(account, '$fahrtOrdner/${f.key}', f.value);
+          }
+        }
+      }
       final vorhanden = {
         for (final e in await _client.list(account, ordner)) e.name: e,
       };

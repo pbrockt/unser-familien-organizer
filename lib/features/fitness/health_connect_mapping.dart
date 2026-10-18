@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'fitness_models.dart';
 
 /// Was aus Health Connect gelesen wird — unabhängig vom Plugin, damit sich die
@@ -16,6 +18,9 @@ enum HcKind {
   sleepLight,
   sleepRem,
   sleepAwake,
+
+  /// Momentangeschwindigkeit in m/s — nur für den Verlauf einer Fahrt.
+  speed,
 }
 
 /// Lesbarer Name je Art, für die Test-Ansicht.
@@ -33,6 +38,7 @@ String hcKindLabel(HcKind k) => switch (k) {
       HcKind.sleepLight => 'Leichtschlaf',
       HcKind.sleepRem => 'REM-Schlaf',
       HcKind.sleepAwake => 'Wach im Schlaf',
+      HcKind.speed => 'Geschwindigkeit',
     };
 
 /// Ein Messwert aus Health Connect. [value] in der Einheit, die die App führt: Schritte,
@@ -53,6 +59,31 @@ class HcSample {
 
   /// App, die den Wert eingetragen hat (z. B. Huawei Health).
   final String source;
+}
+
+/// Ein Punkt der GPS-Strecke einer Einheit.
+class HcRoutePoint {
+  const HcRoutePoint({
+    required this.time,
+    required this.lat,
+    required this.lon,
+    this.altitude,
+  });
+
+  final DateTime time;
+  final double lat;
+  final double lon;
+  final double? altitude;
+}
+
+/// Die GPS-Strecke einer Einheit. Health Connect gibt sie nur heraus, wenn man in seinen
+/// Einstellungen „Trainingsstrecken: Immer erlauben" gesetzt hat.
+class HcRoute {
+  const HcRoute({required this.from, required this.to, required this.points});
+
+  final DateTime from;
+  final DateTime to;
+  final List<HcRoutePoint> points;
 }
 
 /// Eine Trainingseinheit, wie Health Connect sie kennt: nur die Zusammenfassung.
@@ -85,6 +116,20 @@ String dayKey(DateTime t) => '${t.year.toString().padLeft(4, '0')}-'
 String _hhmm(DateTime t) =>
     '${t.hour.toString().padLeft(2, '0')}:${t.minute.toString().padLeft(2, '0')}';
 
+/// So steht es beim Tag, wenn die Schritte die Summe von Health Connect sind.
+const String kStepsSourceAll = 'Health Connect (alle Apps)';
+
+/// Schritte je App an einem Tag — für die Auswahl in den Einstellungen, damit man sieht,
+/// welche Quelle zur Uhr passt.
+Map<String, int> stepsBySource(List<HcSample> samples, String day) {
+  final out = <String, int>{};
+  for (final s in samples) {
+    if (s.kind != HcKind.steps || dayKey(s.from) != day) continue;
+    out[s.source] = (out[s.source] ?? 0) + s.value.round();
+  }
+  return out;
+}
+
 /// Die App mit den meisten Werten je Art.
 ///
 /// Health Connect sammelt von allen Apps. Schreiben Huawei Health und der Schrittzähler
@@ -110,10 +155,15 @@ Map<HcKind, String> dominantSources(List<HcSample> samples) {
 /// [stepsPerDay] sind die von Health Connect selbst zusammengerechneten Schritte. Sie
 /// gehen vor: Health Connect entfernt Doppelungen zwischen Quellen nach der Rangfolge,
 /// die man dort eingestellt hat.
+///
+/// Mit [stepsSource] zählen nur die Schritte dieser einen App. Die Summe von Health
+/// Connect kann über dem Wert der Uhr liegen, wenn auch das Handy mitzählt — wer der Uhr
+/// glaubt, wählt sie hier.
 List<HealthDay> healthDaysFromHc({
   required List<HcSample> samples,
   List<HcWorkout> workouts = const [],
   Map<String, int> stepsPerDay = const {},
+  String? stepsSource,
 }) {
   final quelle = dominantSources(samples);
   final genutzt = [
@@ -124,9 +174,21 @@ List<HealthDay> healthDaysFromHc({
   final tage = <String, _Tag>{};
   _Tag tag(String key) => tage.putIfAbsent(key, _Tag.new);
 
-  stepsPerDay.forEach((k, v) {
-    if (v > 0) tag(k).steps = v;
-  });
+  if (stepsSource == null) {
+    stepsPerDay.forEach((k, v) {
+      if (v > 0) {
+        tag(k)
+          ..steps = v
+          ..stepsSource = kStepsSourceAll;
+      }
+    });
+  } else {
+    for (final s in samples) {
+      if (s.kind != HcKind.steps || s.source != stepsSource) continue;
+      final t = tag(dayKey(s.from))..stepsSource = stepsSource;
+      t.steps = (t.steps ?? 0) + s.value.round();
+    }
+  }
 
   // Schlaf gehört zum Tag des Aufwachens: Die Nacht auf Dienstag ist Dienstags Schlaf.
   final sitzungen = genutzt.where((s) => s.kind == HcKind.sleepSession).toList()
@@ -145,9 +207,12 @@ List<HealthDay> healthDaysFromHc({
     final key = dayKey(s.from);
     switch (s.kind) {
       case HcKind.steps:
-        // Nur, wenn Health Connect keine eigene Summe geliefert hat.
-        if (!stepsPerDay.containsKey(key)) {
-          tag(key).stepsSum += s.value;
+        // Nur, wenn weder eine Quelle gewählt ist noch Health Connect eine eigene
+        // Summe geliefert hat.
+        if (stepsSource == null && !stepsPerDay.containsKey(key)) {
+          tag(key)
+            ..stepsSum += s.value
+            ..stepsSource = s.source;
         }
       case HcKind.heartRate:
         tag(key).hr.add(s.value);
@@ -176,6 +241,9 @@ List<HealthDay> healthDaysFromHc({
         tag(schlafTag(s)).remSec += s.to.difference(s.from).inSeconds;
       case HcKind.sleepAwake:
         tag(schlafTag(s)).awakeSec += s.to.difference(s.from).inSeconds;
+      case HcKind.speed:
+        // Gehört zu Fahrten, nicht zum Tag.
+        break;
     }
   }
 
@@ -198,6 +266,7 @@ List<HealthDay> healthDaysFromHc({
     out.add(HealthDay(
       date: key,
       steps: t.steps ?? rund(t.stepsSum),
+      stepsSource: (t.steps ?? rund(t.stepsSum)) == null ? null : t.stepsSource,
       sleepHours: stunden(phasenSec > 0 ? phasenSec : t.sessionSec - t.awakeSec),
       sleepDeepHours: stunden(t.deepSec),
       sleepCoreHours: stunden(t.lightSec),
@@ -230,6 +299,7 @@ List<HealthDay> healthDaysFromHc({
 
 class _Tag {
   int? steps;
+  String? stepsSource;
   double stepsSum = 0;
   final hr = <double>[];
   final spo2 = <double>[];
@@ -264,6 +334,7 @@ class HcTraining {
     this.hrAvg,
     this.hrMax,
     this.hrSeconds = const {},
+    this.source = '',
   });
 
   final DateTime from;
@@ -271,6 +342,9 @@ class HcTraining {
 
   /// `BIKING`, `BIKING_STATIONARY`, `RUNNING` oder `RUNNING_TREADMILL`.
   final String type;
+
+  /// App, die die Einheit eingetragen hat.
+  final String source;
   final double? distanceM;
   final double? kcal;
   final int? hrAvg;
@@ -329,45 +403,47 @@ List<HcTraining> trainingsFromHc({
       hrAvg: gewicht > 0 ? (summe / gewicht).round() : null,
       hrMax: maxHr > 0 ? maxHr : null,
       hrSeconds: sekunden,
+      source: w.source,
     ));
   }
   return out;
 }
 
-/// Wirft Trainings aus Health Connect hinaus, die es auch als Datei gibt.
+/// Rang einer Einheit, wenn es sie mehrfach gibt: Datei vom Radcomputer oder Tracker
+/// (2) vor der aus Health Connect gebauten Fahrt mit Verlauf (1) vor der bloßen
+/// Zusammenfassung aus der Tagesdatei (0).
+int _rang(Activity a) {
+  if (a.id.startsWith('hc:')) return 0;
+  if (a.id.toLowerCase().endsWith('_hc.csv')) return 1;
+  return 2;
+}
+
+/// Wirft doppelte Einheiten hinaus, die genauere bleibt.
 ///
-/// Dieselbe Fahrt steht oft zweimal da: als FIT aus der Bosch-App und als Einheit, die
-/// die Uhr nach Health Connect geschrieben hat. Die Datei ist genauer — Verlauf,
-/// Standzeit, Höhe, Watt —, also gewinnt sie. Als dieselbe gilt eine Einheit, die sich
-/// zu mehr als der Hälfte der kürzeren überschneidet oder höchstens zehn Minuten
-/// versetzt beginnt.
+/// Dieselbe Fahrt steht oft mehrfach da: als FIT aus der Bosch-App, als Fahrt mit
+/// Verlauf aus Health Connect und als Zusammenfassung in der Tagesdatei. Die Datei vom
+/// Radcomputer ist die genaueste — Watt, Trittfrequenz, Motor —, also gewinnt sie. Als
+/// dieselbe gilt eine Einheit, die sich zu mehr als der Hälfte der kürzeren überschneidet
+/// oder höchstens zehn Minuten versetzt beginnt.
 List<Activity> withoutHcDuplicates(List<Activity> alle) {
   DateTime? beginn(Activity a) =>
       DateTime.tryParse('${a.date}T${a.timeOfDay.length == 5 ? a.timeOfDay : '00:00'}:00');
 
-  final dateien = [
-    for (final a in alle)
-      if (!a.id.startsWith('hc:'))
-        if (beginn(a) case final b?) (b, b.add(Duration(seconds: a.durationSec))),
-  ];
-  bool doppelt(Activity hc) {
-    final b = beginn(hc);
-    if (b == null) return false;
-    final e = b.add(Duration(seconds: hc.durationSec));
-    for (final (db, de) in dateien) {
-      if (b.difference(db).inMinutes.abs() <= 10) return true;
-      final von = b.isAfter(db) ? b : db;
-      final bis = e.isBefore(de) ? e : de;
-      final ueber = bis.difference(von).inSeconds;
-      final kuerzer = [e.difference(b).inSeconds, de.difference(db).inSeconds]
-          .reduce((x, y) => x < y ? x : y);
-      if (kuerzer > 0 && ueber > kuerzer / 2) return true;
-    }
-    return false;
+  bool gleich(Activity a, Activity b) {
+    final ab = beginn(a), bb = beginn(b);
+    if (ab == null || bb == null) return false;
+    if (ab.difference(bb).inMinutes.abs() <= 10) return true;
+    final ae = ab.add(Duration(seconds: a.durationSec));
+    final be = bb.add(Duration(seconds: b.durationSec));
+    final von = ab.isAfter(bb) ? ab : bb;
+    final bis = ae.isBefore(be) ? ae : be;
+    final ueber = bis.difference(von).inSeconds;
+    final kuerzer = math.min(a.durationSec, b.durationSec);
+    return kuerzer > 0 && ueber > kuerzer / 2;
   }
 
   return [
     for (final a in alle)
-      if (!a.id.startsWith('hc:') || !doppelt(a)) a,
+      if (_rang(a) == 2 || !alle.any((b) => _rang(b) > _rang(a) && gleich(a, b))) a,
   ];
 }
