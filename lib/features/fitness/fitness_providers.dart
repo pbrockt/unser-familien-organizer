@@ -63,9 +63,19 @@ class FitnessDataController extends AsyncNotifier<FitnessData> {
   /// Provider, also stimmen Woche, Kalender und Widget mit der Korrektur überein.
   FitnessData _mitKorrekturen(FitnessData roh) {
     _roh = roh;
-    final edits = ref.read(fitnessOverridesProvider).value?.times ?? const {};
+    final o = ref.read(fitnessOverridesProvider).value;
+    final edits = o?.times ?? const {};
+    final weg = o?.hidden ?? const <String>{};
+    // Erst ausblenden, dann Doppelte aussortieren: Entfernt man die eine von zwei
+    // gleichen Fahrten, soll die andere bleiben.
     return FitnessData(
-      activities: applyTimeEdits(withoutHcDuplicates(roh.activities), edits),
+      activities: applyTimeEdits(
+        withoutHcDuplicates([
+          for (final a in roh.activities)
+            if (!weg.contains(a.id)) a,
+        ]),
+        edits,
+      ),
       healthDays: roh.healthDays,
       fingerprints: roh.fingerprints,
     );
@@ -119,7 +129,9 @@ class FitnessDataController extends AsyncNotifier<FitnessData> {
     ref.read(fitnessOverridesProvider.notifier).onChanged = _korrekturHochladen;
     // Ändert sich eine Korrektur, genügt es, sie neu über den Rohstand zu legen —
     // neu laden müsste man dafür nichts.
-    ref.listen(fitnessOverridesProvider.select((o) => o.value?.times), (_, _) {
+    ref.listen(
+        fitnessOverridesProvider.select((o) => (o.value?.times, o.value?.hidden)),
+        (_, _) {
       final roh = _roh;
       if (roh != null) state = AsyncData(_mitKorrekturen(roh));
     });

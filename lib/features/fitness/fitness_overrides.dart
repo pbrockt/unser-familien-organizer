@@ -20,6 +20,7 @@ class FitnessOverrides {
     this.ebikes = const {},
     this.notEbikes = const {},
     this.times = const {},
+    this.hidden = const {},
   });
 
   final Map<String, Sport> sports;
@@ -38,6 +39,10 @@ class FitnessOverrides {
   /// Fahrten, die die Datei als E-Bike nennt, die es laut Nutzer aber nicht waren.
   final Set<String> notEbikes;
 
+  /// Von Hand entfernte Einheiten. Nur ausgeblendet: Die Datei in der Nextcloud bleibt,
+  /// und eine Einheit aus Health Connect käme beim nächsten Abruf ohnehin wieder.
+  final Set<String> hidden;
+
   /// Mit Motor? Die eigene Angabe schlägt die der Datei, in beide Richtungen.
   bool isEbike(Activity a) {
     if (notEbikes.contains(a.id)) return false;
@@ -49,7 +54,8 @@ class FitnessOverrides {
       types.isEmpty &&
       ebikes.isEmpty &&
       notEbikes.isEmpty &&
-      times.isEmpty;
+      times.isEmpty &&
+      hidden.isEmpty;
 
   FitnessOverrides copyWith({
     Map<String, Sport>? sports,
@@ -57,6 +63,7 @@ class FitnessOverrides {
     Set<String>? ebikes,
     Set<String>? notEbikes,
     Map<String, TimeEdit>? times,
+    Set<String>? hidden,
   }) =>
       FitnessOverrides(
         sports: sports ?? this.sports,
@@ -64,6 +71,7 @@ class FitnessOverrides {
         ebikes: ebikes ?? this.ebikes,
         notEbikes: notEbikes ?? this.notEbikes,
         times: times ?? this.times,
+        hidden: hidden ?? this.hidden,
       );
 
   /// Für `korrekturen.json` in der Nextcloud — lesbar, damit man notfalls auch dort
@@ -73,6 +81,7 @@ class FitnessOverrides {
         'art': {for (final e in types.entries) e.key: e.value.name},
         'ebike': ebikes.toList()..sort(),
         'kein_ebike': notEbikes.toList()..sort(),
+        'ausgeblendet': hidden.toList()..sort(),
         'zeiten': {
           for (final e in times.entries)
             e.key: {'gesamt_s': e.value.totalSec, 'stand_s': e.value.stoppedSec},
@@ -98,6 +107,7 @@ class FitnessOverrides {
       types: enums(j['art'], SessionType.values),
       ebikes: menge(j['ebike']),
       notEbikes: menge(j['kein_ebike']),
+      hidden: menge(j['ausgeblendet']),
       times: {
         if (zeiten is Map)
           for (final e in zeiten.entries)
@@ -178,6 +188,7 @@ class FitnessOverridesController extends AsyncNotifier<FitnessOverrides> {
   static const _ebikeKey = 'fitness_ebike_ids';
   static const _notEbikeKey = 'fitness_not_ebike_ids';
   static const _timesKey = 'fitness_time_edits';
+  static const _hiddenKey = 'fitness_hidden_ids';
 
   /// Zeitpunkt der letzten Änderung auf diesem Gerät — entscheidet beim Abgleich mit
   /// der Nextcloud, welcher Stand gilt.
@@ -192,6 +203,7 @@ class FitnessOverridesController extends AsyncNotifier<FitnessOverrides> {
       ebikes: (prefs.getStringList(_ebikeKey) ?? const []).toSet(),
       notEbikes: (prefs.getStringList(_notEbikeKey) ?? const []).toSet(),
       times: _decodeTimes(prefs.getStringList(_timesKey)),
+      hidden: (prefs.getStringList(_hiddenKey) ?? const []).toSet(),
     );
   }
 
@@ -211,6 +223,7 @@ class FitnessOverridesController extends AsyncNotifier<FitnessOverrides> {
     await prefs.setStringList(_typeKey, _encode(o.types));
     await prefs.setStringList(_ebikeKey, o.ebikes.toList());
     await prefs.setStringList(_notEbikeKey, o.notEbikes.toList());
+    await prefs.setStringList(_hiddenKey, o.hidden.toList());
     await prefs.setStringList(_timesKey, [
       for (final e in o.times.entries)
         '${e.value.totalSec}\t${e.value.stoppedSec}\t${e.key}',
@@ -257,6 +270,17 @@ class FitnessOverridesController extends AsyncNotifier<FitnessOverrides> {
     if (ebike && !declared) an.add(activityId);
     if (!ebike && declared) aus.add(activityId);
     return _speichern(_jetzt.copyWith(ebikes: an, notEbikes: aus));
+  }
+
+  /// Einheit entfernen (ausblenden) oder wiederherstellen.
+  Future<void> setHidden(String activityId, bool weg) {
+    final neu = Set<String>.from(_jetzt.hidden);
+    if (weg) {
+      neu.add(activityId);
+    } else {
+      neu.remove(activityId);
+    }
+    return _speichern(_jetzt.copyWith(hidden: neu));
   }
 
   /// `null` nimmt die Korrektur zurück; dann gelten wieder die Zeiten aus der Datei.

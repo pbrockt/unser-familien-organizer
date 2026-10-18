@@ -124,4 +124,5 @@ FitnessOverrides mergeOverrides({
         ...vorrang.notEbikes,
       },
       times: {...rest.times, ...vorrang.times},
+      hidden: {...rest.hidden, ...vorrang.hidden},
     );

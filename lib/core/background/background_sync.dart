@@ -8,6 +8,7 @@ import '../../features/fitness/fitness_overrides.dart';
 import '../../features/fitness/fitness_providers.dart';
 import '../../features/fitness/fitness_repository.dart';
 import '../../features/fitness/fitness_settings.dart';
+import '../../features/fitness/health_connect_mapping.dart';
 import '../../features/fitness/weekly_report.dart';
 import '../../features/nutrition/nutrition_repository.dart';
 import '../../features/fitness/health_connect_sync.dart';
@@ -155,7 +156,11 @@ Future<ScheduledReminder?> _wochenbericht(ProviderContainer container) async {
   final manuell = await container.read(weightEntriesProvider.future);
   return planWeeklyReport(
     enabled: true,
-    activities: fitness.activities,
+    // Wie in der App: entfernte Einheiten weg, doppelte nur einmal.
+    activities: withoutHcDuplicates([
+      for (final a in fitness.activities)
+        if (!overrides.hidden.contains(a.id)) a,
+    ]),
     sportOf: (a) => overrides.sports[a.id] ?? a.sportEffective,
     healthDays: fitness.healthDays,
     nutrition: ernaehrung.days,

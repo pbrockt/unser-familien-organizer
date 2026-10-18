@@ -44,6 +44,13 @@ class FitnessActivityScreen extends ConsumerWidget {
           '${sportIcon(sport)} ${sportLabel(sport)}'
           '${activity.indoor ? ' 🏠' : ''}${ebike ? ' ⚡' : ''}',
         ),
+        actions: [
+          IconButton(
+            tooltip: 'Einheit entfernen',
+            icon: const Icon(Icons.delete_outline),
+            onPressed: () => _entfernen(context, ref, activity),
+          ),
+        ],
         bottom: PreferredSize(
           preferredSize: const Size.fromHeight(20),
           child: Padding(
@@ -251,6 +258,35 @@ class FitnessActivityScreen extends ConsumerWidget {
       ),
     );
   }
+}
+
+/// Entfernt eine Einheit nach Rückfrage. Sie wird nur ausgeblendet — die Datei bleibt,
+/// und unter Einstellungen → Gesundheit lässt sie sich zurückholen.
+Future<void> _entfernen(BuildContext context, WidgetRef ref, Activity a) async {
+  final ja = await showDialog<bool>(
+    context: context,
+    builder: (ctx) => AlertDialog(
+      title: const Text('Einheit entfernen?'),
+      content: Text(
+        'Die Einheit vom ${_datum(a.date)} um ${a.timeOfDay} zählt dann nirgends mehr '
+        'mit. Die Datei in der Nextcloud bleibt erhalten; zurückholen lässt sie sich '
+        'unter Einstellungen → Gesundheit → „Entfernte Einheiten".',
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(ctx, false),
+          child: const Text('Abbrechen'),
+        ),
+        FilledButton(
+          onPressed: () => Navigator.pop(ctx, true),
+          child: const Text('Entfernen'),
+        ),
+      ],
+    ),
+  );
+  if (ja != true || !context.mounted) return;
+  await ref.read(fitnessOverridesProvider.notifier).setHidden(a.id, true);
+  if (context.mounted) Navigator.of(context).maybePop();
 }
 
 class _EinstufungCard extends ConsumerWidget {

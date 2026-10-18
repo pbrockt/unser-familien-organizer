@@ -421,10 +421,14 @@ int _rang(Activity a) {
 /// Wirft doppelte Einheiten hinaus, die genauere bleibt.
 ///
 /// Dieselbe Fahrt steht oft mehrfach da: als FIT aus der Bosch-App, als Fahrt mit
-/// Verlauf aus Health Connect und als Zusammenfassung in der Tagesdatei. Die Datei vom
-/// Radcomputer ist die genaueste — Watt, Trittfrequenz, Motor —, also gewinnt sie. Als
-/// dieselbe gilt eine Einheit, die sich zu mehr als der Hälfte der kürzeren überschneidet
-/// oder höchstens zehn Minuten versetzt beginnt.
+/// Verlauf aus Health Connect und als Zusammenfassung in der Tagesdatei — und in Health
+/// Connect womöglich zweimal, wenn Uhr und Bosch-App beide dorthin schreiben. Als dieselbe
+/// gilt eine Einheit, die sich zu mehr als der Hälfte der kürzeren überschneidet oder
+/// höchstens zehn Minuten versetzt beginnt; zwei Fahrten zugleich fährt niemand.
+///
+/// Es bleibt die bessere: erst nach Rang (die Datei vom Radcomputer kennt Watt,
+/// Trittfrequenz, Motor), dann mit Karte, dann mit Verlauf, dann die längere Strecke —
+/// und zuletzt nach Kennung, damit die Wahl bei jedem Laden dieselbe ist.
 List<Activity> withoutHcDuplicates(List<Activity> alle) {
   DateTime? beginn(Activity a) =>
       DateTime.tryParse('${a.date}T${a.timeOfDay.length == 5 ? a.timeOfDay : '00:00'}:00');
@@ -442,8 +446,19 @@ List<Activity> withoutHcDuplicates(List<Activity> alle) {
     return kuerzer > 0 && ueber > kuerzer / 2;
   }
 
+  int guete(Activity a) => (a.hasTrack ? 2 : 0) + (a.series.length > 1 ? 1 : 0);
+
+  /// Ist [b] besser als [a]?
+  bool besser(Activity b, Activity a) {
+    if (_rang(b) != _rang(a)) return _rang(b) > _rang(a);
+    if (guete(b) != guete(a)) return guete(b) > guete(a);
+    if ((b.distanceKm - a.distanceKm).abs() > 0.05) return b.distanceKm > a.distanceKm;
+    return b.id.compareTo(a.id) < 0;
+  }
+
   return [
     for (final a in alle)
-      if (_rang(a) == 2 || !alle.any((b) => _rang(b) > _rang(a) && gleich(a, b))) a,
+      if (!alle.any((b) => !identical(a, b) && b.id != a.id && besser(b, a) && gleich(a, b)))
+        a,
   ];
 }

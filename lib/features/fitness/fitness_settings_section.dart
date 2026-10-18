@@ -6,6 +6,8 @@ import '../../core/auth/account_providers.dart';
 import '../../core/auth/nextcloud_account.dart';
 import '../../core/platform/platform_support.dart';
 import 'fitness_providers.dart';
+import 'fitness_models.dart';
+import 'fitness_overrides.dart';
 import 'fitness_repository.dart';
 import 'fitness_settings.dart';
 import 'fitness_webdav.dart';
@@ -274,6 +276,21 @@ List<Widget> fitnessSettingsTiles(BuildContext context, WidgetRef ref) {
           ),
         ),
       ],
+      if ((ref.watch(fitnessOverridesProvider).value?.hidden.length ?? 0) > 0)
+        ListTile(
+          leading: const Icon(Icons.restore_from_trash_outlined),
+          title: const Text('Entfernte Einheiten'),
+          subtitle: Text(
+            '${ref.watch(fitnessOverridesProvider).value!.hidden.length} ausgeblendet — '
+            'hier zurückholen',
+          ),
+          trailing: const Icon(Icons.chevron_right),
+          onTap: () => showModalBottomSheet<void>(
+            context: context,
+            showDragHandle: true,
+            builder: (_) => const _EntfernteEinheiten(),
+          ),
+        ),
       ListTile(
         leading: const Icon(Icons.delete_outline),
         title: const Text('Eingelesene Daten löschen'),
@@ -453,6 +470,61 @@ Future<void> _schrittQuelleWaehlen(BuildContext context, WidgetRef ref) async {
 Future<void> _hcAus(WidgetRef ref) async {
   await HealthConnectSync.setEnabled(false);
   ref.invalidate(_hcEinstellungProvider);
+}
+
+/// Entfernte Einheiten mit Datum und Strecke, jede einzeln zurückholbar.
+class _EntfernteEinheiten extends ConsumerWidget {
+  const _EntfernteEinheiten();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final ids = (ref.watch(fitnessOverridesProvider).value?.hidden ?? const <String>{})
+        .toList()
+      ..sort((a, b) => b.compareTo(a));
+    final daten = ref.read(fitnessDataProvider.notifier);
+    if (ids.isEmpty) {
+      return const SafeArea(
+        child: Padding(
+          padding: EdgeInsets.all(24),
+          child: Text('Keine entfernten Einheiten.'),
+        ),
+      );
+    }
+    return SafeArea(
+      child: ListView(
+        shrinkWrap: true,
+        children: [
+          for (final id in ids)
+            Builder(builder: (context) {
+              final a = daten.rohe(id);
+              return ListTile(
+                leading: Icon(
+                  a?.sportEffective == Sport.running
+                      ? Icons.directions_run
+                      : Icons.directions_bike,
+                ),
+                title: Text(
+                  a == null ? id : '${a.date} · ${a.timeOfDay}',
+                ),
+                subtitle: Text(
+                  a == null
+                      ? 'Datei nicht mehr vorhanden'
+                      : '${a.distanceKm.toStringAsFixed(1)} km · '
+                          '${(a.durationSec / 60).round()} Min · $id',
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                trailing: TextButton(
+                  onPressed: () =>
+                      ref.read(fitnessOverridesProvider.notifier).setHidden(id, false),
+                  child: const Text('Zurückholen'),
+                ),
+              );
+            }),
+        ],
+      ),
+    );
+  }
 }
 
 /// Schlüssel und Modell für die Foto-Erkennung.
